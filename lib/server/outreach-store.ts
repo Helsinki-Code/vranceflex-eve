@@ -75,6 +75,10 @@ export async function listCampaignSequences(
       subjectVariant: message.subjectVariant,
       content: message.content,
       status: message.status,
+      scheduledFor: message.scheduledFor?.toISOString() ?? null,
+      providerMessageId: message.providerMessageId,
+      attemptCount: message.attemptCount,
+      lastError: message.lastError,
     })),
   }));
 }
@@ -161,7 +165,7 @@ export async function approveCampaignSequences(
       .limit(1);
 
     if (!campaign) throw new AuthRequestError("Campaign was not found.", 400);
-    if (campaign.status !== "awaiting_approval") {
+    if (!["awaiting_approval", "scheduled"].includes(campaign.status)) {
       throw new AuthRequestError(
         "Campaign copy must be awaiting approval.",
         409,

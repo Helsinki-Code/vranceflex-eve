@@ -10,6 +10,8 @@ export type ApprovedOutreachEmail = {
   replyTo?: string;
   campaignId: string;
   leadId: string;
+  messageId: string;
+  idempotencyKey: string;
   approved: boolean;
   doNotContact: boolean;
   emailVerified: boolean;
@@ -54,6 +56,8 @@ export async function sendApprovedOutreachEmail(input: ApprovedOutreachEmail) {
       { name: "category", value: "outreach" },
       { name: "campaign_id", value: tagValue(input.campaignId) },
       { name: "lead_id", value: tagValue(input.leadId) },
+      { name: "message_id", value: tagValue(input.messageId) },
     ],
+    idempotencyKey: input.idempotencyKey,
   });
 }

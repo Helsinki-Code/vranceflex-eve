@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   ArrowLeft,
+  CalendarDays,
   Check,
   CheckCircle2,
   CircleDashed,
@@ -12,6 +13,7 @@ import {
   MessageSquareText,
   RefreshCw,
   Save,
+  Send,
   ShieldCheck,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -50,8 +52,21 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [scheduleSelected, setScheduleSelected] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Record<string, MessageDraft>>({});
   const [busyAction, setBusyAction] = useState("");
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1_000);
+    return [
+      tomorrow.getFullYear(),
+      String(tomorrow.getMonth() + 1).padStart(2, "0"),
+      String(tomorrow.getDate()).padStart(2, "0"),
+    ].join("-");
+  });
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleTimezone, setScheduleTimezone] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  );
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setState("loading");
@@ -104,6 +119,16 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
     () =>
       payload?.sequences
         .filter((sequence) => sequence.status === "awaiting_approval")
+        .map((sequence) => sequence.id) ?? [],
+    [payload],
+  );
+  const approvedEmailIds = useMemo(
+    () =>
+      payload?.sequences
+        .filter(
+          (sequence) =>
+            sequence.status === "approved" && sequence.channel === "email",
+        )
         .map((sequence) => sequence.id) ?? [],
     [payload],
   );
@@ -180,6 +205,38 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         approvalError instanceof Error
           ? approvalError.message
           : "Sequences could not be approved.",
+      );
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function scheduleApproved() {
+    if (!scheduleSelected.length) return;
+    setBusyAction("schedule");
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/campaigns/${campaignId}/schedule`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sequenceIds: scheduleSelected,
+            startDate: scheduleDate,
+            sendTime: scheduleTime,
+            timezone: scheduleTimezone,
+          }),
+        },
+      );
+      await readJson(response);
+      setScheduleSelected([]);
+      await load(true);
+    } catch (scheduleError) {
+      setError(
+        scheduleError instanceof Error
+          ? scheduleError.message
+          : "The approved sequences could not be scheduled.",
       );
     } finally {
       setBusyAction("");
@@ -307,22 +364,105 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             </div>
           </section>
 
+          {approvedEmailIds.length > 0 && (
+            <section className="schedule-toolbar">
+              <div className="schedule-toolbar-copy">
+                <span><CalendarDays size={16} /> DELIVERY SCHEDULE</span>
+                <h3>Choose when approved sequences begin.</h3>
+                <p>
+                  Every step uses the selected local time and its own day offset.
+                  Daily limits, retries and duplicate protection remain enforced.
+                </p>
+              </div>
+              <div className="schedule-fields">
+                <label>
+                  Start date
+                  <input
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(event) => setScheduleDate(event.target.value)}
+                    type="date"
+                    value={scheduleDate}
+                  />
+                </label>
+                <label>
+                  Local time
+                  <input
+                    onChange={(event) => setScheduleTime(event.target.value)}
+                    type="time"
+                    value={scheduleTime}
+                  />
+                </label>
+                <label>
+                  Time zone
+                  <input
+                    onChange={(event) => setScheduleTimezone(event.target.value)}
+                    value={scheduleTimezone}
+                  />
+                </label>
+              </div>
+              <div className="schedule-actions">
+                <button
+                  className="button-secondary"
+                  onClick={() =>
+                    setScheduleSelected(
+                      scheduleSelected.length === approvedEmailIds.length
+                        ? []
+                        : approvedEmailIds,
+                    )
+                  }
+                  type="button"
+                >
+                  {scheduleSelected.length === approvedEmailIds.length
+                    ? "Clear approved"
+                    : "Select approved email"}
+                </button>
+                <button
+                  className="button-primary"
+                  disabled={
+                    !scheduleSelected.length || busyAction === "schedule"
+                  }
+                  onClick={() => void scheduleApproved()}
+                  type="button"
+                >
+                  {busyAction === "schedule" ? (
+                    <LoaderCircle className="spin" size={16} />
+                  ) : (
+                    <Send size={16} />
+                  )}
+                  Schedule {scheduleSelected.length || ""}
+                </button>
+              </div>
+            </section>
+          )}
+
           <section className="sequence-review-list">
             {sequences.map((sequence) => {
               const editable = sequence.status === "awaiting_approval";
+              const schedulable =
+                sequence.status === "approved" && sequence.channel === "email";
               return (
                 <article className="sequence-review-card" key={sequence.id}>
                   <header>
                     <label>
                       <input
-                        checked={selected.includes(sequence.id)}
-                        disabled={!editable}
+                        checked={
+                          editable
+                            ? selected.includes(sequence.id)
+                            : scheduleSelected.includes(sequence.id)
+                        }
+                        disabled={!editable && !schedulable}
                         onChange={(event) =>
-                          setSelected((current) =>
-                            event.target.checked
-                              ? [...current, sequence.id]
-                              : current.filter((id) => id !== sequence.id),
-                          )
+                          editable
+                            ? setSelected((current) =>
+                                event.target.checked
+                                  ? [...current, sequence.id]
+                                  : current.filter((id) => id !== sequence.id),
+                              )
+                            : setScheduleSelected((current) =>
+                                event.target.checked
+                                  ? [...current, sequence.id]
+                                  : current.filter((id) => id !== sequence.id),
+                              )
                         }
                         type="checkbox"
                       />
@@ -352,6 +492,18 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                           <div className="message-step">
                             <span>{message.stepNumber.toString().padStart(2, "0")}</span>
                             <small>Day {message.dayOffset}</small>
+                            <em className={`message-status message-status-${message.status}`}>
+                              {message.status}
+                            </em>
+                            {message.scheduledFor && (
+                              <time dateTime={message.scheduledFor}>
+                                {new Intl.DateTimeFormat(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                  timeZone: sequence.timezone,
+                                }).format(new Date(message.scheduledFor))}
+                              </time>
+                            )}
                           </div>
                           <div className="message-fields">
                             {sequence.channel === "email" && (
@@ -422,7 +574,8 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             <Check size={18} />
             <p>
               <strong>Generated is not sent.</strong> Approved sequences remain
-              inert until a separate schedule is created and a provider confirms delivery.
+              inert until you create a schedule. Sent and delivered labels appear
+              only after verified Resend events.
             </p>
           </div>
         </>

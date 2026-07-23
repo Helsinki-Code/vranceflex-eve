@@ -17,6 +17,7 @@ import type { IcpProfile, Lead } from "../../domain/lead";
 import { evidenceKinds, leadStatuses } from "../../domain/lead";
 import {
   campaignExecutionStatuses,
+  deliveryJobStatuses,
   outreachChannels,
   outreachMessageStatuses,
   outreachSequenceStatuses,
@@ -49,6 +50,10 @@ export const outreachSequenceStatusEnum = pgEnum(
 export const outreachMessageStatusEnum = pgEnum(
   "outreach_message_status",
   outreachMessageStatuses,
+);
+export const deliveryJobStatusEnum = pgEnum(
+  "delivery_job_status",
+  deliveryJobStatuses,
 );
 
 export const users = pgTable("users", {
@@ -371,6 +376,125 @@ export const outreachMessages = pgTable(
       table.status,
       table.scheduledFor,
     ),
+  ],
+);
+
+export const organizationSendingSettings = pgTable(
+  "organization_sending_settings",
+  {
+    organizationId: text("organization_id")
+      .primaryKey()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    timezone: text("timezone").default("UTC").notNull(),
+    dailyEmailLimit: integer("daily_email_limit").default(100).notNull(),
+    dailySmsLimit: integer("daily_sms_limit").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+);
+
+export const deliveryJobs = pgTable(
+  "delivery_jobs",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => outreachSequences.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => outreachMessages.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    channel: outreachChannelEnum("channel").notNull(),
+    status: deliveryJobStatusEnum("status").default("queued").notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    availableAt: timestamp("available_at", { withTimezone: true }).notNull(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    maxAttempts: integer("max_attempts").default(5).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    lastError: text("last_error"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("delivery_jobs_message_unique").on(table.messageId),
+    uniqueIndex("delivery_jobs_idempotency_unique").on(table.idempotencyKey),
+    index("delivery_jobs_due_idx").on(
+      table.status,
+      table.availableAt,
+      table.scheduledFor,
+    ),
+    index("delivery_jobs_org_campaign_idx").on(
+      table.organizationId,
+      table.campaignId,
+    ),
+  ],
+);
+
+export const providerEvents = pgTable(
+  "provider_events",
+  {
+    id: uuid("id").primaryKey(),
+    provider: text("provider").notNull(),
+    providerEventId: text("provider_event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    providerMessageId: text("provider_message_id"),
+    organizationId: text("organization_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    messageId: uuid("message_id").references(() => outreachMessages.id, {
+      onDelete: "set null",
+    }),
+    payload: jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("provider_events_provider_event_unique").on(
+      table.provider,
+      table.providerEventId,
+    ),
+    index("provider_events_message_idx").on(table.providerMessageId),
+    index("provider_events_org_occurred_idx").on(
+      table.organizationId,
+      table.occurredAt,
+    ),
+  ],
+);
+
+export const suppressionEntries = pgTable(
+  "suppression_entries",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    channel: outreachChannelEnum("channel").notNull(),
+    destination: text("destination").notNull(),
+    reason: text("reason").notNull(),
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("suppression_entries_org_channel_destination_unique").on(
+      table.organizationId,
+      table.channel,
+      table.destination,
+    ),
+    index("suppression_entries_lead_idx").on(table.leadId),
   ],
 );
 

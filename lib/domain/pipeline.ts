@@ -36,6 +36,17 @@ export const outreachMessageStatuses = [
   "cancelled",
 ] as const;
 
+export const deliveryJobStatuses = [
+  "queued",
+  "processing",
+  "retry",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+export const deliveryJobStatusSchema = z.enum(deliveryJobStatuses);
+
 const evidenceSchema = z.object({
   kind: z.enum(["company", "person", "contact", "intent"]),
   provider: z.string().trim().min(1).max(80),
@@ -146,6 +157,13 @@ export const approveSequencesSchema = z.object({
   scope: z.enum(["first_launch", "batch"]).default("first_launch"),
 });
 
+export const scheduleSequencesSchema = z.object({
+  sequenceIds: z.array(z.string().uuid()).min(1).max(500),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sendTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  timezone: z.string().trim().min(1).max(80),
+});
+
 export type OutreachWorkspaceMessage = {
   id: string;
   stepNumber: number;
@@ -154,6 +172,10 @@ export type OutreachWorkspaceMessage = {
   subjectVariant: string | null;
   content: string;
   status: (typeof outreachMessageStatuses)[number];
+  scheduledFor: string | null;
+  providerMessageId: string | null;
+  attemptCount: number;
+  lastError: string | null;
 };
 
 export type OutreachWorkspaceSequence = {
