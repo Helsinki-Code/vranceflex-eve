@@ -90,7 +90,7 @@ const allowedTransitions: Record<CampaignStatus, readonly CampaignStatus[]> = {
   enriching: ["copy_generated", "stopped"],
   copy_generated: ["awaiting_approval", "stopped"],
   awaiting_approval: ["scheduled", "stopped"],
-  scheduled: ["sent", "stopped"],
+  scheduled: ["sent", "replied", "stopped"],
   sent: ["delivered", "replied", "stopped"],
   delivered: ["replied", "stopped"],
   replied: ["stopped"],

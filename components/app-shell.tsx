@@ -7,7 +7,7 @@ const links = [
   ["Campaigns", "/dashboard", BarChart3],
   ["Leads", "/leads", Users],
   ["Sequences", "/dashboard#sequences", Layers3],
-  ["Replies", "/dashboard#replies", MessageSquareText],
+  ["Replies", "/replies", MessageSquareText],
   ["Settings", "/settings", Settings2],
 ] as const;
 

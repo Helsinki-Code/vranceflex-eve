@@ -3141,6 +3141,235 @@ button:disabled {
 
 /* Lead intelligence and ICP report */
 
+/* Reply intelligence inbox */
+
+.reply-inbox {
+  display: grid;
+  gap: 18px;
+}
+
+.reply-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.reply-summary > div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(13, 30, 24, 0.12);
+  background: var(--paper);
+  border-radius: 15px;
+}
+
+.reply-summary span {
+  color: rgba(13, 30, 24, 0.56);
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.reply-summary strong {
+  font-size: 22px;
+}
+
+.reply-filters {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+}
+
+.reply-filters button {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border: 1px solid rgba(13, 30, 24, 0.13);
+  background: transparent;
+  border-radius: 999px;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.reply-filters button.active {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: white;
+}
+
+.reply-list {
+  display: grid;
+  gap: 14px;
+}
+
+.reply-card {
+  overflow: hidden;
+  border: 1px solid rgba(13, 30, 24, 0.13);
+  border-left: 4px solid #8ca097;
+  background: var(--paper);
+  border-radius: 16px;
+}
+
+.reply-card.intent-HOT {
+  border-left-color: #79b823;
+}
+
+.reply-card.intent-UNSUBSCRIBE {
+  border-left-color: #bc5548;
+}
+
+.reply-card.intent-OBJECTION {
+  border-left-color: #d09235;
+}
+
+.reply-card header,
+.reply-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 19px;
+}
+
+.reply-card header {
+  border-bottom: 1px solid rgba(13, 30, 24, 0.09);
+}
+
+.reply-card header span,
+.reply-analysis span {
+  color: var(--forest);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
+.reply-card h2,
+.reply-card header p,
+.reply-card p {
+  margin: 0;
+}
+
+.reply-card h2 {
+  margin: 5px 0 3px;
+  font-size: 14px;
+}
+
+.reply-card header p,
+.reply-card header small,
+.reply-card footer > span {
+  color: rgba(13, 30, 24, 0.52);
+  font-size: 9px;
+}
+
+.reply-card header small {
+  text-transform: capitalize;
+}
+
+.reply-body {
+  display: grid;
+  gap: 8px;
+  padding: 19px;
+}
+
+.reply-body strong {
+  font-size: 12px;
+}
+
+.reply-body p {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: rgba(13, 30, 24, 0.72);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.reply-analysis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(13, 30, 24, 0.09);
+  border-top: 1px solid rgba(13, 30, 24, 0.09);
+  border-bottom: 1px solid rgba(13, 30, 24, 0.09);
+}
+
+.reply-analysis > div {
+  padding: 16px 18px;
+  background: var(--paper);
+}
+
+.reply-analysis p {
+  margin-top: 7px;
+  color: rgba(13, 30, 24, 0.66);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.reply-card footer > div {
+  display: flex;
+  gap: 8px;
+}
+
+.reply-empty {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  padding: 50px 24px;
+  border: 1px dashed rgba(13, 30, 24, 0.2);
+  border-radius: 18px;
+  text-align: center;
+}
+
+.reply-empty h2 {
+  margin: 14px 0 6px;
+  font-size: 19px;
+}
+
+.reply-empty p {
+  max-width: 420px;
+  margin: 0;
+  color: rgba(13, 30, 24, 0.56);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.dark .reply-summary > div,
+.dark .reply-card,
+.dark .reply-analysis > div {
+  border-color: rgba(237, 247, 240, 0.13);
+  background: var(--paper);
+}
+
+.dark .reply-summary span,
+.dark .reply-card header p,
+.dark .reply-card header small,
+.dark .reply-card footer > span,
+.dark .reply-body p,
+.dark .reply-analysis p,
+.dark .reply-empty p {
+  color: rgba(237, 247, 240, 0.62);
+}
+
+@media (max-width: 760px) {
+  .reply-summary,
+  .reply-analysis {
+    grid-template-columns: 1fr;
+  }
+
+  .reply-card header,
+  .reply-card footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reply-card footer > div,
+  .reply-card footer button {
+    width: 100%;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

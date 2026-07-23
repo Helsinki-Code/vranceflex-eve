@@ -26,6 +26,7 @@ import {
   usageLedger,
 } from "./database/schema";
 import { localDayBounds } from "./timezone";
+import { getReplyToAddress } from "./reply-address";
 
 const batchSize = 20;
 const processingTimeoutMs = 10 * 60 * 1_000;
@@ -229,6 +230,37 @@ async function processClaimedJob(jobId: string) {
     return "limited" as const;
   }
 
+  const [fresh] = await database
+    .select({
+      jobStatus: deliveryJobs.status,
+      messageStatus: outreachMessages.status,
+      sequenceStatus: outreachSequences.status,
+      doNotContact: leads.doNotContact,
+      leadStatus: leads.status,
+    })
+    .from(deliveryJobs)
+    .innerJoin(outreachMessages, eq(deliveryJobs.messageId, outreachMessages.id))
+    .innerJoin(outreachSequences, eq(deliveryJobs.sequenceId, outreachSequences.id))
+    .innerJoin(leads, eq(deliveryJobs.leadId, leads.id))
+    .where(eq(deliveryJobs.id, job.id))
+    .limit(1);
+  if (
+    !fresh ||
+    fresh.jobStatus !== "processing" ||
+    fresh.messageStatus !== "scheduled" ||
+    !["scheduled", "active"].includes(fresh.sequenceStatus) ||
+    fresh.doNotContact ||
+    fresh.leadStatus === "suppressed"
+  ) {
+    await releaseDailyEmailCapacity(capacity.reservationKey);
+    await cancelUnsafeJob(
+      job.id,
+      message.id,
+      "Delivery stopped after a final reply and suppression safety check.",
+    );
+    return "cancelled" as const;
+  }
+
   try {
     const result = await sendApprovedOutreachEmail({
       to: normalizedEmail,
@@ -238,6 +270,7 @@ async function processClaimedJob(jobId: string) {
       leadId: lead.id,
       messageId: message.id,
       idempotencyKey: job.idempotencyKey,
+      replyTo: getReplyToAddress(message.id),
       approved: true,
       doNotContact: false,
       emailVerified: true,

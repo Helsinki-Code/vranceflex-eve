@@ -1,5 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDatabase } from "./database";
+import { getReceivedEmailContent } from "./resend-receiving";
+import { persistInboundEmailReply } from "./reply-store";
 import {
   campaigns,
   deliveryJobs,
@@ -15,6 +17,7 @@ export type ResendWebhookEvent = {
   created_at: string;
   data?: {
     email_id?: string;
+    message_id?: string;
     from?: string;
     to?: string[];
     subject?: string;
@@ -150,9 +153,60 @@ export async function processResendWebhook(
       occurredAt: safeOccurredAt,
     })
     .onConflictDoNothing()
-    .returning({ id: providerEvents.id });
-  if (!inserted) return { duplicate: true, linked: Boolean(message) };
-  if (!message) return { duplicate: false, linked: false };
+    .returning({ id: providerEvents.id, processedAt: providerEvents.processedAt });
+  let eventRecord = inserted;
+  if (!eventRecord) {
+    const [existing] = await database
+      .select({
+        id: providerEvents.id,
+        processedAt: providerEvents.processedAt,
+      })
+      .from(providerEvents)
+      .where(
+        and(
+          eq(providerEvents.provider, "resend"),
+          eq(providerEvents.providerEventId, providerEventId),
+        ),
+      )
+      .limit(1);
+    if (existing?.processedAt) {
+      return { duplicate: true, linked: Boolean(message) };
+    }
+    eventRecord = existing;
+  }
+  if (!eventRecord) throw new Error("The provider event could not be reserved.");
+
+  if (
+    event.type === "email.received" &&
+    event.data?.email_id &&
+    event.data.from
+  ) {
+    const content = await getReceivedEmailContent(event.data.email_id);
+    const reply = await persistInboundEmailReply({
+      providerEventId,
+      providerReplyId: event.data.email_id,
+      messageHeaderId: event.data.message_id ?? null,
+      from: event.data.from,
+      to: event.data.to ?? [],
+      subject: event.data.subject ?? null,
+      text: content.text?.trim() || "",
+      html: content.html ?? null,
+      receivedAt: safeOccurredAt,
+    });
+    await database
+      .update(providerEvents)
+      .set({ processedAt: new Date(), processingError: null })
+      .where(eq(providerEvents.id, eventRecord.id));
+    return { duplicate: false, ...reply };
+  }
+
+  if (!message) {
+    await database
+      .update(providerEvents)
+      .set({ processedAt: new Date(), processingError: null })
+      .where(eq(providerEvents.id, eventRecord.id));
+    return { duplicate: false, linked: false };
+  }
 
   const now = new Date();
   if (event.type === "email.sent") {
@@ -220,7 +274,19 @@ export async function processResendWebhook(
       await transaction
         .update(outreachSequences)
         .set({ status: "stopped", updatedAt: now })
-        .where(eq(outreachSequences.id, message.sequenceId));
+        .where(
+          and(
+            eq(outreachSequences.leadId, message.leadId),
+            inArray(outreachSequences.status, [
+              "draft",
+              "awaiting_approval",
+              "approved",
+              "scheduled",
+              "active",
+              "paused",
+            ]),
+          ),
+        );
       await transaction
         .update(outreachMessages)
         .set({
@@ -230,7 +296,7 @@ export async function processResendWebhook(
         })
         .where(
           and(
-            eq(outreachMessages.sequenceId, message.sequenceId),
+            eq(outreachMessages.leadId, message.leadId),
             inArray(outreachMessages.status, [
               "draft",
               "approved",
@@ -248,7 +314,7 @@ export async function processResendWebhook(
         })
         .where(
           and(
-            eq(deliveryJobs.sequenceId, message.sequenceId),
+            eq(deliveryJobs.leadId, message.leadId),
             inArray(deliveryJobs.status, ["queued", "retry"]),
           ),
         );
@@ -279,5 +345,9 @@ export async function processResendWebhook(
   }
 
   await reconcileCampaignAndSequence(message.campaignId, message.sequenceId);
+  await database
+    .update(providerEvents)
+    .set({ processedAt: new Date(), processingError: null })
+    .where(eq(providerEvents.id, eventRecord.id));
   return { duplicate: false, linked: true };
 }

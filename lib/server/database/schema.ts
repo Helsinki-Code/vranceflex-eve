@@ -21,6 +21,8 @@ import {
   outreachChannels,
   outreachMessageStatuses,
   outreachSequenceStatuses,
+  replyIntents,
+  replyStatuses,
 } from "../../domain/pipeline";
 
 export const campaignStatusEnum = pgEnum("campaign_status", campaignStatuses);
@@ -55,6 +57,8 @@ export const deliveryJobStatusEnum = pgEnum(
   "delivery_job_status",
   deliveryJobStatuses,
 );
+export const replyIntentEnum = pgEnum("reply_intent", replyIntents);
+export const replyStatusEnum = pgEnum("reply_status", replyStatuses);
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -460,6 +464,8 @@ export const providerEvents = pgTable(
     payload: jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
     receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    processingError: text("processing_error"),
   },
   (table) => [
     uniqueIndex("provider_events_provider_event_unique").on(
@@ -495,6 +501,68 @@ export const suppressionEntries = pgTable(
       table.destination,
     ),
     index("suppression_entries_lead_idx").on(table.leadId),
+  ],
+);
+
+export const inboundReplies = pgTable(
+  "inbound_replies",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => outreachSequences.id, { onDelete: "cascade" }),
+    outreachMessageId: uuid("outreach_message_id").references(
+      () => outreachMessages.id,
+      { onDelete: "set null" },
+    ),
+    provider: text("provider").notNull(),
+    providerReplyId: text("provider_reply_id").notNull(),
+    messageHeaderId: text("message_header_id"),
+    channel: outreachChannelEnum("channel").notNull(),
+    fromAddress: text("from_address").notNull(),
+    toAddresses: jsonb("to_addresses").$type<string[]>().default([]).notNull(),
+    subject: text("subject"),
+    text: text("text").notNull(),
+    html: text("html"),
+    intent: replyIntentEnum("intent"),
+    sentimentScore: integer("sentiment_score"),
+    confidence: text("confidence"),
+    reasoning: text("reasoning"),
+    nextAction: text("next_action"),
+    actionDetail: text("action_detail"),
+    suggestedResponse: text("suggested_response"),
+    flagForHuman: boolean("flag_for_human").default(true).notNull(),
+    flagReason: text("flag_reason"),
+    status: replyStatusEnum("status").default("unclassified").notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("inbound_replies_provider_reply_unique").on(
+      table.provider,
+      table.providerReplyId,
+    ),
+    index("inbound_replies_org_received_idx").on(
+      table.organizationId,
+      table.receivedAt,
+    ),
+    index("inbound_replies_campaign_idx").on(table.campaignId),
+    index("inbound_replies_lead_idx").on(table.leadId),
+    index("inbound_replies_review_idx").on(
+      table.organizationId,
+      table.status,
+      table.flagForHuman,
+    ),
   ],
 );
 

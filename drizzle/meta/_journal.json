@@ -36,6 +36,13 @@
       "when": 1784813877332,
       "tag": "0004_nice_komodo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784820662261,
+      "tag": "0005_tense_bastion",
+      "breakpoints": true
     }
   ]
 }

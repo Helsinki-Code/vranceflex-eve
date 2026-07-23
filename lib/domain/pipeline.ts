@@ -19,6 +19,7 @@ export const outreachSequenceStatuses = [
   "approved",
   "scheduled",
   "active",
+  "paused",
   "completed",
   "stopped",
 ] as const;
@@ -46,6 +47,26 @@ export const deliveryJobStatuses = [
 ] as const;
 
 export const deliveryJobStatusSchema = z.enum(deliveryJobStatuses);
+
+export const replyIntents = [
+  "HOT",
+  "WARM",
+  "NEUTRAL",
+  "OBJECTION",
+  "NOT_FIT",
+  "OUT_OF_OFFICE",
+  "UNSUBSCRIBE",
+] as const;
+
+export const replyStatuses = [
+  "unclassified",
+  "classified",
+  "reviewed",
+  "archived",
+] as const;
+
+export type ReplyIntent = (typeof replyIntents)[number];
+export type ReplyStatus = (typeof replyStatuses)[number];
 
 const evidenceSchema = z.object({
   kind: z.enum(["company", "person", "contact", "intent"]),
@@ -162,6 +183,10 @@ export const scheduleSequencesSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   sendTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   timezone: z.string().trim().min(1).max(80),
+});
+
+export const replyReviewSchema = z.object({
+  status: z.enum(["reviewed", "archived"]),
 });
 
 export type OutreachWorkspaceMessage = {

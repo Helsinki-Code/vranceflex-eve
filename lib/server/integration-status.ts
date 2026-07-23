@@ -46,6 +46,15 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       required: false,
     },
     {
+      id: "email-replies",
+      name: "Inbound email replies",
+      description: "Reply routing, verified webhooks and automatic sequence pausing",
+      configured:
+        configured("RESEND_REPLY_DOMAIN") &&
+        configured("RESEND_WEBHOOK_SECRET"),
+      required: true,
+    },
+    {
       id: "database",
       name: "PostgreSQL",
       description: "Durable organization, campaign, approval and audit data",
