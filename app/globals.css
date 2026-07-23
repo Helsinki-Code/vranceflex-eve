@@ -2701,6 +2701,335 @@ button:disabled {
   }
 }
 
+.campaign-workspace {
+  display: grid;
+  gap: 22px;
+}
+
+.campaign-workspace-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid rgba(13, 30, 24, 0.12);
+  background: var(--paper);
+  border-radius: 20px 20px 20px 6px;
+}
+
+.campaign-workspace-head > div:first-child > span,
+.approval-toolbar > div:first-child > span {
+  color: var(--forest);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+}
+
+.campaign-workspace-head h2 {
+  margin: 9px 0 7px;
+  font-size: clamp(28px, 4vw, 45px);
+  letter-spacing: -0.05em;
+}
+
+.campaign-workspace-head p,
+.approval-toolbar p {
+  margin: 0;
+  color: rgba(13, 30, 24, 0.55);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.pipeline-live-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid rgba(13, 30, 24, 0.13);
+  background: rgba(201, 255, 114, 0.18);
+  border-radius: 15px;
+}
+
+.pipeline-live-card.failed {
+  background: #fff0ea;
+}
+
+.pipeline-live-card > span {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--lime);
+  color: #0d1e18;
+}
+
+.pipeline-live-card strong,
+.pipeline-live-card p {
+  display: block;
+  margin: 0;
+}
+
+.pipeline-live-card strong {
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.pipeline-live-card p,
+.pipeline-live-card small {
+  color: rgba(13, 30, 24, 0.56);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.approval-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 26px 28px;
+  border: 1px solid rgba(13, 30, 24, 0.12);
+  background: var(--paper);
+  border-radius: 18px;
+}
+
+.approval-toolbar h3 {
+  margin: 8px 0 5px;
+  font-size: 22px;
+  letter-spacing: -0.035em;
+}
+
+.approval-toolbar > div:last-child {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sequence-review-list {
+  display: grid;
+  gap: 18px;
+}
+
+.sequence-review-card {
+  overflow: hidden;
+  border: 1px solid rgba(13, 30, 24, 0.13);
+  background: var(--paper);
+  border-radius: 20px;
+}
+
+.sequence-review-card > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(13, 30, 24, 0.1);
+}
+
+.sequence-review-card > header label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sequence-review-card > header label > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--sage);
+}
+
+.sequence-review-card h3,
+.sequence-review-card p {
+  margin: 0;
+}
+
+.sequence-review-card h3 {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.sequence-review-card p,
+.sequence-review-card header small {
+  color: rgba(13, 30, 24, 0.52);
+  font-size: 9px;
+}
+
+.sequence-review-card header small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sequence-status {
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: var(--sage);
+  font-size: 8px;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.sequence-status-approved {
+  background: rgba(201, 255, 114, 0.5);
+}
+
+.sequence-message-list {
+  display: grid;
+}
+
+.sequence-message-editor {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 20px;
+  border-bottom: 1px solid rgba(13, 30, 24, 0.09);
+}
+
+.sequence-message-editor:last-child {
+  border-bottom: 0;
+}
+
+.message-step span,
+.message-step small {
+  display: block;
+}
+
+.message-step span {
+  font-size: 24px;
+  font-weight: 820;
+  letter-spacing: -0.06em;
+}
+
+.message-step small {
+  margin-top: 4px;
+  color: rgba(13, 30, 24, 0.48);
+  font-size: 9px;
+}
+
+.message-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.message-fields label {
+  display: grid;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 780;
+}
+
+.message-fields input,
+.message-fields textarea {
+  width: 100%;
+  border: 1px solid rgba(13, 30, 24, 0.14);
+  background: white;
+  border-radius: 10px;
+  color: #0d1e18;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.message-fields input {
+  height: 42px;
+  padding: 0 11px;
+}
+
+.message-fields textarea {
+  min-height: 118px;
+  padding: 11px;
+  resize: vertical;
+}
+
+.message-fields input:disabled,
+.message-fields textarea:disabled {
+  opacity: 0.72;
+}
+
+.sequence-message-editor > button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(13, 30, 24, 0.14);
+  background: transparent;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.dark .campaign-workspace-head,
+.dark .approval-toolbar,
+.dark .sequence-review-card {
+  border-color: rgba(237, 247, 240, 0.13);
+  background: var(--paper);
+}
+
+.dark .campaign-workspace-head p,
+.dark .approval-toolbar p,
+.dark .pipeline-live-card p,
+.dark .pipeline-live-card small,
+.dark .sequence-review-card p,
+.dark .sequence-review-card header small,
+.dark .message-step small {
+  color: rgba(237, 247, 240, 0.6);
+}
+
+.dark .message-fields input,
+.dark .message-fields textarea {
+  border-color: rgba(237, 247, 240, 0.16);
+  background: #0a1912;
+  color: var(--ink);
+}
+
+@media (max-width: 760px) {
+  .campaign-workspace-head,
+  .approval-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .approval-toolbar > div:last-child {
+    width: 100%;
+  }
+
+  .approval-toolbar > div:last-child > * {
+    flex: 1;
+  }
+
+  .pipeline-live-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .pipeline-live-card > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .sequence-review-card > header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sequence-review-card > header > :nth-child(n + 3) {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .sequence-message-editor {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .sequence-message-editor > button {
+    grid-column: 2;
+  }
+
+  .message-fields .field-grid.two {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Lead intelligence and ICP report */
 
 .sr-only {

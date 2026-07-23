@@ -15,6 +15,12 @@ import type { Campaign } from "../../domain/campaign";
 import { campaignStatuses } from "../../domain/campaign";
 import type { IcpProfile, Lead } from "../../domain/lead";
 import { evidenceKinds, leadStatuses } from "../../domain/lead";
+import {
+  campaignExecutionStatuses,
+  outreachChannels,
+  outreachMessageStatuses,
+  outreachSequenceStatuses,
+} from "../../domain/pipeline";
 
 export const campaignStatusEnum = pgEnum("campaign_status", campaignStatuses);
 export const campaignSourceKindEnum = pgEnum("campaign_source_kind", ["website", "product_idea"]);
@@ -31,6 +37,19 @@ export const authChallengeKindEnum = pgEnum("auth_challenge_kind", [
   "signup_verification",
   "password_reset",
 ]);
+export const campaignExecutionStatusEnum = pgEnum(
+  "campaign_execution_status",
+  campaignExecutionStatuses,
+);
+export const outreachChannelEnum = pgEnum("outreach_channel", outreachChannels);
+export const outreachSequenceStatusEnum = pgEnum(
+  "outreach_sequence_status",
+  outreachSequenceStatuses,
+);
+export const outreachMessageStatusEnum = pgEnum(
+  "outreach_message_status",
+  outreachMessageStatuses,
+);
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -156,6 +175,39 @@ export const campaigns = pgTable(
   ],
 );
 
+export const campaignExecutions = pgTable(
+  "campaign_executions",
+  {
+    id: uuid("id").primaryKey(),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    status: campaignExecutionStatusEnum("status").default("queued").notNull(),
+    stage: text("stage").default("queued").notNull(),
+    attempt: integer("attempt").default(1).notNull(),
+    eveSessionId: text("eve_session_id"),
+    continuationToken: text("continuation_token"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    artifactsPersistedAt: timestamp("artifacts_persisted_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("campaign_executions_campaign_unique").on(table.campaignId),
+    index("campaign_executions_org_status_idx").on(
+      table.organizationId,
+      table.status,
+    ),
+    index("campaign_executions_session_idx").on(table.eveSessionId),
+  ],
+);
+
 export const icpProfiles = pgTable(
   "icp_profiles",
   {
@@ -228,6 +280,97 @@ export const leads = pgTable(
     index("leads_org_campaign_idx").on(table.organizationId, table.campaignId),
     index("leads_org_confidence_idx").on(table.organizationId, table.confidence),
     index("leads_org_status_idx").on(table.organizationId, table.status),
+  ],
+);
+
+export const outreachSequences = pgTable(
+  "outreach_sequences",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    channel: outreachChannelEnum("channel").notNull(),
+    name: text("name").notNull(),
+    timezone: text("timezone").default("UTC").notNull(),
+    status: outreachSequenceStatusEnum("status")
+      .default("awaiting_approval")
+      .notNull(),
+    version: integer("version").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("outreach_sequences_campaign_lead_channel_version_unique").on(
+      table.campaignId,
+      table.leadId,
+      table.channel,
+      table.version,
+    ),
+    index("outreach_sequences_org_campaign_idx").on(
+      table.organizationId,
+      table.campaignId,
+    ),
+    index("outreach_sequences_status_idx").on(table.status),
+  ],
+);
+
+export const outreachMessages = pgTable(
+  "outreach_messages",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => outreachSequences.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    channel: outreachChannelEnum("channel").notNull(),
+    stepNumber: integer("step_number").notNull(),
+    dayOffset: integer("day_offset").notNull(),
+    subject: text("subject"),
+    subjectVariant: text("subject_variant"),
+    content: text("content").notNull(),
+    status: outreachMessageStatusEnum("status").default("draft").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    providerMessageId: text("provider_message_id"),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    lastError: text("last_error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("outreach_messages_org_idempotency_unique").on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+    uniqueIndex("outreach_messages_sequence_step_unique").on(
+      table.sequenceId,
+      table.stepNumber,
+    ),
+    index("outreach_messages_campaign_status_idx").on(
+      table.campaignId,
+      table.status,
+    ),
+    index("outreach_messages_schedule_idx").on(
+      table.status,
+      table.scheduledFor,
+    ),
   ],
 );
 

@@ -28,11 +28,21 @@ The filesystem-derived names above are the only valid subagent identities. Never
 
 ## Execution flow
 
+When the application starts an automated campaign, its message begins with a
+`VRANCEFLEX_CAMPAIGN_EXECUTION` block containing a UUID `campaignId` and the
+complete confirmed campaign input. Treat that identifier only as a correlation
+key; the server tools independently derive the organization and user from the
+verified Eve caller.
+
 ### Step 1 — Lead research
 
 Call `lead-researcher` with either the target URL or the complete product-idea brief, plus confirmed lead count, seller context, targeting constraints, campaign goal, and required fields. Wait for its complete result.
 
 Reject incomplete leads. Email, phone number, and a person-specific LinkedIn URL are mandatory when the user requests the fully verified workflow.
+
+After research and contact verification have actually completed, call
+`campaign_progress` with the campaign ID, stage `enriching`, and a concise
+evidence-based note. Never call it before the research result exists.
 
 ### Step 2 — Sequence planning
 
@@ -41,6 +51,17 @@ Pass the confirmed lead records and seller context to `outreach-sequence`. Requi
 ### Step 3 — Channel copy in parallel
 
 Call `email-outreach` and `sms-outreach` in the same model step when their respective channels are available. Pass only leads containing the required channel data. These calls generate campaign copy; they do not send it.
+
+After all requested channel copy has been validated, call `campaign_progress`
+with stage `copy_generated`.
+
+Then call `save_campaign_artifacts` exactly once with normalized ICPs, leads,
+evidence, and sequences. Use the Parallel record identifier as `sourceLeadId`
+and reference that same value from each sequence's `leadSourceId`. Include a
+sequence only when the required contact method is verified. Do not include a
+sequence for suppressed or do-not-contact leads. This save is the only
+successful end state for an automated campaign run and moves the campaign to
+`awaiting_approval`; it never approves, schedules, or sends messages.
 
 ### Step 4 — Reply analysis
 
@@ -60,6 +81,9 @@ Present a campaign-ready summary containing:
 - errors, discarded records, and recommended next actions
 
 Do not label planned or generated activity as completed activity.
+Do not report an automated run as complete until `save_campaign_artifacts`
+returns successfully. If persistence fails, surface that failure rather than
+reconstructing or claiming the records were saved.
 
 ## Failure handling
 

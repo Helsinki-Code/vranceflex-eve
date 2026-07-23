@@ -72,7 +72,7 @@ export function CampaignDashboard() {
               </div>
               <div className={`status-badge status-${campaign.status}`}>{campaignStatusLabels[campaign.status]}</div>
               <div className="campaign-meta"><span>{campaign.leadCount} leads</span><span>{campaign.geography}</span></div>
-              <a href={`/dashboard?campaign=${campaign.id}`} aria-label={`Open ${campaign.productName}`}><ArrowRight size={17} /></a>
+              <a href={`/campaigns/${campaign.id}`} aria-label={`Open ${campaign.productName}`}><ArrowRight size={17} /></a>
             </article>
           );
         })}

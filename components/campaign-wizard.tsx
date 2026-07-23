@@ -121,9 +121,15 @@ export function CampaignWizard({
         },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as { campaign?: { id: string }; error?: string };
+      const data = (await response.json()) as {
+        campaign?: { id: string };
+        execution?: { status: string } | null;
+        warning?: string;
+        error?: string;
+      };
       if (!response.ok || !data.campaign) throw new Error(data.error ?? "Campaign creation failed.");
       setCampaignId(data.campaign.id);
+      setMessage(data.warning ?? "");
       setState("success");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Campaign creation failed.");
@@ -136,13 +142,17 @@ export function CampaignWizard({
       <section className="wizard-success">
         <span><Check size={24} /></span>
         <p className="section-label">Campaign accepted</p>
-        <h2>Research has started.</h2>
+        <h2>{message ? "Campaign saved." : "Research has started."}</h2>
         <p>
-          Your campaign is truthfully marked <strong>Researching</strong>. No outreach has been sent,
-          scheduled or approved.
+          {message || (
+            <>
+              Your campaign is truthfully marked <strong>Researching</strong>. No outreach has been sent,
+              scheduled or approved.
+            </>
+          )}
         </p>
         <div>
-          <a className="button-primary" href={`/dashboard?campaign=${campaignId}`}>
+          <a className="button-primary" href={`/campaigns/${campaignId}`}>
             View campaign <ArrowRight size={17} />
           </a>
           <a className="button-secondary" href="/campaigns/new">Create another</a>

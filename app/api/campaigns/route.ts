@@ -3,6 +3,8 @@ import { campaignCreateSchema } from "../../../lib/domain/campaign";
 import { getApiActor } from "../../../lib/server/api-actor";
 import { apiErrorResponse } from "../../../lib/server/api-response";
 import { createCampaign, listCampaigns } from "../../../lib/server/campaign-store";
+import { startCampaignExecution } from "../../../lib/server/campaign-execution";
+import { currentSessionToken } from "../../../lib/server/auth-store";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +31,29 @@ export async function POST(request: Request) {
 
     const input = campaignCreateSchema.parse(await request.json());
     const campaign = await createCampaign(input, actor, idempotencyKey);
+    if (!campaign) {
+      return NextResponse.json({ error: "Campaign could not be created." }, { status: 500 });
+    }
 
-    return NextResponse.json({ campaign }, { status: 201 });
+    try {
+      const execution = await startCampaignExecution({
+        campaign,
+        actor,
+        origin: new URL(request.url).origin,
+        sessionToken: await currentSessionToken(),
+      });
+      return NextResponse.json({ campaign, execution }, { status: 202 });
+    } catch {
+      return NextResponse.json(
+        {
+          campaign,
+          execution: null,
+          warning:
+            "Campaign saved, but automated research could not start. Retry it from the campaign workspace.",
+        },
+        { status: 202 },
+      );
+    }
   } catch (error) {
     return apiErrorResponse(error);
   }
