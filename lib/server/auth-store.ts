@@ -93,7 +93,7 @@ async function createChallenge({
   const now = new Date();
 
   await database.transaction(async (transaction) => {
-    const consumed = await transaction
+    await transaction
       .update(authChallenges)
       .set({ consumedAt: now })
       .where(
@@ -102,15 +102,7 @@ async function createChallenge({
           eq(authChallenges.kind, kind),
           isNull(authChallenges.consumedAt),
         ),
-      )
-      .returning({ id: authChallenges.id });
-
-    if (consumed.length !== 1) {
-      throw new AuthRequestError(
-        "This verification code was already used.",
-        409,
       );
-    }
 
     await transaction.insert(authChallenges).values({
       id: crypto.randomUUID(),
