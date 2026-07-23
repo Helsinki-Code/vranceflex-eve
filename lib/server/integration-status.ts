@@ -28,9 +28,11 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
     },
     {
       id: "email",
-      name: "Email delivery",
-      description: "Verified-domain outbound delivery and event webhooks",
-      configured: configured("EMAIL_PROVIDER_API_KEY"),
+      name: "Resend email",
+      description: "Authentication OTPs and approved outreach delivery",
+      configured:
+        configured("RESEND_API_KEY") &&
+        configured("RESEND_FROM_EMAIL"),
       required: true,
     },
     {

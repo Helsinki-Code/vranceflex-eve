@@ -13,7 +13,7 @@ const emailStep = z.object({
 
 export default defineAgent({
   description:
-    "Write a deeply personalized five-step email-only outreach sequence with two short subject-line variants per step. Generates copy only; never sends email.",
+    "Write a deeply personalized five-step email-only outreach sequence with two short subject-line variants per step. Generates copy only; approved delivery is handled exclusively by the Resend server integration.",
   model: "anthropic/claude-haiku-4.5",
   outputSchema: z.array(
     z.object({

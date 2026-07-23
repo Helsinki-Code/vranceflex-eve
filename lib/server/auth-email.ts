@@ -1,5 +1,6 @@
 import { isResendConfigured } from "../auth/config";
 import { AuthConfigurationError } from "./auth-crypto";
+import { sendResendEmail } from "./resend-email";
 
 type AuthEmailKind = "signup_verification" | "password_reset";
 
@@ -41,18 +42,11 @@ export async function sendAuthOtp({
   assertAuthEmailConfigured();
 
   const copy = emailCopy(kind, code);
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: process.env.RESEND_FROM_EMAIL!.trim(),
-      to: [to],
-      subject: copy.subject,
-      text: `${copy.heading}\n\n${copy.message}\n\n${copy.code}\n\nThis code expires in 10 minutes. If you did not request it, ignore this email.`,
-      html: `
+  await sendResendEmail({
+    to,
+    subject: copy.subject,
+    text: `${copy.heading}\n\n${copy.message}\n\n${copy.code}\n\nThis code expires in 10 minutes. If you did not request it, ignore this email.`,
+    html: `
         <div style="background:#f4f2ea;padding:40px 20px;font-family:Arial,sans-serif;color:#0d1e18">
           <div style="max-width:520px;margin:auto;background:#fffdf7;border:1px solid #d8d8cf;border-radius:18px;padding:38px">
             <p style="font-size:11px;letter-spacing:.14em;font-weight:700;color:#315d49">VRANCEFLEX</p>
@@ -63,10 +57,6 @@ export async function sendAuthOtp({
           </div>
         </div>
       `,
-    }),
+    tags: [{ name: "category", value: kind }],
   });
-
-  if (!response.ok) {
-    throw new Error("The verification email could not be sent.");
-  }
 }
