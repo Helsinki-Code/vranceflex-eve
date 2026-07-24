@@ -229,10 +229,13 @@ export function CampaignWizard({
           <div className="choice-section">
             <label>Verified lead target</label>
             <div className="option-row">
-              {[10, 25, 50, 100].map((count) => (
+              {[10, 25, 50, 100, 250, 500].map((count) => (
                 <button className={form.leadCount === count ? "active" : ""} onClick={() => update("leadCount", count as FormState["leadCount"])} type="button" key={count}>{count}</button>
               ))}
             </div>
+            <p className="option-row-note">
+              We&apos;ll find up to {Math.min(1_000, form.leadCount * 3)} candidates instantly, then you choose who to verify.
+            </p>
           </div>
           <div className="field-grid two">
             <label>Monthly campaign budget (USD)<input min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} /></label>

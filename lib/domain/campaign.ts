@@ -54,7 +54,14 @@ export const campaignCreateSchema = z.object({
   audience: z.string().trim().min(10).max(1_000),
   geography: z.string().trim().min(2).max(160),
   goal: z.enum(["book_meetings", "validate_demand", "build_waitlist", "sell_product"]),
-  leadCount: z.union([z.literal(10), z.literal(25), z.literal(50), z.literal(100)]),
+  leadCount: z.union([
+    z.literal(10),
+    z.literal(25),
+    z.literal(50),
+    z.literal(100),
+    z.literal(250),
+    z.literal(500),
+  ]),
   monthlyBudgetUsd: z.number().int().min(100).max(100_000),
   channels: z.array(z.enum(["email", "sms"])).min(1),
 });

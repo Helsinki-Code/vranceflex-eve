@@ -6,6 +6,10 @@ import {
 } from "../../../../../lib/server/auth-store";
 import { getCampaign } from "../../../../../lib/server/campaign-store";
 import { startCampaignExecution } from "../../../../../lib/server/campaign-execution";
+import {
+  discoverCandidates,
+  getApprovedLeadsForCampaign,
+} from "../../../../../lib/server/candidate-store";
 import { getCampaignExecution } from "../../../../../lib/server/pipeline-store";
 import { assertSameOrigin } from "../../../../../lib/server/request-security";
 
@@ -43,8 +47,17 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    const approvedLeads = await getApprovedLeadsForCampaign(actor.organizationId, campaignId);
+    if (!approvedLeads.length) {
+      // No leads approved yet — this is still the discovery phase, so retry
+      // means re-run candidate discovery, not the Eve session.
+      const discovery = await discoverCandidates(actor, campaign);
+      return NextResponse.json({ execution: null, discovery }, { status: 202 });
+    }
+
     const execution = await startCampaignExecution({
       campaign,
+      approvedLeads,
       actor,
       origin: new URL(request.url).origin,
       sessionToken: await currentSessionToken(),

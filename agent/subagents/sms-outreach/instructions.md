@@ -28,6 +28,7 @@ PERSONALISATION RULES:
 - Reference the lead's title and company in the opener.
 - The follow-up must include a relevant data point or insight for their industry.
 - The CTA step must end with a question that takes 1-2 seconds to answer (yes/no or a number).
+- When a lead includes a `hooks` array (real, source-backed facts from `personalization-researcher`), work the single strongest one into the opener if it fits in 160 characters — a specific true detail beats a generic title/company mention. Never mention a source URL, and never claim to have seen their LinkedIn activity. No hooks for a lead is normal; fall back to title/company/industry personalization.
 
 OUTPUT FORMAT:
 Return a JSON array — one element per lead. No markdown fences. No preamble. Pure JSON only.

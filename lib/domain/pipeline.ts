@@ -102,28 +102,6 @@ const icpArtifactSchema = z.object({
   evidence: z.array(evidenceSchema),
 });
 
-const leadArtifactSchema = z.object({
-  sourceLeadId: z.string().trim().min(1).max(300),
-  icpName: z.string().trim().min(1).max(160).nullable(),
-  companyName: z.string().trim().min(1).max(200),
-  companyDomain: z.string().trim().max(253).nullable(),
-  companySize: z.string().trim().max(120).nullable(),
-  industry: z.string().trim().max(160).nullable(),
-  geography: z.string().trim().max(160).nullable(),
-  personName: z.string().trim().min(1).max(160),
-  jobTitle: z.string().trim().min(1).max(200),
-  email: z.string().email().nullable(),
-  emailVerified: z.boolean(),
-  phone: z.string().trim().min(5).max(40).nullable(),
-  phoneVerified: z.boolean(),
-  linkedinUrl: z.string().url().nullable(),
-  confidence: z.number().int().min(0).max(100),
-  status: z.enum(["new", "qualified", "needs_review", "approved", "suppressed"]),
-  doNotContact: z.boolean(),
-  buyingSignals: z.array(z.string().trim().min(1)),
-  evidence: z.array(evidenceSchema),
-});
-
 const sequenceStepArtifactSchema = z.object({
   step: z.number().int().positive(),
   dayOffset: z.number().int().nonnegative(),
@@ -133,7 +111,8 @@ const sequenceStepArtifactSchema = z.object({
 });
 
 const sequenceArtifactSchema = z.object({
-  leadSourceId: z.string().trim().min(1).max(300),
+  leadId: z.string().uuid(),
+  icpName: z.string().trim().min(1).max(160).nullable(),
   channel: outreachChannelSchema,
   name: z.string().trim().min(1).max(200),
   timezone: z.string().trim().min(1).max(80).default("UTC"),
@@ -144,7 +123,6 @@ export const campaignArtifactsSchema = z.object({
   campaignId: z.string().uuid(),
   summary: z.string().trim().min(20).max(8_000),
   icps: z.array(icpArtifactSchema).min(1).max(20),
-  leads: z.array(leadArtifactSchema).min(1).max(500),
   sequences: z.array(sequenceArtifactSchema).min(1).max(1_000),
 });
 

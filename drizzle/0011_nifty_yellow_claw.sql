@@ -1,0 +1,1 @@
+ALTER TABLE "campaign_candidates" ADD COLUMN "x_handle" text;

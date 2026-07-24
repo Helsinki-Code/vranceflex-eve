@@ -266,6 +266,66 @@ export const campaignExecutions = pgTable(
   ],
 );
 
+export const candidateStatusEnum = pgEnum("candidate_status", [
+  "discovered",
+  "enriching",
+  "verified",
+  "approved",
+  "failed",
+]);
+
+export const campaignCandidates = pgTable(
+  "campaign_candidates",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    url: text("url"),
+    description: text("description"),
+    status: candidateStatusEnum("status").default("discovered").notNull(),
+    parallelRunId: text("parallel_run_id"),
+    email: text("email"),
+    phone: text("phone"),
+    linkedinUrl: text("linkedin_url"),
+    xHandle: text("x_handle"),
+    companyName: text("company_name"),
+    jobTitle: text("job_title"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("campaign_candidates_campaign_status_idx").on(
+      table.campaignId,
+      table.status,
+    ),
+    index("campaign_candidates_org_campaign_idx").on(
+      table.organizationId,
+      table.campaignId,
+    ),
+    uniqueIndex("campaign_candidates_run_unique").on(table.parallelRunId),
+  ],
+);
+
+export const enrichmentGroups = pgTable("enrichment_groups", {
+  campaignId: uuid("campaign_id")
+    .primaryKey()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  taskgroupId: text("taskgroup_id").notNull(),
+  active: boolean("active").default(true).notNull(),
+  lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const campaignProgressEvents = pgTable(
   "campaign_progress_events",
   {

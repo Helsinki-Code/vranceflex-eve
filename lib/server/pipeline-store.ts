@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type {
   CampaignArtifacts,
   CampaignExecution,
@@ -323,64 +323,44 @@ export async function persistCampaignArtifacts(
 
     await transaction.insert(icpProfiles).values(icpRows);
 
-    const leadIds = new Map<string, string>();
-    const leadRows: Array<typeof leads.$inferInsert> = [];
-    const leadBySource = new Map(input.leads.map((lead) => [lead.sourceLeadId, lead]));
+    // Leads are already persisted (discovered via Parallel Entity Search,
+    // verified via the Parallel Task API, and approved by the user) before
+    // this tool ever runs — this save only links existing leads to ICPs and
+    // sequences, it never creates or mutates lead records.
+    const referencedLeadIds = [
+      ...new Set(input.sequences.map((sequence) => sequence.leadId)),
+    ];
+    const existingLeads = referencedLeadIds.length
+      ? await transaction
+          .select()
+          .from(leads)
+          .where(
+            and(
+              eq(leads.organizationId, actor.organizationId),
+              eq(leads.campaignId, input.campaignId),
+              inArray(leads.id, referencedLeadIds),
+            ),
+          )
+      : [];
+    const leadById = new Map(existingLeads.map((lead) => [lead.id, lead]));
 
-    for (const artifact of input.leads) {
-      if (leadIds.has(artifact.sourceLeadId)) {
-        throw new Error(`Duplicate lead source id: ${artifact.sourceLeadId}`);
+    for (const sequence of input.sequences) {
+      if (sequence.icpName && !icpIds.has(sequence.icpName)) {
+        throw new Error(`Unknown ICP name for sequence: ${sequence.icpName}`);
       }
-      const id = crypto.randomUUID();
-      leadIds.set(artifact.sourceLeadId, id);
-      const icpProfileId = artifact.icpName
-        ? icpIds.get(artifact.icpName) ?? null
-        : null;
-      if (artifact.icpName && !icpProfileId) {
-        throw new Error(`Unknown ICP name for lead: ${artifact.icpName}`);
+      const icpProfileId = sequence.icpName ? icpIds.get(sequence.icpName)! : null;
+      const lead = leadById.get(sequence.leadId);
+      if (!lead) {
+        throw new Error(`Sequence references an unknown or unapproved lead: ${sequence.leadId}`);
       }
-
-      leadRows.push({
-        id,
-        organizationId: actor.organizationId,
-        campaignId: input.campaignId,
-        icpProfileId,
-        sourceProvider: "parallel",
-        sourceLeadId: artifact.sourceLeadId,
-        companyName: artifact.companyName,
-        companyDomain: artifact.companyDomain,
-        companySize: artifact.companySize,
-        industry: artifact.industry,
-        geography: artifact.geography,
-        personName: artifact.personName,
-        jobTitle: artifact.jobTitle,
-        email: artifact.email,
-        emailVerified: artifact.emailVerified,
-        phone: artifact.phone,
-        phoneVerified: artifact.phoneVerified,
-        linkedinUrl: artifact.linkedinUrl,
-        confidence: artifact.confidence,
-        status: artifact.doNotContact ? "suppressed" : artifact.status,
-        doNotContact: artifact.doNotContact,
-        buyingSignals: artifact.buyingSignals,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      for (const evidence of artifact.evidence) {
-        evidenceRows.push({
-          id: crypto.randomUUID(),
-          organizationId: actor.organizationId,
-          campaignId: input.campaignId,
-          icpProfileId,
-          leadId: id,
-          ...evidence,
-          observedAt: new Date(evidence.observedAt),
-        });
+      if (icpProfileId && !lead.icpProfileId) {
+        await transaction
+          .update(leads)
+          .set({ icpProfileId, updatedAt: now })
+          .where(eq(leads.id, lead.id));
       }
     }
 
-    await transaction.insert(leads).values(leadRows);
     for (const evidenceChunk of chunked(evidenceRows)) {
       if (evidenceChunk.length) {
         await transaction.insert(enrichmentEvidence).values(evidenceChunk);
@@ -391,19 +371,16 @@ export async function persistCampaignArtifacts(
     const messageRows: Array<typeof outreachMessages.$inferInsert> = [];
 
     for (const artifact of input.sequences) {
-      const leadId = leadIds.get(artifact.leadSourceId);
-      const lead = leadBySource.get(artifact.leadSourceId);
-      if (!leadId || !lead) {
-        throw new Error(`Sequence references an unknown lead: ${artifact.leadSourceId}`);
-      }
+      const leadId = artifact.leadId;
+      const lead = leadById.get(leadId)!;
       if (lead.doNotContact || lead.status === "suppressed") {
-        throw new Error(`A suppressed lead received a sequence: ${artifact.leadSourceId}`);
+        throw new Error(`A suppressed lead received a sequence: ${leadId}`);
       }
       if (artifact.channel === "email" && (!lead.email || !lead.emailVerified)) {
-        throw new Error(`Email sequence requires a verified email: ${artifact.leadSourceId}`);
+        throw new Error(`Email sequence requires a verified email: ${leadId}`);
       }
       if (artifact.channel === "sms" && (!lead.phone || !lead.phoneVerified)) {
-        throw new Error(`SMS sequence requires a verified phone: ${artifact.leadSourceId}`);
+        throw new Error(`SMS sequence requires a verified phone: ${leadId}`);
       }
 
       const sequenceId = crypto.randomUUID();
@@ -424,7 +401,7 @@ export async function persistCampaignArtifacts(
       const seenSteps = new Set<number>();
       for (const step of artifact.steps) {
         if (seenSteps.has(step.step)) {
-          throw new Error(`Duplicate sequence step ${step.step} for ${artifact.leadSourceId}`);
+          throw new Error(`Duplicate sequence step ${step.step} for ${leadId}`);
         }
         seenSteps.add(step.step);
         messageRows.push({
@@ -483,7 +460,7 @@ export async function persistCampaignArtifacts(
       metadata: {
         summary: input.summary.slice(0, 1_000),
         icpCount: input.icps.length,
-        leadCount: input.leads.length,
+        leadCount: referencedLeadIds.length,
         sequenceCount: input.sequences.length,
         messageCount: messageRows.length,
         status: "awaiting_approval",
@@ -494,7 +471,7 @@ export async function persistCampaignArtifacts(
       organizationId: actor.organizationId,
       campaignId: input.campaignId,
       stage: "awaiting_approval",
-      message: `Research complete: ${input.icps.length} ICP${input.icps.length === 1 ? "" : "s"}, ${input.leads.length} verified lead${input.leads.length === 1 ? "" : "s"} and ${input.sequences.length} drafted sequence${input.sequences.length === 1 ? "" : "s"} are ready for your review.`,
+      message: `Personalized outreach is ready: ${input.icps.length} ICP${input.icps.length === 1 ? "" : "s"}, ${referencedLeadIds.length} lead${referencedLeadIds.length === 1 ? "" : "s"} and ${input.sequences.length} drafted sequence${input.sequences.length === 1 ? "" : "s"} are ready for your review.`,
     });
 
     return {
@@ -502,7 +479,7 @@ export async function persistCampaignArtifacts(
       status: "awaiting_approval" as const,
       idempotent: false,
       icpCount: input.icps.length,
-      leadCount: input.leads.length,
+      leadCount: referencedLeadIds.length,
       sequenceCount: input.sequences.length,
       messageCount: messageRows.length,
     };

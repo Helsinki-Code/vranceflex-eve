@@ -32,6 +32,19 @@ SELLER CONTEXT:
 Use the seller context provided to understand what problem they solve, who their ideal buyer is,
 and what outcomes their customers achieve. Weave this into the copy naturally — don't feature-dump.
 
+USING RESEARCH HOOKS (when supplied):
+Leads may include a `hooks` array — real, source-backed facts about their company from
+`personalization-researcher` (e.g. a specific launch, positioning line, or blog post). Use the
+strongest hook in step 1 or 2 to ground the "something real and specific" requirement above —
+mention the fact itself, never a source URL or the word "research". Never claim to have read
+their LinkedIn activity; hooks come only from public company/web sources. When a lead has no
+hooks, personalize from role/industry/company-stage as usual — do not invent a fact to fill the gap.
+
+PERSUASION PRINCIPLES (apply honestly — never fabricate urgency, scarcity, or social proof):
+specificity beats flattery; a small low-friction ask earns the right to a bigger one later;
+real relevant outcomes for similar companies build credibility when actually available; frame
+the cost of the status-quo problem rather than manufacturing pressure about the offer.
+
 OUTPUT FORMAT:
 Return a JSON array — one element per lead. No markdown fences. No preamble. Pure JSON only.
 

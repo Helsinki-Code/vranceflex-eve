@@ -1,0 +1,1 @@
+ALTER TYPE "public"."candidate_status" ADD VALUE 'approved' BEFORE 'failed';

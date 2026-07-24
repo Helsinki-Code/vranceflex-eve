@@ -28,11 +28,27 @@ import type {
   OutreachWorkspaceSequence,
 } from "../lib/domain/pipeline";
 
+type CandidateSummary = {
+  id: string;
+  name: string;
+  url: string | null;
+  description: string | null;
+  status: "discovered" | "enriching" | "verified" | "approved" | "failed";
+  email: string | null;
+  phone: string | null;
+  linkedinUrl: string | null;
+  xHandle: string | null;
+  companyName: string | null;
+  jobTitle: string | null;
+  errorMessage: string | null;
+};
+
 type WorkspacePayload = {
   campaign: Campaign;
   execution: CampaignExecution | null;
   sequences: OutreachWorkspaceSequence[];
   progress?: CampaignProgressEvent[];
+  candidates?: CandidateSummary[];
   error?: string;
 };
 
@@ -166,6 +182,185 @@ function ExecutionProgressPanel({
   );
 }
 
+function CandidateWorkspacePanel({
+  candidates,
+  busyAction,
+  onVerify,
+  onApprove,
+}: {
+  candidates: CandidateSummary[];
+  busyAction: string;
+  onVerify: (candidateIds: string[]) => void;
+  onApprove: (candidateIds: string[]) => void;
+}) {
+  const discovered = candidates.filter((candidate) => candidate.status === "discovered");
+  const enriching = candidates.filter((candidate) => candidate.status === "enriching");
+  const verified = candidates.filter((candidate) => candidate.status === "verified");
+  const failed = candidates.filter((candidate) => candidate.status === "failed");
+
+  const [selectedDiscovered, setSelectedDiscovered] = useState<string[]>([]);
+  const [selectedVerified, setSelectedVerified] = useState<string[]>([]);
+
+  if (!candidates.length) {
+    return (
+      <section className="pipeline-live-card">
+        <span><CircleDashed size={20} /></span>
+        <div>
+          <strong>No candidates found yet</strong>
+          <p>Discovery may still be starting, or try again from the campaign list.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="candidate-workspace">
+      {discovered.length > 0 && (
+        <div className="candidate-stage">
+          <header>
+            <div>
+              <strong>{discovered.length} people found — choose who to verify</strong>
+              <p>We check email, phone and LinkedIn for the people you select. Nothing is contacted yet.</p>
+            </div>
+            <div className="candidate-stage-actions">
+              <button
+                className="button-secondary compact"
+                onClick={() =>
+                  setSelectedDiscovered(
+                    selectedDiscovered.length === discovered.length
+                      ? []
+                      : discovered.map((candidate) => candidate.id),
+                  )
+                }
+                type="button"
+              >
+                {selectedDiscovered.length === discovered.length ? "Clear all" : "Select all"}
+              </button>
+              <button
+                className="button-primary compact"
+                disabled={!selectedDiscovered.length || busyAction === "verify"}
+                onClick={() => onVerify(selectedDiscovered)}
+                type="button"
+              >
+                {busyAction === "verify" ? <LoaderCircle className="spin" size={14} /> : null}
+                Verify {selectedDiscovered.length || ""} selected
+              </button>
+            </div>
+          </header>
+          <ul className="candidate-list">
+            {discovered.map((candidate) => (
+              <li key={candidate.id}>
+                <label>
+                  <input
+                    checked={selectedDiscovered.includes(candidate.id)}
+                    onChange={(event) =>
+                      setSelectedDiscovered((current) =>
+                        event.target.checked
+                          ? [...current, candidate.id]
+                          : current.filter((id) => id !== candidate.id),
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  <div>
+                    <strong>{candidate.name}</strong>
+                    {candidate.description && <small>{candidate.description}</small>}
+                  </div>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {enriching.length > 0 && (
+        <div className="candidate-stage">
+          <header>
+            <div>
+              <strong>Verifying {enriching.length} {enriching.length === 1 ? "person" : "people"}…</strong>
+              <p>Checking real email, phone and LinkedIn details. This runs in the background.</p>
+            </div>
+            <LoaderCircle className="spin" size={18} />
+          </header>
+        </div>
+      )}
+
+      {verified.length > 0 && (
+        <div className="candidate-stage">
+          <header>
+            <div>
+              <strong>{verified.length} verified — choose who to approve</strong>
+              <p>Approved leads get personalized outreach sequences drafted for your review next.</p>
+            </div>
+            <div className="candidate-stage-actions">
+              <button
+                className="button-secondary compact"
+                onClick={() =>
+                  setSelectedVerified(
+                    selectedVerified.length === verified.length
+                      ? []
+                      : verified.map((candidate) => candidate.id),
+                  )
+                }
+                type="button"
+              >
+                {selectedVerified.length === verified.length ? "Clear all" : "Select all"}
+              </button>
+              <button
+                className="button-primary compact"
+                disabled={!selectedVerified.length || busyAction === "approve-leads"}
+                onClick={() => onApprove(selectedVerified)}
+                type="button"
+              >
+                {busyAction === "approve-leads" ? <LoaderCircle className="spin" size={14} /> : null}
+                Approve {selectedVerified.length || ""} &amp; generate outreach
+              </button>
+            </div>
+          </header>
+          <ul className="candidate-list">
+            {verified.map((candidate) => (
+              <li key={candidate.id}>
+                <label>
+                  <input
+                    checked={selectedVerified.includes(candidate.id)}
+                    onChange={(event) =>
+                      setSelectedVerified((current) =>
+                        event.target.checked
+                          ? [...current, candidate.id]
+                          : current.filter((id) => id !== candidate.id),
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  <div>
+                    <strong>{candidate.name}</strong>
+                    <small>
+                      {[candidate.jobTitle, candidate.companyName].filter(Boolean).join(" at ")}
+                      {candidate.email ? ` · ${candidate.email}` : ""}
+                      {candidate.phone ? ` · ${candidate.phone}` : ""}
+                    </small>
+                  </div>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {failed.length > 0 && (
+        <div className="candidate-stage muted">
+          <header>
+            <div>
+              <strong>{failed.length} could not be verified</strong>
+              <p>No publicly verifiable email and LinkedIn were found for these people — they are excluded automatically.</p>
+            </div>
+          </header>
+        </div>
+      )}
+    </section>
+  );
+}
+
 type MessageDraft = Pick<
   OutreachWorkspaceMessage,
   "subject" | "subjectVariant" | "content"
@@ -247,6 +442,20 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
     return () => window.clearInterval(timer);
   }, [load, payload]);
 
+  const hasEnrichingCandidates = (payload?.candidates ?? []).some(
+    (candidate) => candidate.status === "enriching",
+  );
+
+  useEffect(() => {
+    if (!hasEnrichingCandidates) return;
+    const timer = window.setInterval(() => {
+      void fetch(`/api/campaigns/${campaignId}/candidates/refresh`, { method: "POST" })
+        .catch(() => undefined)
+        .finally(() => void load(true));
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, [campaignId, hasEnrichingCandidates, load]);
+
   const pendingIds = useMemo(
     () =>
       payload?.sequences
@@ -264,6 +473,52 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         .map((sequence) => sequence.id) ?? [],
     [payload],
   );
+
+  async function startVerification(candidateIds: string[]) {
+    setBusyAction("verify");
+    setError("");
+    try {
+      await readJson(
+        await fetch(`/api/campaigns/${campaignId}/candidates/enrich`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateIds }),
+        }),
+      );
+      await load(true);
+    } catch (verifyError) {
+      setError(
+        verifyError instanceof Error
+          ? verifyError.message
+          : "Verification could not be started.",
+      );
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function approveLeads(candidateIds: string[]) {
+    setBusyAction("approve-leads");
+    setError("");
+    try {
+      await readJson(
+        await fetch(`/api/campaigns/${campaignId}/candidates/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateIds }),
+        }),
+      );
+      await load(true);
+    } catch (approveError) {
+      setError(
+        approveError instanceof Error
+          ? approveError.message
+          : "Leads could not be approved.",
+      );
+    } finally {
+      setBusyAction("");
+    }
+  }
 
   async function retryExecution() {
     setBusyAction("retry");
@@ -399,8 +654,10 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
   }
 
   const { campaign, execution, sequences } = payload;
+  const candidates = payload.candidates ?? [];
   const processing = execution && ["queued", "running"].includes(execution.status);
   const failed = execution?.status === "failed";
+  const showCandidateWorkspace = !execution && candidates.length > 0;
 
   return (
     <div className="campaign-workspace">
@@ -420,6 +677,15 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
       </section>
 
       {error && <div className="form-error" role="alert">{error}</div>}
+
+      {showCandidateWorkspace && (
+        <CandidateWorkspacePanel
+          busyAction={busyAction}
+          candidates={candidates}
+          onApprove={(ids) => void approveLeads(ids)}
+          onVerify={(ids) => void startVerification(ids)}
+        />
+      )}
 
       {processing && (
         <ExecutionProgressPanel
@@ -449,7 +715,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         </section>
       )}
 
-      {!processing && !failed && sequences.length === 0 && (
+      {!processing && !failed && !showCandidateWorkspace && sequences.length === 0 && (
         <section className="pipeline-live-card">
           <span><CircleDashed size={20} /></span>
           <div>

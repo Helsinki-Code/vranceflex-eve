@@ -71,6 +71,27 @@
       "when": 1784895682507,
       "tag": "0009_useful_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784897610726,
+      "tag": "0010_silent_black_widow",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784897738306,
+      "tag": "0011_nifty_yellow_claw",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784897956076,
+      "tag": "0012_daffy_kingpin",
+      "breakpoints": true
     }
   ]
 }

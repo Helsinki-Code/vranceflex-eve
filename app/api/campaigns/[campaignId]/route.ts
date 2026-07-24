@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getApiActor } from "../../../../lib/server/api-actor";
 import { apiErrorResponse } from "../../../../lib/server/api-response";
 import { getCampaign } from "../../../../lib/server/campaign-store";
+import { listCandidates } from "../../../../lib/server/candidate-store";
 import {
   getCampaignExecution,
   listCampaignProgress,
@@ -23,14 +24,15 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Campaign was not found." }, { status: 404 });
     }
 
-    const [execution, sequences, progress] = await Promise.all([
+    const [execution, sequences, progress, candidates] = await Promise.all([
       getCampaignExecution(campaignId, actor.organizationId),
       listCampaignSequences(actor, campaignId),
       listCampaignProgress(campaignId, actor.organizationId),
+      listCandidates(actor, campaignId),
     ]);
 
     return NextResponse.json(
-      { campaign, execution, sequences, progress },
+      { campaign, execution, sequences, progress, candidates },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

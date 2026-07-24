@@ -1353,6 +1353,13 @@ button:disabled {
   color: var(--lime);
 }
 
+.option-row-note {
+  margin: 8px 0 0;
+  color: rgba(var(--ink-rgb), 0.5);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .channel-row button {
   min-height: 48px;
   display: flex;
@@ -2994,6 +3001,93 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.candidate-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.candidate-stage {
+  padding: 20px 22px;
+  border: 1px solid rgba(var(--ink-rgb), 0.13);
+  background: var(--paper);
+  border-radius: 15px;
+}
+
+.candidate-stage.muted {
+  opacity: 0.75;
+}
+
+.candidate-stage header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.candidate-stage header strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.candidate-stage header p {
+  margin: 0;
+  color: rgba(var(--ink-rgb), 0.56);
+  font-size: 10px;
+  line-height: 1.5;
+  max-width: 480px;
+}
+
+.candidate-stage-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.candidate-stage-actions .button-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(var(--ink-rgb), 0.1);
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.candidate-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.candidate-list input[type="checkbox"] {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+
+.candidate-list strong {
+  display: block;
+  font-size: 11px;
+}
+
+.candidate-list small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(var(--ink-rgb), 0.55);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .approval-toolbar {

@@ -2,18 +2,22 @@ import { Client } from "eve/client";
 import { and, eq } from "drizzle-orm";
 import type { Campaign } from "../domain/campaign";
 import type { ApiActor } from "./api-actor";
+import type { ApprovedLead } from "./candidate-store";
 import { getDatabase } from "./database";
 import { campaignExecutions } from "./database/schema";
 import { getCampaignExecution, recordCampaignProgress } from "./pipeline-store";
 
-function executionPrompt(campaign: Campaign) {
+function executionPrompt(campaign: Campaign, approvedLeads: ApprovedLead[]) {
   return [
     "VRANCEFLEX_CAMPAIGN_EXECUTION",
     "",
     `campaignId: ${campaign.id}`,
     "",
-    "Run the complete campaign preparation workflow now.",
-    "Use the declared specialist subagents and the campaign_progress and",
+    "The user has already selected and approved the leads below — Parallel has",
+    "already verified their contact details. Do not discover or verify any",
+    "additional leads. Run ICP synthesis, personalization research, and",
+    "sequence generation over exactly this list, using the declared specialist",
+    "subagents and the campaign_progress, report_progress, and",
     "save_campaign_artifacts tools exactly as required by your instructions.",
     "Do not request confirmation for research or copy generation.",
     "Do not approve, schedule, or send any outreach.",
@@ -35,6 +39,9 @@ function executionPrompt(campaign: Campaign) {
       null,
       2,
     ),
+    "",
+    "APPROVED_LEADS",
+    JSON.stringify(approvedLeads, null, 2),
   ].join("\n");
 }
 
@@ -106,12 +113,14 @@ async function prepareExecution(
 
 export async function startCampaignExecution({
   campaign,
+  approvedLeads,
   actor,
   origin,
   sessionToken,
   force = false,
 }: {
   campaign: Campaign;
+  approvedLeads: ApprovedLead[];
   actor: ApiActor;
   origin: string;
   sessionToken: string;
@@ -131,7 +140,7 @@ export async function startCampaignExecution({
     organizationId: actor.organizationId,
     campaignId: campaign.id,
     stage: "queued",
-    message: "Campaign accepted. Preparing the research run…",
+    message: "Preparing personalized outreach for your approved leads…",
   });
   try {
     const client = new Client({
@@ -140,7 +149,7 @@ export async function startCampaignExecution({
       redirect: "manual",
     });
     const response = await client.session().send({
-      message: executionPrompt(campaign),
+      message: executionPrompt(campaign, approvedLeads),
       clientContext: {
         campaignId: campaign.id,
         source: "vranceflex_campaign_create",
@@ -164,8 +173,7 @@ export async function startCampaignExecution({
       organizationId: actor.organizationId,
       campaignId: campaign.id,
       stage: "researching",
-      message:
-        "Eve's Lead Researcher is analyzing your product and market to map ideal customer profiles.",
+      message: "Organizing your approved leads into ideal customer profiles…",
     });
   } catch (error) {
     const now = new Date();
