@@ -54,8 +54,8 @@ type WorkspacePayload = {
 
 const pipelineSteps = [
   ["queued", "Queued"],
-  ["researching", "Researching market"],
-  ["enriching", "Verifying leads"],
+  ["researching", "Organizing leads"],
+  ["enriching", "Personalizing outreach"],
   ["copy_generated", "Drafting outreach"],
   ["awaiting_approval", "Ready for review"],
 ] as const;
@@ -462,9 +462,15 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
     return () => window.clearInterval(timer);
   }, [load, payload]);
 
-  const hasEnrichingCandidates = (payload?.candidates ?? []).some(
-    (candidate) => candidate.status === "enriching",
-  );
+  // Once Eve has started (an execution exists), the candidate-selection
+  // phase is over — any leftover "enriching" stragglers the user didn't
+  // wait for are no longer relevant, and continuing to poll for them here
+  // would keep writing "contact verification in progress" updates into the
+  // same activity feed Eve's own ICP/personalization progress uses,
+  // making the two unrelated processes look interleaved and broken.
+  const hasEnrichingCandidates =
+    !payload?.execution &&
+    (payload?.candidates ?? []).some((candidate) => candidate.status === "enriching");
 
   useEffect(() => {
     if (!hasEnrichingCandidates) return;

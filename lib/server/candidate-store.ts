@@ -608,6 +608,16 @@ export async function approveCandidates(
       .update(campaigns)
       .set({ status: "enriching", updatedAt: now })
       .where(eq(campaigns.id, campaignId));
+
+    // Approving moves the campaign past candidate selection for good — any
+    // still-"enriching" stragglers the user didn't wait for are abandoned
+    // rather than left to block a future verification batch on this
+    // campaign (the enrichment group otherwise stays "active" forever once
+    // nothing polls it again).
+    await transaction
+      .update(enrichmentGroups)
+      .set({ active: false, updatedAt: now })
+      .where(eq(enrichmentGroups.campaignId, campaignId));
   });
 
   await recordCampaignProgress(database, {
