@@ -1,6 +1,6 @@
 import { isResendConfigured } from "../auth/config";
 import { AuthConfigurationError } from "./auth-crypto";
-import { sendResendEmail } from "./resend-email";
+import { platformResendCredentials, sendResendEmail } from "./resend-email";
 
 type AuthEmailKind = "signup_verification" | "password_reset";
 
@@ -42,7 +42,7 @@ export async function sendAuthOtp({
   assertAuthEmailConfigured();
 
   const copy = emailCopy(kind, code);
-  await sendResendEmail({
+  await sendResendEmail(platformResendCredentials(), {
     to,
     subject: copy.subject,
     text: `${copy.heading}\n\n${copy.message}\n\n${copy.code}\n\nThis code expires in 10 minutes. If you did not request it, ignore this email.`,

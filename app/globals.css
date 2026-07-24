@@ -2518,10 +2518,89 @@ button:disabled {
 .team-member-list article {
   min-height: 74px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 13px;
   border-bottom: 1px solid rgba(13, 30, 24, 0.1);
+}
+
+.team-member-list select {
+  font-size: 9px;
+  font-weight: 760;
+  padding: 6px 8px;
+  background: var(--sage);
+  border: none;
+  border-radius: 999px;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(13, 30, 24, 0.55);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: rgba(13, 30, 24, 0.06);
+  color: #b3352f;
+}
+
+.team-invite-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 12px;
+  padding: 18px 0 22px;
+  border-bottom: 1px solid rgba(13, 30, 24, 0.12);
+}
+
+.team-invite-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.team-invite-form input,
+.team-invite-form select {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(13, 30, 24, 0.16);
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+
+.team-invite-list {
+  padding-top: 18px;
+}
+
+.team-invite-list article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(13, 30, 24, 0.08);
+}
+
+.team-invite-list strong {
+  display: block;
+  font-size: 11px;
+}
+
+.team-invite-list small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(13, 30, 24, 0.48);
+  font-size: 9px;
 }
 
 .team-member-list article > span {
@@ -4495,6 +4574,120 @@ button:disabled {
   color: #467a25;
 }
 
+.channel-connections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.channel-card {
+  padding: 21px;
+  border: 1px solid rgba(13, 30, 24, 0.13);
+  background: var(--paper);
+  border-radius: 14px 14px 14px 5px;
+}
+
+.channel-card-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.channel-card-head > span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: #ecefe9;
+  color: rgba(13, 30, 24, 0.48);
+  border-radius: 8px;
+}
+
+.channel-card-head > span.configured {
+  background: rgba(201, 255, 114, 0.4);
+  color: #467a25;
+}
+
+.channel-card-head h2 {
+  margin: 1px 0 6px;
+  font-size: 14px;
+}
+
+.channel-card-head p {
+  margin: 0;
+  color: rgba(13, 30, 24, 0.5);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.channel-connected {
+  display: grid;
+  gap: 10px;
+}
+
+.channel-connected > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.channel-connected > div span {
+  color: rgba(13, 30, 24, 0.5);
+}
+
+.channel-connected .button-secondary {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+.channel-connect-form {
+  display: grid;
+  gap: 12px;
+}
+
+.channel-connect-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.channel-connect-form input {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(13, 30, 24, 0.16);
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+
+.channel-webhook-hint {
+  font-size: 10px;
+  color: rgba(13, 30, 24, 0.55);
+  line-height: 1.6;
+}
+
+.channel-webhook-hint code {
+  display: block;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: #ecefe9;
+  border-radius: 8px;
+  font-size: 10px;
+  word-break: break-all;
+}
+
+.channel-empty-note {
+  font-size: 11px;
+  color: rgba(13, 30, 24, 0.5);
+}
+
 .billing-layout {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
@@ -4545,6 +4738,16 @@ button:disabled {
 
 .plan-card li svg {
   color: #4f842b;
+}
+
+.billing-actions {
+  margin-top: 24px;
+}
+
+.billing-actions .button-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .billing-safety {

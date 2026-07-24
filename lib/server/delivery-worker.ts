@@ -14,6 +14,12 @@ import {
   sendApprovedOutreachEmail,
 } from "./outreach-email";
 import { ResendDeliveryError } from "./resend-email";
+import {
+  OutreachSmsPolicyError,
+  sendApprovedOutreachSms,
+} from "./outreach-sms";
+import { TwilioDeliveryError } from "./twilio-sms";
+import { getOrgResendCredentials, getOrgTwilioCredentials } from "./channel-credentials";
 import { getDatabase } from "./database";
 import {
   campaigns,
@@ -42,7 +48,18 @@ function errorMessage(error: unknown) {
     : "The provider request failed.";
 }
 
-async function reserveDailyEmailCapacity(input: {
+type DeliveryChannel = "email" | "sms";
+
+function channelReservedKind(channel: DeliveryChannel) {
+  return `outreach_${channel}_reserved`;
+}
+
+function channelAcceptedKind(channel: DeliveryChannel) {
+  return `outreach_${channel}_accepted`;
+}
+
+async function reserveDailySendCapacity(input: {
+  channel: DeliveryChannel;
   organizationId: string;
   campaignId: string;
   messageId: string;
@@ -52,11 +69,13 @@ async function reserveDailyEmailCapacity(input: {
   const database = getDatabase();
   const now = new Date();
   const bounds = localDayBounds(now, input.timezone);
-  const reservationKey = `outreach-email-capacity/${input.messageId}`;
+  const reservationKey = `outreach-${input.channel}-capacity/${input.messageId}`;
+  const reservedKind = channelReservedKind(input.channel);
+  const acceptedKind = channelAcceptedKind(input.channel);
 
   return database.transaction(async (transaction) => {
     await transaction.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`email-quota/${input.organizationId}`}))`,
+      sql`select pg_advisory_xact_lock(hashtext(${`${input.channel}-quota/${input.organizationId}`}))`,
     );
     const [existing] = await transaction
       .select({ total: count() })
@@ -79,10 +98,7 @@ async function reserveDailyEmailCapacity(input: {
       .where(
         and(
           eq(usageLedger.organizationId, input.organizationId),
-          inArray(usageLedger.kind, [
-            "outreach_email_reserved",
-            "outreach_email_accepted",
-          ]),
+          inArray(usageLedger.kind, [reservedKind, acceptedKind]),
           sql`${usageLedger.occurredAt} >= ${bounds.start}`,
           lt(usageLedger.occurredAt, bounds.end),
         ),
@@ -99,7 +115,7 @@ async function reserveDailyEmailCapacity(input: {
       id: crypto.randomUUID(),
       organizationId: input.organizationId,
       campaignId: input.campaignId,
-      kind: "outreach_email_reserved",
+      kind: reservedKind,
       quantity: 1,
       idempotencyKey: reservationKey,
       occurredAt: now,
@@ -108,13 +124,13 @@ async function reserveDailyEmailCapacity(input: {
   });
 }
 
-async function releaseDailyEmailCapacity(reservationKey: string) {
+async function releaseDailySendCapacity(channel: DeliveryChannel, reservationKey: string) {
   await getDatabase()
     .delete(usageLedger)
     .where(
       and(
         eq(usageLedger.idempotencyKey, reservationKey),
-        eq(usageLedger.kind, "outreach_email_reserved"),
+        eq(usageLedger.kind, channelReservedKind(channel)),
       ),
     );
 }
@@ -163,15 +179,19 @@ async function processClaimedJob(jobId: string) {
   if (!row) return "cancelled" as const;
 
   const { job, message, sequence, lead, campaign } = row;
+  const channel = job.channel as DeliveryChannel;
+  const recipientEligible =
+    channel === "sms"
+      ? Boolean(lead.phone && lead.phoneVerified)
+      : Boolean(lead.email && lead.emailVerified);
   if (
-    job.channel !== "email" ||
+    (channel !== "email" && channel !== "sms") ||
     message.status !== "scheduled" ||
     !["scheduled", "active"].includes(sequence.status) ||
     !["scheduled", "sent", "delivered"].includes(campaign.status) ||
     lead.doNotContact ||
     lead.status === "suppressed" ||
-    !lead.email ||
-    !lead.emailVerified
+    !recipientEligible
   ) {
     await cancelUnsafeJob(
       job.id,
@@ -181,15 +201,16 @@ async function processClaimedJob(jobId: string) {
     return "cancelled" as const;
   }
 
-  const normalizedEmail = lead.email.trim().toLowerCase();
+  const normalizedDestination =
+    channel === "sms" ? lead.phone!.trim() : lead.email!.trim().toLowerCase();
   const [suppression] = await database
     .select({ id: suppressionEntries.id })
     .from(suppressionEntries)
     .where(
       and(
         eq(suppressionEntries.organizationId, job.organizationId),
-        eq(suppressionEntries.channel, "email"),
-        eq(suppressionEntries.destination, normalizedEmail),
+        eq(suppressionEntries.channel, channel),
+        eq(suppressionEntries.destination, normalizedDestination),
       ),
     )
     .limit(1);
@@ -208,8 +229,12 @@ async function processClaimedJob(jobId: string) {
     .where(eq(organizationSendingSettings.organizationId, job.organizationId))
     .limit(1);
   const timezone = settings?.timezone ?? sequence.timezone ?? "UTC";
-  const dailyLimit = settings?.dailyEmailLimit ?? 100;
-  const capacity = await reserveDailyEmailCapacity({
+  const dailyLimit =
+    channel === "sms"
+      ? (settings?.dailySmsLimit ?? 0)
+      : (settings?.dailyEmailLimit ?? 100);
+  const capacity = await reserveDailySendCapacity({
+    channel,
     organizationId: job.organizationId,
     campaignId: job.campaignId,
     messageId: message.id,
@@ -223,7 +248,7 @@ async function processClaimedJob(jobId: string) {
         status: "retry",
         availableAt: capacity.retryAt,
         lockedAt: null,
-        lastError: "Daily email limit reached; queued for the next local day.",
+        lastError: `Daily ${channel} limit reached; queued for the next local day.`,
         updatedAt: new Date(),
       })
       .where(eq(deliveryJobs.id, job.id));
@@ -252,7 +277,7 @@ async function processClaimedJob(jobId: string) {
     fresh.doNotContact ||
     fresh.leadStatus === "suppressed"
   ) {
-    await releaseDailyEmailCapacity(capacity.reservationKey);
+    await releaseDailySendCapacity(channel, capacity.reservationKey);
     await cancelUnsafeJob(
       job.id,
       message.id,
@@ -262,19 +287,39 @@ async function processClaimedJob(jobId: string) {
   }
 
   try {
-    const result = await sendApprovedOutreachEmail({
-      to: normalizedEmail,
-      subject: message.subject ?? "",
-      text: message.content,
-      campaignId: campaign.id,
-      leadId: lead.id,
-      messageId: message.id,
-      idempotencyKey: job.idempotencyKey,
-      replyTo: getReplyToAddress(message.id),
-      approved: true,
-      doNotContact: false,
-      emailVerified: true,
-    });
+    const result =
+      channel === "sms"
+        ? await sendApprovedOutreachSms(await getOrgTwilioCredentials(job.organizationId), {
+            to: normalizedDestination,
+            text: message.content,
+            campaignId: campaign.id,
+            leadId: lead.id,
+            messageId: message.id,
+            approved: true,
+            doNotContact: false,
+            phoneVerified: true,
+          })
+        : await (async () => {
+            const resendCredentials = await getOrgResendCredentials(job.organizationId);
+            return sendApprovedOutreachEmail(
+              resendCredentials
+                ? { apiKey: resendCredentials.apiKey, fromEmail: resendCredentials.fromEmail }
+                : null,
+              {
+                to: normalizedDestination,
+                subject: message.subject ?? "",
+                text: message.content,
+                campaignId: campaign.id,
+                leadId: lead.id,
+                messageId: message.id,
+                idempotencyKey: job.idempotencyKey,
+                replyTo: getReplyToAddress(message.id, resendCredentials?.replyDomain),
+                approved: true,
+                doNotContact: false,
+                emailVerified: true,
+              },
+            );
+          })();
     const now = new Date();
     await database.transaction(async (transaction) => {
       await transaction
@@ -299,15 +344,17 @@ async function processClaimedJob(jobId: string) {
         .where(eq(outreachMessages.id, message.id));
       await transaction
         .update(usageLedger)
-        .set({ kind: "outreach_email_accepted", occurredAt: now })
+        .set({ kind: channelAcceptedKind(channel), occurredAt: now })
         .where(eq(usageLedger.idempotencyKey, capacity.reservationKey));
     });
     return "accepted" as const;
   } catch (error) {
-    await releaseDailyEmailCapacity(capacity.reservationKey);
+    await releaseDailySendCapacity(channel, capacity.reservationKey);
     const terminal =
       error instanceof OutreachEmailPolicyError ||
+      error instanceof OutreachSmsPolicyError ||
       (error instanceof ResendDeliveryError && !error.retryable) ||
+      (error instanceof TwilioDeliveryError && !error.retryable) ||
       job.attemptCount >= job.maxAttempts;
     const now = new Date();
     await database.transaction(async (transaction) => {

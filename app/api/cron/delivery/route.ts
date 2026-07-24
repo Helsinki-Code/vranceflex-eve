@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { removeExpiredAuthRecords } from "../../../../lib/server/auth-store";
 import { processDueDeliveryJobs } from "../../../../lib/server/delivery-worker";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    return NextResponse.json(await processDueDeliveryJobs());
+    const delivery = await processDueDeliveryJobs();
+    const authCleanup = await removeExpiredAuthRecords();
+    return NextResponse.json({ ...delivery, authCleanup });
   } catch {
     return NextResponse.json(
       { error: "The delivery worker could not complete this run." },

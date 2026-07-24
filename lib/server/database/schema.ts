@@ -40,6 +40,25 @@ export const authChallengeKindEnum = pgEnum("auth_challenge_kind", [
   "signup_verification",
   "password_reset",
 ]);
+export const organizationInviteStatusEnum = pgEnum("organization_invite_status", [
+  "pending",
+  "accepted",
+  "revoked",
+  "expired",
+]);
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "none",
+  "trialing",
+  "active",
+  "past_due",
+  "canceled",
+  "incomplete",
+]);
+export const channelProviderEnum = pgEnum("channel_provider", ["resend", "twilio"]);
+export const channelCredentialStatusEnum = pgEnum("channel_credential_status", [
+  "connected",
+  "invalid",
+]);
 export const campaignExecutionStatusEnum = pgEnum(
   "campaign_execution_status",
   campaignExecutionStatuses,
@@ -144,6 +163,36 @@ export const authChallenges = pgTable(
       table.createdAt,
     ),
     index("auth_challenges_expiry_idx").on(table.expiresAt),
+  ],
+);
+
+export const organizationInvites = pgTable(
+  "organization_invites",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    invitedByUserId: text("invited_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    email: text("email").notNull(),
+    normalizedEmail: text("normalized_email").notNull(),
+    role: membershipRoleEnum("role").default("member").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    status: organizationInviteStatusEnum("status").default("pending").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("organization_invites_token_hash_unique").on(table.tokenHash),
+    index("organization_invites_org_status_idx").on(
+      table.organizationId,
+      table.status,
+    ),
+    index("organization_invites_email_idx").on(table.normalizedEmail),
   ],
 );
 
@@ -382,6 +431,35 @@ export const outreachMessages = pgTable(
     ),
   ],
 );
+
+export const organizationChannelCredentials = pgTable(
+  "organization_channel_credentials",
+  {
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    provider: channelProviderEnum("provider").notNull(),
+    encryptedPayload: text("encrypted_payload").notNull(),
+    status: channelCredentialStatusEnum("status").default("connected").notNull(),
+    lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.provider] })],
+);
+
+export const organizationBilling = pgTable("organization_billing", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  planId: text("plan_id"),
+  status: subscriptionStatusEnum("status").default("none").notNull(),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const organizationSendingSettings = pgTable(
   "organization_sending_settings",

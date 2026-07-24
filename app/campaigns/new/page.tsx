@@ -2,6 +2,7 @@ import { CampaignWizard } from "../../../components/campaign-wizard";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+export const metadata = { title: "New campaign · VranceFlex" };
 export const dynamic = "force-dynamic";
 
 export default async function NewCampaignPage({ searchParams }: { searchParams: SearchParams }) {

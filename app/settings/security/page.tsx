@@ -4,6 +4,7 @@ import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 import { hasDatabaseConfiguration } from "../../../lib/server/database";
 
+export const metadata = { title: "API security · VranceFlex" };
 export const dynamic = "force-dynamic";
 
 export default async function SecurityPage() {
@@ -17,6 +18,7 @@ export default async function SecurityPage() {
 
   return (
     <AppShell
+      activeHref="/settings"
       authConfigured={isAuthConfigured()}
       eyebrow="WORKSPACE CONTROL"
       title="API security"

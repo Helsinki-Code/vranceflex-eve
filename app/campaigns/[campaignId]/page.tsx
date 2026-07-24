@@ -7,6 +7,7 @@ type PageContext = {
   params: Promise<{ campaignId: string }>;
 };
 
+export const metadata = { title: "Review workspace · VranceFlex" };
 export const dynamic = "force-dynamic";
 
 export default async function CampaignPage({ params }: PageContext) {

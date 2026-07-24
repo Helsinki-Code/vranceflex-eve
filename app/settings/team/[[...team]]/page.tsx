@@ -1,14 +1,12 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { ArrowLeft, ShieldCheck, UsersRound } from "lucide-react";
 import { AppShell } from "../../../../components/app-shell";
+import { TeamManagementPanel } from "../../../../components/team-management-panel";
 import { isAuthConfigured } from "../../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../../lib/auth/page-actor";
 import { getDatabase } from "../../../../lib/server/database";
-import {
-  organizationMemberships,
-  organizations,
-  users,
-} from "../../../../lib/server/database/schema";
+import { organizations } from "../../../../lib/server/database/schema";
+import { listMembers, listPendingInvites } from "../../../../lib/server/team-store";
 
 export const metadata = { title: "Team settings · VranceFlex" };
 export const dynamic = "force-dynamic";
@@ -21,23 +19,9 @@ export default async function TeamSettingsPage() {
     .from(organizations)
     .where(eq(organizations.id, actor.organizationId))
     .limit(1);
-  const members = await database
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: organizationMemberships.role,
-      verifiedAt: users.emailVerifiedAt,
-    })
-    .from(organizationMemberships)
-    .innerJoin(
-      users,
-      and(
-        eq(users.id, organizationMemberships.userId),
-        eq(organizationMemberships.organizationId, actor.organizationId),
-      ),
-    )
-    .where(eq(organizationMemberships.organizationId, actor.organizationId));
+  const isAdmin = actor.organizationRole === "admin";
+  const members = await listMembers(actor);
+  const invites = isAdmin ? await listPendingInvites(actor) : [];
 
   return (
     <AppShell
@@ -58,19 +42,23 @@ export default async function TeamSettingsPage() {
             <p>Every campaign, lead and approval is isolated to this organization.</p>
           </div>
         </div>
-        <div className="team-member-list">
-          {members.map((member) => (
-            <article key={member.id}>
-              <span>{(member.name ?? member.email ?? "U").slice(0, 2).toUpperCase()}</span>
-              <div>
-                <strong>{member.name ?? "Workspace member"}</strong>
-                <small>{member.email}</small>
-              </div>
-              <em>{member.role}</em>
-              <i><ShieldCheck size={14} /> {member.verifiedAt ? "Verified" : "Pending"}</i>
-            </article>
-          ))}
-        </div>
+        <TeamManagementPanel
+          currentUserId={actor.userId}
+          initialInvites={invites.map((invite) => ({
+            id: invite.id,
+            email: invite.email,
+            role: invite.role,
+            expiresAt: invite.expiresAt.toISOString(),
+          }))}
+          initialMembers={members.map((member) => ({
+            id: member.id,
+            name: member.name,
+            email: member.email,
+            role: member.role,
+            verifiedAt: member.verifiedAt ? member.verifiedAt.toISOString() : null,
+          }))}
+          isAdmin={isAdmin}
+        />
       </section>
       <div className="truth-banner">
         <ShieldCheck size={18} />

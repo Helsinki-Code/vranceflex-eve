@@ -5,6 +5,7 @@ import {
   messageIdFromRecipients,
   normalizeEmailAddress,
 } from "./reply-address";
+import { suppressLeadForUnsubscribe } from "./suppression";
 import { getDatabase } from "./database";
 import {
   auditEvents,
@@ -15,7 +16,6 @@ import {
   outreachMessages,
   outreachSequences,
   providerEvents,
-  suppressionEntries,
 } from "./database/schema";
 
 export type InboundEmailInput = {
@@ -28,6 +28,9 @@ export type InboundEmailInput = {
   text: string;
   html: string | null;
   receivedAt: Date;
+  /** Org the connected-account webhook URL belongs to; a resolved message
+   * for a different org means this event doesn't belong to that webhook. */
+  expectedOrganizationId: string;
 };
 
 export async function persistInboundEmailReply(input: InboundEmailInput) {
@@ -50,6 +53,9 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
     .where(eq(outreachMessages.id, messageId))
     .limit(1);
   if (!context) return { linked: false as const, reason: "unknown_message" };
+  if (context.message.organizationId !== input.expectedOrganizationId) {
+    return { linked: false as const, reason: "organization_mismatch" };
+  }
   if (
     !context.lead.email ||
     normalizeEmailAddress(input.from) !==
@@ -159,65 +165,14 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
         ),
       );
     if (suppress) {
-      await transaction
-        .update(leads)
-        .set({ doNotContact: true, status: "suppressed", updatedAt: now })
-        .where(eq(leads.id, context.lead.id));
-      await transaction
-        .update(outreachSequences)
-        .set({ status: "stopped", updatedAt: now })
-        .where(
-          and(
-            eq(outreachSequences.leadId, context.lead.id),
-            inArray(outreachSequences.status, [
-              "draft",
-              "awaiting_approval",
-              "approved",
-              "scheduled",
-              "active",
-              "paused",
-            ]),
-          ),
-        );
-      await transaction
-        .update(outreachMessages)
-        .set({
-          status: "cancelled",
-          lastError: "All future outreach stopped after an unsubscribe request.",
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(outreachMessages.leadId, context.lead.id),
-            inArray(outreachMessages.status, ["draft", "approved", "scheduled"]),
-          ),
-        );
-      await transaction
-        .update(deliveryJobs)
-        .set({
-          status: "cancelled",
-          lastError: "All future outreach stopped after an unsubscribe request.",
-          completedAt: now,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(deliveryJobs.leadId, context.lead.id),
-            inArray(deliveryJobs.status, ["queued", "retry"]),
-          ),
-        );
-      await transaction
-        .insert(suppressionEntries)
-        .values({
-          id: crypto.randomUUID(),
-          organizationId: context.message.organizationId,
-          leadId: context.lead.id,
-          channel: "email",
-          destination: normalizeEmailAddress(context.lead.email!),
-          reason: "unsubscribe",
-          source: "resend_inbound",
-        })
-        .onConflictDoNothing();
+      await suppressLeadForUnsubscribe(transaction, {
+        organizationId: context.message.organizationId,
+        leadId: context.lead.id,
+        email: context.lead.email!,
+        source: "resend_inbound",
+        campaignId: context.message.campaignId,
+        writeAuditEvent: false,
+      });
     }
     await transaction.insert(auditEvents).values({
       id: crypto.randomUUID(),

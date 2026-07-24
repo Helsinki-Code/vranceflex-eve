@@ -1,17 +1,23 @@
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
+import { getOrgResendCredentials } from "../../../../../lib/server/channel-credentials";
 import {
   processResendWebhook,
   type ResendWebhookEvent,
-} from "../../../../lib/server/resend-webhook";
+} from "../../../../../lib/server/resend-webhook";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
-  const secret = process.env.RESEND_WEBHOOK_SECRET?.trim();
-  if (!secret) {
+type RouteContext = {
+  params: Promise<{ organizationId: string }>;
+};
+
+export async function POST(request: Request, context: RouteContext) {
+  const { organizationId } = await context.params;
+  const credentials = await getOrgResendCredentials(organizationId);
+  if (!credentials) {
     return NextResponse.json(
-      { error: "Resend webhook verification is not configured." },
+      { error: "This workspace has not connected a Resend account." },
       { status: 503 },
     );
   }
@@ -26,7 +32,7 @@ export async function POST(request: Request) {
   const body = await request.text();
   let event: ResendWebhookEvent;
   try {
-    event = new Webhook(secret).verify(body, {
+    event = new Webhook(credentials.webhookSecret).verify(body, {
       "svix-id": providerEventId,
       "svix-timestamp": timestamp,
       "svix-signature": signature,
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
 
   try {
     return NextResponse.json(
-      await processResendWebhook(providerEventId, event),
+      await processResendWebhook(providerEventId, event, organizationId, credentials.apiKey),
     );
   } catch {
     return NextResponse.json(

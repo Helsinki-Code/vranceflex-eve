@@ -28,30 +28,11 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
     },
     {
       id: "email",
-      name: "Resend email",
-      description: "Authentication OTPs and approved outreach delivery",
+      name: "Resend email (platform account)",
+      description: "Authentication OTPs and team-invite email only. Outreach email uses each client's own connected Resend account below.",
       configured:
         configured("RESEND_API_KEY") &&
         configured("RESEND_FROM_EMAIL"),
-      required: true,
-    },
-    {
-      id: "sms",
-      name: "Twilio SMS",
-      description: "Approved sender, delivery tracking and inbound replies",
-      configured:
-        configured("TWILIO_ACCOUNT_SID") &&
-        configured("TWILIO_AUTH_TOKEN") &&
-        configured("TWILIO_MESSAGING_SERVICE_SID"),
-      required: false,
-    },
-    {
-      id: "email-replies",
-      name: "Inbound email replies",
-      description: "Reply routing, verified webhooks and automatic sequence pausing",
-      configured:
-        configured("RESEND_REPLY_DOMAIN") &&
-        configured("RESEND_WEBHOOK_SECRET"),
       required: true,
     },
     {

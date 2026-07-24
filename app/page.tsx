@@ -62,22 +62,22 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="hero-console-wrap" aria-label="Live VranceFlex campaign activity">
+        <div className="hero-console-wrap" aria-label="Example VranceFlex campaign workflow">
           <div className="console-glow" />
           <div className="hero-console">
             <div className="console-head">
               <div>
-                <span className="console-kicker">ACTIVE CAMPAIGN</span>
+                <span className="console-kicker">EXAMPLE CAMPAIGN</span>
                 <strong>Northstar / Europe</strong>
               </div>
-              <span className="live-pill"><i /> Live</span>
+              <span className="live-pill"><i /> Example</span>
             </div>
             <div className="console-stats">
               <div><span>Target</span><strong>25 leads</strong></div>
               <div><span>Confidence</span><strong>High</strong></div>
               <div><span>Stage</span><strong>Enriching</strong></div>
             </div>
-            <div className="stack-label"><span>Agent activity</span><span>hover to inspect</span></div>
+            <div className="stack-label"><span>Agent activity</span><span>illustrative example, hover to inspect</span></div>
             <AgentActivityStack />
             <div className="console-foot">
               <span><ShieldCheck size={15} /> Approval required before outreach</span>

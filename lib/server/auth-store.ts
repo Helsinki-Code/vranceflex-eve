@@ -481,6 +481,16 @@ export async function revokeCurrentSession() {
 export async function removeExpiredAuthRecords() {
   const database = getDatabase();
   const now = new Date();
-  await database.delete(authChallenges).where(lt(authChallenges.expiresAt, now));
-  await database.delete(authSessions).where(lt(authSessions.expiresAt, now));
+  const expiredChallenges = await database
+    .delete(authChallenges)
+    .where(lt(authChallenges.expiresAt, now))
+    .returning({ id: authChallenges.id });
+  const expiredSessions = await database
+    .delete(authSessions)
+    .where(lt(authSessions.expiresAt, now))
+    .returning({ id: authSessions.id });
+  return {
+    expiredChallengesRemoved: expiredChallenges.length,
+    expiredSessionsRemoved: expiredSessions.length,
+  };
 }

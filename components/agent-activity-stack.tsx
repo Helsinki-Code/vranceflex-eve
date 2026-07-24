@@ -14,7 +14,7 @@ const activity: NotificationStackItem[] = [
     id: "enrichment",
     title: "17 of 25 contacts verified",
     description: "Parallel enrichment · email, phone and LinkedIn checked",
-    trailing: <span className="activity-running"><ScanSearch size={14} /> live</span>,
+    trailing: <span className="activity-running"><ScanSearch size={14} /> example</span>,
   },
   {
     id: "sequence",

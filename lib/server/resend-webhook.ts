@@ -123,16 +123,25 @@ async function reconcileCampaignAndSequence(
 export async function processResendWebhook(
   providerEventId: string,
   event: ResendWebhookEvent,
+  expectedOrganizationId: string,
+  orgResendApiKey: string,
 ) {
   const database = getDatabase();
   const providerMessageId = event.data?.email_id ?? null;
-  const [message] = providerMessageId
+  const [rawMessage] = providerMessageId
     ? await database
         .select()
         .from(outreachMessages)
         .where(eq(outreachMessages.providerMessageId, providerMessageId))
         .limit(1)
     : [];
+  // A message only ever belongs to the org whose own Resend account sent it —
+  // a mismatch here means this webhook URL is being hit with someone else's
+  // event, so treat it exactly like "no message found".
+  const message =
+    rawMessage && rawMessage.organizationId === expectedOrganizationId
+      ? rawMessage
+      : undefined;
   const occurredAt = new Date(event.created_at);
   const safeOccurredAt = Number.isNaN(occurredAt.getTime())
     ? new Date()
@@ -181,7 +190,7 @@ export async function processResendWebhook(
     event.data?.email_id &&
     event.data.from
   ) {
-    const content = await getReceivedEmailContent(event.data.email_id);
+    const content = await getReceivedEmailContent(event.data.email_id, orgResendApiKey);
     const reply = await persistInboundEmailReply({
       providerEventId,
       providerReplyId: event.data.email_id,
@@ -192,6 +201,7 @@ export async function processResendWebhook(
       text: content.text?.trim() || "",
       html: content.html ?? null,
       receivedAt: safeOccurredAt,
+      expectedOrganizationId,
     });
     await database
       .update(providerEvents)

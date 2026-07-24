@@ -1,8 +1,8 @@
 const replyAddressPattern =
   /^reply\+([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})@/i;
 
-export function getReplyToAddress(messageId: string) {
-  const domain = process.env.RESEND_REPLY_DOMAIN?.trim().toLowerCase();
+export function getReplyToAddress(messageId: string, replyDomain: string | null | undefined) {
+  const domain = replyDomain?.trim().toLowerCase();
   if (!domain || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain)) {
     return undefined;
   }

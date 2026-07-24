@@ -1,4 +1,4 @@
-import { assertResendConfigured, ResendDeliveryError } from "./resend-email";
+import { ResendDeliveryError } from "./resend-email";
 
 export type ReceivedEmailContent = {
   html?: string | null;
@@ -6,13 +6,14 @@ export type ReceivedEmailContent = {
   headers?: Record<string, string>;
 };
 
-export async function getReceivedEmailContent(emailId: string) {
-  assertResendConfigured();
+/** `apiKey` must be the org's own connected Resend API key — the received
+ * email lives in that org's Resend account, never the platform account. */
+export async function getReceivedEmailContent(emailId: string, apiKey: string) {
   const response = await fetch(
     `https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`,
     {
       headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`,
+        Authorization: `Bearer ${apiKey}`,
       },
     },
   );

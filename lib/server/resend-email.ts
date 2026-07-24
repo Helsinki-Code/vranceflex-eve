@@ -16,6 +16,11 @@ type ResendTag = {
   value: string;
 };
 
+export type ResendSendCredentials = {
+  apiKey: string;
+  fromEmail: string;
+};
+
 export type ResendEmailInput = {
   to: string | string[];
   subject: string;
@@ -24,8 +29,10 @@ export type ResendEmailInput = {
   replyTo?: string;
   tags?: ResendTag[];
   idempotencyKey?: string;
+  headers?: Record<string, string>;
 };
 
+/** Only for platform-account email (auth OTPs, team invites) — never outreach. */
 export function assertResendConfigured() {
   if (!isResendConfigured()) {
     throw new ResendConfigurationError(
@@ -34,26 +41,39 @@ export function assertResendConfigured() {
   }
 }
 
-export async function sendResendEmail(input: ResendEmailInput) {
+/** Only for platform-account email (auth OTPs, team invites) — never outreach. */
+export function platformResendCredentials(): ResendSendCredentials {
   assertResendConfigured();
+  return {
+    apiKey: process.env.RESEND_API_KEY!.trim(),
+    fromEmail: process.env.RESEND_FROM_EMAIL!.trim(),
+  };
+}
 
+export async function sendResendEmail(
+  credentials: ResendSendCredentials,
+  input: ResendEmailInput,
+) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`,
+      Authorization: `Bearer ${credentials.apiKey}`,
       "Content-Type": "application/json",
       ...(input.idempotencyKey
         ? { "Idempotency-Key": input.idempotencyKey }
         : {}),
     },
     body: JSON.stringify({
-      from: process.env.RESEND_FROM_EMAIL!.trim(),
+      from: credentials.fromEmail,
       to: Array.isArray(input.to) ? input.to : [input.to],
       subject: input.subject,
       text: input.text,
       ...(input.html ? { html: input.html } : {}),
       ...(input.replyTo ? { reply_to: input.replyTo } : {}),
       ...(input.tags?.length ? { tags: input.tags } : {}),
+      ...(input.headers && Object.keys(input.headers).length
+        ? { headers: input.headers }
+        : {}),
     }),
   });
 

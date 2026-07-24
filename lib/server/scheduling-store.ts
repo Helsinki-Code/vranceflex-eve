@@ -3,6 +3,7 @@ import type { z } from "zod";
 import {
   scheduleSequencesSchema,
 } from "../domain/pipeline";
+import { getOrgResendCredentials, getOrgTwilioCredentials } from "./channel-credentials";
 import type { ApiActor } from "./api-actor";
 import { AuthRequestError } from "./auth-errors";
 import { getDatabase } from "./database";
@@ -90,27 +91,44 @@ export async function scheduleCampaignSequences(
         409,
       );
     }
-    if (selected.some(({ sequence }) => sequence.channel !== "email")) {
+    const hasEmailSequences = selected.some(({ sequence }) => sequence.channel === "email");
+    const hasSmsSequences = selected.some(({ sequence }) => sequence.channel === "sms");
+    if (hasEmailSequences && !(await getOrgResendCredentials(actor.organizationId))) {
       throw new AuthRequestError(
-        "SMS scheduling becomes available after the Twilio sender is connected.",
+        "Connect this workspace's Resend account in Settings → Integrations before scheduling email outreach.",
+        409,
+      );
+    }
+    if (hasSmsSequences && !(await getOrgTwilioCredentials(actor.organizationId))) {
+      throw new AuthRequestError(
+        "Connect this workspace's Twilio account in Settings → Integrations before scheduling SMS outreach.",
         409,
       );
     }
     if (
-      selected.some(
-        ({ lead }) => lead.doNotContact || !lead.email || !lead.emailVerified,
-      )
+      selected.some(({ sequence, lead }) => {
+        if (lead.doNotContact) return true;
+        return sequence.channel === "sms"
+          ? !lead.phone || !lead.phoneVerified
+          : !lead.email || !lead.emailVerified;
+      })
     ) {
       throw new AuthRequestError(
-        "Every selected lead needs a verified email and must be eligible for contact.",
+        "Every selected lead needs a verified contact address for its channel and must be eligible for contact.",
         409,
       );
     }
 
-    const destinations = selected
+    const emailDestinations = selected
+      .filter(({ sequence }) => sequence.channel === "email")
       .map(({ lead }) => lead.email?.trim().toLowerCase())
       .filter((email): email is string => Boolean(email));
-    if (destinations.length) {
+    const smsDestinations = selected
+      .filter(({ sequence }) => sequence.channel === "sms")
+      .map(({ lead }) => lead.phone?.trim())
+      .filter((phone): phone is string => Boolean(phone));
+
+    if (emailDestinations.length) {
       const suppressed = await transaction
         .select({ destination: suppressionEntries.destination })
         .from(suppressionEntries)
@@ -118,7 +136,25 @@ export async function scheduleCampaignSequences(
           and(
             eq(suppressionEntries.organizationId, actor.organizationId),
             eq(suppressionEntries.channel, "email"),
-            inArray(suppressionEntries.destination, destinations),
+            inArray(suppressionEntries.destination, emailDestinations),
+          ),
+        );
+      if (suppressed.length) {
+        throw new AuthRequestError(
+          "A selected recipient is permanently suppressed.",
+          409,
+        );
+      }
+    }
+    if (smsDestinations.length) {
+      const suppressed = await transaction
+        .select({ destination: suppressionEntries.destination })
+        .from(suppressionEntries)
+        .where(
+          and(
+            eq(suppressionEntries.organizationId, actor.organizationId),
+            eq(suppressionEntries.channel, "sms"),
+            inArray(suppressionEntries.destination, smsDestinations),
           ),
         );
       if (suppressed.length) {

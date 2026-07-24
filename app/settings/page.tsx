@@ -3,6 +3,7 @@ import { AppShell } from "../../components/app-shell";
 import { isAuthConfigured } from "../../lib/auth/config";
 import { requireWorkspacePage } from "../../lib/auth/page-actor";
 
+export const metadata = { title: "Settings · VranceFlex" };
 export const dynamic = "force-dynamic";
 
 const settings = [
@@ -18,6 +19,7 @@ export default async function SettingsPage() {
 
   return (
     <AppShell
+      activeHref="/settings"
       authConfigured={isAuthConfigured()}
       eyebrow="WORKSPACE CONTROL"
       title="Settings"

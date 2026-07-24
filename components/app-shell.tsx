@@ -1,4 +1,4 @@
-import { BarChart3, Layers3, LogOut, MessageSquareText, Settings2, Users } from "lucide-react";
+import { BarChart3, LogOut, MessageSquareText, Settings2, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { AuthWorkspaceControls } from "./auth-workspace-controls";
 import { ThemeToggle } from "./motion/theme-toggle";
@@ -6,7 +6,6 @@ import { ThemeToggle } from "./motion/theme-toggle";
 const links = [
   ["Campaigns", "/dashboard", BarChart3],
   ["Leads", "/leads", Users],
-  ["Sequences", "/dashboard#sequences", Layers3],
   ["Replies", "/replies", MessageSquareText],
   ["Settings", "/settings", Settings2],
 ] as const;
