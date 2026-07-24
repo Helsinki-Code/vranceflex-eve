@@ -23,6 +23,7 @@ import {
 } from "../lib/domain/campaign";
 import type {
   CampaignExecution,
+  CampaignProgressEvent,
   OutreachWorkspaceMessage,
   OutreachWorkspaceSequence,
 } from "../lib/domain/pipeline";
@@ -31,8 +32,139 @@ type WorkspacePayload = {
   campaign: Campaign;
   execution: CampaignExecution | null;
   sequences: OutreachWorkspaceSequence[];
+  progress?: CampaignProgressEvent[];
   error?: string;
 };
+
+const pipelineSteps = [
+  ["queued", "Queued"],
+  ["researching", "Researching market"],
+  ["enriching", "Verifying leads"],
+  ["copy_generated", "Drafting outreach"],
+  ["awaiting_approval", "Ready for review"],
+] as const;
+
+function relativeTime(iso: string, now: number) {
+  const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1_000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
+}
+
+function elapsedSince(iso: string | null, now: number) {
+  if (!iso) return null;
+  const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1_000));
+  const minutes = Math.floor(seconds / 60);
+  return minutes < 1
+    ? `${seconds}s`
+    : `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
+const STALL_THRESHOLD_MS = 10 * 60 * 1_000;
+
+function ExecutionProgressPanel({
+  execution,
+  progress,
+  onRetry,
+  retryBusy,
+}: {
+  execution: CampaignExecution;
+  progress: CampaignProgressEvent[];
+  onRetry: () => void;
+  retryBusy: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const currentIndex = Math.max(
+    0,
+    pipelineSteps.findIndex(([stage]) => stage === execution.stage),
+  );
+  const elapsed = elapsedSince(execution.startedAt ?? execution.createdAt, now);
+  const recent = progress.slice(-6);
+  const lastActivityAt = Math.max(
+    new Date(execution.updatedAt).getTime(),
+    ...progress.map((event) => new Date(event.createdAt).getTime()),
+  );
+  const stalled = now - lastActivityAt > STALL_THRESHOLD_MS;
+
+  return (
+    <section className="pipeline-live-card execution-progress">
+      <header>
+        <span><LoaderCircle className="spin" size={20} /></span>
+        <div>
+          <strong>Eve is preparing this campaign</strong>
+          <p>Live progress from the agents working on your leads. Nothing is sent without your approval.</p>
+        </div>
+        <small>
+          {elapsed ? `Running ${elapsed}` : null}
+          {execution.attempt > 1 ? ` · attempt ${execution.attempt}` : ""}
+        </small>
+      </header>
+
+      <ol className="execution-steps">
+        {pipelineSteps.map(([stage, label], index) => (
+          <li
+            className={
+              index < currentIndex
+                ? "done"
+                : index === currentIndex
+                  ? "current"
+                  : ""
+            }
+            key={stage}
+          >
+            <span>
+              {index < currentIndex ? (
+                <Check size={12} />
+              ) : index === currentIndex ? (
+                <LoaderCircle className="spin" size={12} />
+              ) : (
+                <CircleDashed size={12} />
+              )}
+            </span>
+            {label}
+          </li>
+        ))}
+      </ol>
+
+      {recent.length > 0 && (
+        <ul aria-live="polite" className="execution-feed">
+          {recent.map((event, index) => (
+            <li className={index === recent.length - 1 ? "latest" : ""} key={event.id}>
+              <span>{event.message}</span>
+              <time dateTime={event.createdAt}>{relativeTime(event.createdAt, now)}</time>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {stalled && (
+        <div className="execution-stalled" role="status">
+          <AlertCircle size={15} />
+          <p>
+            No updates for {Math.floor((now - lastActivityAt) / 60_000)} minutes —
+            this run may have stalled. Retrying is safe: nothing is sent without
+            your approval.
+          </p>
+          <button
+            className="button-secondary compact"
+            disabled={retryBusy}
+            onClick={onRetry}
+            type="button"
+          >
+            {retryBusy ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
+            Retry research
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
 
 type MessageDraft = Pick<
   OutreachWorkspaceMessage,
@@ -290,17 +422,12 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
       {error && <div className="form-error" role="alert">{error}</div>}
 
       {processing && (
-        <section className="pipeline-live-card">
-          <span><LoaderCircle className="spin" size={20} /></span>
-          <div>
-            <strong>Eve is preparing this campaign</strong>
-            <p>
-              Current stage: {execution.stage.replaceAll("_", " ")}. This page
-              refreshes automatically; nothing is being sent.
-            </p>
-          </div>
-          <small>Attempt {execution.attempt}</small>
-        </section>
+        <ExecutionProgressPanel
+          execution={execution}
+          onRetry={() => void retryExecution()}
+          progress={payload.progress ?? []}
+          retryBusy={busyAction === "retry"}
+        />
       )}
 
       {failed && (

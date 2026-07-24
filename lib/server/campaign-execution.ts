@@ -4,7 +4,7 @@ import type { Campaign } from "../domain/campaign";
 import type { ApiActor } from "./api-actor";
 import { getDatabase } from "./database";
 import { campaignExecutions } from "./database/schema";
-import { getCampaignExecution } from "./pipeline-store";
+import { getCampaignExecution, recordCampaignProgress } from "./pipeline-store";
 
 function executionPrompt(campaign: Campaign) {
   return [
@@ -127,6 +127,12 @@ export async function startCampaignExecution({
   }
 
   const database = getDatabase();
+  await recordCampaignProgress(database, {
+    organizationId: actor.organizationId,
+    campaignId: campaign.id,
+    stage: "queued",
+    message: "Campaign accepted. Preparing the research run…",
+  });
   try {
     const client = new Client({
       host: origin,
@@ -153,6 +159,14 @@ export async function startCampaignExecution({
         updatedAt: now,
       })
       .where(eq(campaignExecutions.id, prepared.id));
+
+    await recordCampaignProgress(database, {
+      organizationId: actor.organizationId,
+      campaignId: campaign.id,
+      stage: "researching",
+      message:
+        "Eve's Lead Researcher is analyzing your product and market to map ideal customer profiles.",
+    });
   } catch (error) {
     const now = new Date();
     await database
@@ -169,6 +183,12 @@ export async function startCampaignExecution({
         updatedAt: now,
       })
       .where(eq(campaignExecutions.id, prepared.id));
+    await recordCampaignProgress(database, {
+      organizationId: actor.organizationId,
+      campaignId: campaign.id,
+      stage: "start_failed",
+      message: "The research run could not start. Use Retry research to run it again.",
+    });
     throw error;
   }
 

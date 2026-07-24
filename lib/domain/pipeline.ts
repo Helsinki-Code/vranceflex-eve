@@ -167,6 +167,15 @@ export const campaignExecutionSchema = z.object({
 
 export type CampaignExecution = z.infer<typeof campaignExecutionSchema>;
 
+export const campaignProgressEventSchema = z.object({
+  id: z.string().uuid(),
+  stage: z.string(),
+  message: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+export type CampaignProgressEvent = z.infer<typeof campaignProgressEventSchema>;
+
 export const outreachMessageUpdateSchema = z.object({
   subject: z.string().trim().max(200).nullable(),
   subjectVariant: z.string().trim().max(200).nullable(),

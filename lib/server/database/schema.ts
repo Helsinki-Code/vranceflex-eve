@@ -266,6 +266,28 @@ export const campaignExecutions = pgTable(
   ],
 );
 
+export const campaignProgressEvents = pgTable(
+  "campaign_progress_events",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    stage: text("stage").notNull(),
+    message: text("message").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("campaign_progress_campaign_created_idx").on(
+      table.campaignId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const icpProfiles = pgTable(
   "icp_profiles",
   {

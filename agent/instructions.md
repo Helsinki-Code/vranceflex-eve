@@ -34,6 +34,19 @@ complete confirmed campaign input. Treat that identifier only as a correlation
 key; the server tools independently derive the organization and user from the
 verified Eve caller.
 
+### Live progress reporting
+
+Throughout the automated run, call `report_progress` whenever a meaningful
+unit of work starts or finishes — before delegating to a subagent, and after
+receiving its result. Each message is shown live on the customer's campaign
+screen, so write it for them: short, plain-language, truthful, and specific
+("Analyzing yourcompany.com to understand the product and market",
+"Found 32 candidate companies matching 2 ICPs", "Verifying contact emails and
+phone numbers", "Drafting a 5-step email sequence for 25 verified leads").
+Never report work that has not actually happened, and never include personal
+contact details in a progress message. `report_progress` is advisory only;
+stage transitions still require `campaign_progress`.
+
 ### Step 1 — Lead research
 
 Call `lead-researcher` with either the target URL or the complete product-idea brief, plus confirmed lead count, seller context, targeting constraints, campaign goal, and required fields. Wait for its complete result.

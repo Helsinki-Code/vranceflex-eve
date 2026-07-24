@@ -1,10 +1,15 @@
-import { and, eq } from "drizzle-orm";
-import type { CampaignArtifacts, CampaignExecution } from "../domain/pipeline";
+import { and, asc, eq } from "drizzle-orm";
+import type {
+  CampaignArtifacts,
+  CampaignExecution,
+  CampaignProgressEvent,
+} from "../domain/pipeline";
 import { campaignArtifactsSchema } from "../domain/pipeline";
 import { getDatabase } from "./database";
 import {
   auditEvents,
   campaignExecutions,
+  campaignProgressEvents,
   campaigns,
   enrichmentEvidence,
   icpProfiles,
@@ -43,6 +48,90 @@ function mapExecution(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+type ProgressWriter = Pick<ReturnType<typeof getDatabase>, "insert">;
+
+// Progress events are advisory UI telemetry: written inside the same
+// transaction when one is available, but a write failure must never abort
+// the pipeline work it narrates.
+export async function recordCampaignProgress(
+  db: ProgressWriter,
+  input: {
+    organizationId: string;
+    campaignId: string;
+    stage: string;
+    message: string;
+  },
+) {
+  try {
+    await db.insert(campaignProgressEvents).values({
+      id: crypto.randomUUID(),
+      organizationId: input.organizationId,
+      campaignId: input.campaignId,
+      stage: input.stage,
+      message: input.message.slice(0, 500),
+    });
+  } catch {
+    // Never let a progress write break the pipeline.
+  }
+}
+
+export async function recordCampaignProgressForActor(
+  actor: PipelineActor,
+  campaignId: string,
+  stage: string,
+  message: string,
+) {
+  const database = getDatabase();
+  const [campaign] = await database
+    .select({ id: campaigns.id })
+    .from(campaigns)
+    .where(
+      and(
+        eq(campaigns.id, campaignId),
+        eq(campaigns.organizationId, actor.organizationId),
+      ),
+    )
+    .limit(1);
+  if (!campaign) throw new Error("Campaign was not found in this workspace.");
+
+  await recordCampaignProgress(database, {
+    organizationId: actor.organizationId,
+    campaignId,
+    stage,
+    message,
+  });
+  return { recorded: true as const };
+}
+
+export async function listCampaignProgress(
+  campaignId: string,
+  organizationId: string,
+  limit = 40,
+): Promise<CampaignProgressEvent[]> {
+  const rows = await getDatabase()
+    .select({
+      id: campaignProgressEvents.id,
+      stage: campaignProgressEvents.stage,
+      message: campaignProgressEvents.message,
+      createdAt: campaignProgressEvents.createdAt,
+    })
+    .from(campaignProgressEvents)
+    .where(
+      and(
+        eq(campaignProgressEvents.campaignId, campaignId),
+        eq(campaignProgressEvents.organizationId, organizationId),
+      ),
+    )
+    .orderBy(asc(campaignProgressEvents.createdAt))
+    .limit(limit);
+  return rows.map((row) => ({
+    id: row.id,
+    stage: row.stage,
+    message: row.message,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }
 
 export async function getCampaignExecution(
@@ -136,6 +225,13 @@ export async function markCampaignPipelineStage(
       entityType: "campaign",
       entityId: campaignId,
       metadata: { stage, note: note.slice(0, 500) },
+    });
+
+    await recordCampaignProgress(transaction, {
+      organizationId: actor.organizationId,
+      campaignId,
+      stage,
+      message: note,
     });
 
     return { campaignId, status: stage, unchanged: false };
@@ -392,6 +488,13 @@ export async function persistCampaignArtifacts(
         messageCount: messageRows.length,
         status: "awaiting_approval",
       },
+    });
+
+    await recordCampaignProgress(transaction, {
+      organizationId: actor.organizationId,
+      campaignId: input.campaignId,
+      stage: "awaiting_approval",
+      message: `Research complete: ${input.icps.length} ICP${input.icps.length === 1 ? "" : "s"}, ${input.leads.length} verified lead${input.leads.length === 1 ? "" : "s"} and ${input.sequences.length} drafted sequence${input.sequences.length === 1 ? "" : "s"} are ready for your review.`,
     });
 
     return {

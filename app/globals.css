@@ -2863,6 +2863,139 @@ button:disabled {
   line-height: 1.5;
 }
 
+.execution-progress {
+  display: block;
+}
+
+.execution-progress header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.execution-progress header > span {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--lime);
+  color: #0d1e18;
+}
+
+.execution-progress header small {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.execution-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.execution-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid rgba(var(--ink-rgb), 0.14);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 760;
+  color: rgba(var(--ink-rgb), 0.45);
+}
+
+.execution-steps li > span {
+  display: grid;
+  place-items: center;
+}
+
+.execution-steps li.done {
+  color: rgba(var(--ink-rgb), 0.72);
+  border-color: rgba(76, 128, 43, 0.4);
+}
+
+.execution-steps li.done > span {
+  color: #4e8c22;
+}
+
+.execution-steps li.current {
+  color: var(--ink);
+  border-color: rgba(76, 128, 43, 0.55);
+  background: rgba(201, 255, 114, 0.35);
+}
+
+.execution-feed {
+  display: grid;
+  gap: 7px;
+  margin: 15px 0 0;
+  padding: 13px 0 0;
+  border-top: 1px solid rgba(var(--ink-rgb), 0.12);
+  list-style: none;
+}
+
+.execution-feed li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 11px;
+  color: rgba(var(--ink-rgb), 0.55);
+  line-height: 1.5;
+}
+
+.execution-feed li.latest {
+  color: var(--ink);
+  font-weight: 640;
+}
+
+.execution-feed time {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(var(--ink-rgb), 0.4);
+}
+
+.dark .execution-steps li.current {
+  background: rgba(201, 255, 114, 0.16);
+}
+
+.execution-stalled {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 15px;
+  padding: 12px 14px;
+  border: 1px solid rgba(179, 83, 47, 0.35);
+  background: rgba(255, 138, 76, 0.12);
+  border-radius: 11px;
+}
+
+.execution-stalled svg {
+  flex: 0 0 auto;
+  color: #b3532f;
+}
+
+.execution-stalled p {
+  flex: 1;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: rgba(var(--ink-rgb), 0.72);
+}
+
+.execution-stalled .button-secondary {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .approval-toolbar {
   display: flex;
   align-items: flex-end;
