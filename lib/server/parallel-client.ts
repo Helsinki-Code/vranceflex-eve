@@ -72,9 +72,13 @@ export async function entitySearch(input: {
   objective: string;
   matchLimit: number;
 }) {
+  // No parallel-beta header here: Parallel's documented Entity Search
+  // contract only requires x-api-key + Content-Type. That beta flag is
+  // specific to the older async findall/runs workflow; sending it on this
+  // endpoint isn't documented and risks the request being interpreted
+  // under the wrong contract.
   return parallelRequest<EntitySearchResult>("/v1beta/findall/entity-search", {
     method: "POST",
-    beta: true,
     body: JSON.stringify({
       entity_type: input.entityType,
       objective: input.objective,

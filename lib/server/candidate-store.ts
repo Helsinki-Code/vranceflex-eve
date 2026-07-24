@@ -60,11 +60,18 @@ function mapCandidate(row: typeof campaignCandidates.$inferSelect): CandidateSum
 }
 
 function discoveryObjective(campaign: Campaign) {
-  return [
-    `Decision makers matching: ${campaign.audience}.`,
-    `They should be relevant buyers for ${campaign.productName} — ${campaign.productSummary.slice(0, 300)}.`,
-    `Geography: ${campaign.geography}.`,
-  ].join(" ");
+  // Entity Search wants a direct, punchy description of WHO to find —
+  // e.g. "CEOs or Founders of AI startups in USA founded after 2022".
+  // Folding in the seller's own product pitch (what we tried before) turns
+  // this into an over-constrained compound filter that matches almost no
+  // one, since Entity Search has no separate match_conditions array the way
+  // the old FindAll runs did — it's a single freeform objective.
+  const geography = campaign.geography.trim();
+  const includeGeography =
+    geography && !/^(global|worldwide|anywhere|no preference)$/i.test(geography);
+  return [campaign.audience.trim(), includeGeography ? `in ${geography}` : null]
+    .filter(Boolean)
+    .join(", ");
 }
 
 async function requireCampaign(actor: ApiActor, campaignId: string) {

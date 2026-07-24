@@ -187,11 +187,13 @@ function CandidateWorkspacePanel({
   busyAction,
   onVerify,
   onApprove,
+  onRediscover,
 }: {
   candidates: CandidateSummary[];
   busyAction: string;
   onVerify: (candidateIds: string[]) => void;
   onApprove: (candidateIds: string[]) => void;
+  onRediscover: () => void;
 }) {
   const discovered = candidates.filter((candidate) => candidate.status === "discovered");
   const enriching = candidates.filter((candidate) => candidate.status === "enriching");
@@ -207,8 +209,17 @@ function CandidateWorkspacePanel({
         <span><CircleDashed size={20} /></span>
         <div>
           <strong>No candidates found yet</strong>
-          <p>Discovery may still be starting, or try again from the campaign list.</p>
+          <p>Discovery may still be starting, or the search may need broadening.</p>
         </div>
+        <button
+          className="button-secondary"
+          disabled={busyAction === "rediscover"}
+          onClick={onRediscover}
+          type="button"
+        >
+          {busyAction === "rediscover" ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}
+          Search again
+        </button>
       </section>
     );
   }
@@ -223,6 +234,15 @@ function CandidateWorkspacePanel({
               <p>We check email, phone and LinkedIn for the people you select. Nothing is contacted yet.</p>
             </div>
             <div className="candidate-stage-actions">
+              <button
+                className="button-secondary compact"
+                disabled={busyAction === "rediscover"}
+                onClick={onRediscover}
+                type="button"
+              >
+                {busyAction === "rediscover" ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
+                Search again
+              </button>
               <button
                 className="button-secondary compact"
                 onClick={() =>
@@ -474,6 +494,25 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
     [payload],
   );
 
+  async function rediscoverCandidates() {
+    setBusyAction("rediscover");
+    setError("");
+    try {
+      await readJson(
+        await fetch(`/api/campaigns/${campaignId}/execution`, { method: "POST" }),
+      );
+      await load(true);
+    } catch (rediscoverError) {
+      setError(
+        rediscoverError instanceof Error
+          ? rediscoverError.message
+          : "Search could not be restarted.",
+      );
+    } finally {
+      setBusyAction("");
+    }
+  }
+
   async function startVerification(candidateIds: string[]) {
     setBusyAction("verify");
     setError("");
@@ -683,6 +722,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
           busyAction={busyAction}
           candidates={candidates}
           onApprove={(ids) => void approveLeads(ids)}
+          onRediscover={() => void rediscoverCandidates()}
           onVerify={(ids) => void startVerification(ids)}
         />
       )}
