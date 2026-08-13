@@ -1,6 +1,7 @@
 import { CircleDashed } from "lucide-react";
 import { AppShell } from "../../components/app-shell";
 import { IcpReport } from "../../components/icp-report";
+import { AceternityLink, GlowCard } from "../../components/aceternity";
 import { isAuthConfigured } from "../../lib/auth/config";
 import { requireWorkspacePage } from "../../lib/auth/page-actor";
 import { getApiActor } from "../../lib/server/api-actor";
@@ -29,12 +30,12 @@ export default async function IcpPage({ searchParams }: { searchParams: SearchPa
       {profile ? (
         <IcpReport profile={profile} />
       ) : (
-        <section className="lead-state empty standalone">
+        <GlowCard as="section" className="lead-state empty standalone">
           <CircleDashed />
           <h2>No ICP report yet</h2>
           <p>The report appears after market research has produced enough supporting evidence.</p>
-          <a className="button-primary" href="/leads">Return to leads</a>
-        </section>
+          <AceternityLink className="button-primary" href="/leads">Return to leads</AceternityLink>
+        </GlowCard>
       )}
     </AppShell>
   );

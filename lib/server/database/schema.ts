@@ -24,6 +24,7 @@ import {
   replyIntents,
   replyStatuses,
 } from "../../domain/pipeline";
+import type { ScheduleRecurrence } from "../../domain/pipeline";
 
 export const campaignStatusEnum = pgEnum("campaign_status", campaignStatuses);
 export const campaignSourceKindEnum = pgEnum("campaign_source_kind", ["website", "product_idea"]);
@@ -220,6 +221,8 @@ export const campaigns = pgTable(
     channels: jsonb("channels").$type<Campaign["channels"]>().notNull(),
     status: campaignStatusEnum("status").default("researching").notNull(),
     providerSendReference: text("provider_send_reference"),
+    recurrence: jsonb("recurrence").$type<ScheduleRecurrence | null>(),
+    schedulePaused: boolean("schedule_paused").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -584,6 +587,7 @@ export const deliveryJobs = pgTable(
     attemptCount: integer("attempt_count").default(0).notNull(),
     maxAttempts: integer("max_attempts").default(5).notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
+    recurrence: jsonb("recurrence").$type<ScheduleRecurrence | null>(),
     lastError: text("last_error"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -600,6 +604,37 @@ export const deliveryJobs = pgTable(
     index("delivery_jobs_org_campaign_idx").on(
       table.organizationId,
       table.campaignId,
+    ),
+  ],
+);
+
+export const deliveryDispatches = pgTable(
+  "delivery_dispatches",
+  {
+    id: uuid("id").primaryKey(),
+    deliveryJobId: uuid("delivery_job_id")
+      .notNull()
+      .references(() => deliveryJobs.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    occurrenceKey: text("occurrence_key").notNull(),
+    status: text("status").notNull(),
+    providerMessageId: text("provider_message_id"),
+    lastError: text("last_error"),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("delivery_dispatches_occurrence_unique").on(
+      table.deliveryJobId,
+      table.occurrenceKey,
+    ),
+    index("delivery_dispatches_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
     ),
   ],
 );

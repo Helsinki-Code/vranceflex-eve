@@ -11,6 +11,15 @@ import {
 } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AceternityButton,
+  AceternityForm,
+  AceternityLink,
+  AceternitySelect,
+  AceternityTextarea,
+  GlowCard,
+} from "./aceternity";
+import { Input } from "./ui/input";
 
 async function authRequest<T>(path: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
@@ -40,9 +49,9 @@ function SubmitButton({
   children: React.ReactNode;
 }) {
   return (
-    <button className="auth-submit" disabled={busy} type="submit">
+    <AceternityButton className="auth-submit" disabled={busy} type="submit">
       {busy ? <LoaderCircle className="spin" size={17} /> : children}
-    </button>
+    </AceternityButton>
   );
 }
 
@@ -83,7 +92,7 @@ export function SignInForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
   }
 
   return (
-    <form className="first-party-auth-form" onSubmit={submit}>
+    <AceternityForm className="first-party-auth-form" onSubmit={submit}>
       <div className="auth-form-heading">
         <span><ShieldCheck size={15} /> Secure workspace access</span>
         <h2>Welcome back</h2>
@@ -92,11 +101,11 @@ export function SignInForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
       <ErrorMessage error={error} />
       <label>
         <span>Email address</span>
-        <input autoComplete="email" name="email" required type="email" />
+        <Input autoComplete="email" name="email" required type="email" />
       </label>
       <label>
         <span>Password</span>
-        <input autoComplete="current-password" name="password" required type="password" />
+        <Input autoComplete="current-password" name="password" required type="password" />
       </label>
       <div className="auth-form-row">
         <a href="/forgot-password">Forgot password?</a>
@@ -107,7 +116,7 @@ export function SignInForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
       <p className="auth-form-switch">
         New to VranceFlex? <a href="/sign-up">Create an account</a>
       </p>
-    </form>
+    </AceternityForm>
   );
 }
 
@@ -188,7 +197,7 @@ export function SignUpFlow() {
 
   if (stage === "verify") {
     return (
-      <form className="first-party-auth-form" onSubmit={verify}>
+      <AceternityForm className="first-party-auth-form" onSubmit={verify}>
         <div className="auth-form-heading">
           <span><Mail size={15} /> Email verification</span>
           <h2>Check your inbox</h2>
@@ -200,7 +209,7 @@ export function SignUpFlow() {
         )}
         <label>
           <span>Verification code</span>
-          <input
+          <Input
             autoComplete="one-time-code"
             className="otp-input"
             inputMode="numeric"
@@ -213,20 +222,20 @@ export function SignUpFlow() {
         <SubmitButton busy={busy}>
           Verify and continue <ArrowRight size={16} />
         </SubmitButton>
-        <button
+        <AceternityButton
           className="auth-text-button"
           disabled={busy}
           onClick={() => void resend()}
           type="button"
         >
           <RefreshCw size={14} /> Send another code
-        </button>
-      </form>
+        </AceternityButton>
+      </AceternityForm>
     );
   }
 
   return (
-    <form className="first-party-auth-form" onSubmit={createAccount}>
+    <AceternityForm className="first-party-auth-form" onSubmit={createAccount}>
       <div className="auth-form-heading">
         <span><ShieldCheck size={15} /> Verified signup</span>
         <h2>Create your workspace</h2>
@@ -236,20 +245,20 @@ export function SignUpFlow() {
       <div className="auth-field-grid">
         <label>
           <span>Your name</span>
-          <input autoComplete="name" name="name" required />
+          <Input autoComplete="name" name="name" required />
         </label>
         <label>
           <span>Workspace name</span>
-          <input autoComplete="organization" name="organizationName" required />
+          <Input autoComplete="organization" name="organizationName" required />
         </label>
       </div>
       <label>
         <span>Work email</span>
-        <input autoComplete="email" name="email" required type="email" />
+        <Input autoComplete="email" name="email" required type="email" />
       </label>
       <label>
         <span>Password</span>
-        <input
+        <Input
           autoComplete="new-password"
           minLength={10}
           name="password"
@@ -264,7 +273,7 @@ export function SignUpFlow() {
       <p className="auth-form-switch">
         Already have an account? <a href="/sign-in">Sign in</a>
       </p>
-    </form>
+    </AceternityForm>
   );
 }
 
@@ -322,18 +331,18 @@ export function ForgotPasswordFlow() {
 
   if (stage === "complete") {
     return (
-      <div className="first-party-auth-form auth-complete">
+      <GlowCard className="first-party-auth-form auth-complete">
         <span><Check size={21} /></span>
         <h2>Password updated</h2>
         <p>Your previous sessions were revoked. Sign in again with your new password.</p>
-        <a className="auth-submit" href="/sign-in">Return to sign in <ArrowRight size={16} /></a>
-      </div>
+        <AceternityLink className="auth-submit" href="/sign-in">Return to sign in <ArrowRight size={16} /></AceternityLink>
+      </GlowCard>
     );
   }
 
   if (stage === "reset") {
     return (
-      <form className="first-party-auth-form" onSubmit={completeReset}>
+      <AceternityForm className="first-party-auth-form" onSubmit={completeReset}>
         <div className="auth-form-heading">
           <span><KeyRound size={15} /> Password recovery</span>
           <h2>Choose a new password</h2>
@@ -342,7 +351,7 @@ export function ForgotPasswordFlow() {
         <ErrorMessage error={error} />
         <label>
           <span>Reset code</span>
-          <input
+          <Input
             autoComplete="one-time-code"
             className="otp-input"
             inputMode="numeric"
@@ -354,17 +363,17 @@ export function ForgotPasswordFlow() {
         </label>
         <label>
           <span>New password</span>
-          <input autoComplete="new-password" minLength={10} name="password" required type="password" />
+          <Input autoComplete="new-password" minLength={10} name="password" required type="password" />
         </label>
         <SubmitButton busy={busy}>
           Reset password <ArrowRight size={16} />
         </SubmitButton>
-      </form>
+      </AceternityForm>
     );
   }
 
   return (
-    <form className="first-party-auth-form" onSubmit={requestCode}>
+    <AceternityForm className="first-party-auth-form" onSubmit={requestCode}>
       <div className="auth-form-heading">
         <span><KeyRound size={15} /> Password recovery</span>
         <h2>Recover your account</h2>
@@ -373,12 +382,12 @@ export function ForgotPasswordFlow() {
       <ErrorMessage error={error} />
       <label>
         <span>Email address</span>
-        <input autoComplete="email" name="email" required type="email" />
+        <Input autoComplete="email" name="email" required type="email" />
       </label>
       <SubmitButton busy={busy}>
         Send reset code <ArrowRight size={16} />
       </SubmitButton>
       <p className="auth-form-switch"><a href="/sign-in">Return to sign in</a></p>
-    </form>
+    </AceternityForm>
   );
 }

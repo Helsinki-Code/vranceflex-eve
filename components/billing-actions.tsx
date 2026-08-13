@@ -2,6 +2,7 @@
 
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { useState } from "react";
+import { AceternityButton } from "./aceternity";
 
 async function requestJson<T>(path: string, init?: RequestInit) {
   const response = await fetch(path, {
@@ -59,12 +60,12 @@ export function BillingActions({
     <div className="billing-actions">
       {error ? <div className="auth-form-error" role="alert">{error}</div> : null}
       {hasActiveSubscription ? (
-        <button className="button-primary" disabled={busy} onClick={() => void openPortal()} type="button">
+        <AceternityButton className="button-primary" disabled={busy} onClick={() => void openPortal()} type="button">
           {busy ? <LoaderCircle className="spin" size={16} /> : null}
           Manage subscription <ArrowRight size={16} />
-        </button>
+        </AceternityButton>
       ) : (
-        <button
+        <AceternityButton
           className="button-primary"
           disabled={busy || !priceId}
           onClick={() => void startCheckout()}
@@ -72,7 +73,7 @@ export function BillingActions({
         >
           {busy ? <LoaderCircle className="spin" size={16} /> : null}
           Upgrade to Pro <ArrowRight size={16} />
-        </button>
+        </AceternityButton>
       )}
     </div>
   );

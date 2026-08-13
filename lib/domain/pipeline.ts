@@ -165,11 +165,48 @@ export const approveSequencesSchema = z.object({
   scope: z.enum(["first_launch", "batch"]).default("first_launch"),
 });
 
+export const recurrenceSchema = z
+  .object({
+    everyMinutes: z.number().int().min(1).max(525_600).optional(),
+    intervalDays: z.number().int().min(1).max(365).optional(),
+  })
+  .refine(
+    (value) =>
+      (value.everyMinutes === undefined) !== (value.intervalDays === undefined),
+    "Choose either a minute interval or a day interval.",
+  );
+
+export type ScheduleRecurrence = z.infer<typeof recurrenceSchema>;
+
 export const scheduleSequencesSchema = z.object({
   sequenceIds: z.array(z.string().uuid()).min(1).max(500),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   sendTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   timezone: z.string().trim().min(1).max(80),
+  recurrence: recurrenceSchema.nullable().default(null),
+});
+
+export const createScheduleSchema = scheduleSequencesSchema.extend({
+  campaignId: z.string().uuid(),
+});
+
+export const listSchedulesSchema = z.object({
+  campaignId: z.string().uuid().optional(),
+});
+
+export const updateScheduleSchema = z
+  .object({
+    campaignId: z.string().uuid(),
+    recurrence: recurrenceSchema.nullable().optional(),
+    paused: z.boolean().optional(),
+  })
+  .refine(
+    (value) => value.recurrence !== undefined || value.paused !== undefined,
+    "Provide recurrence or paused.",
+  );
+
+export const deleteScheduleSchema = z.object({
+  campaignId: z.string().uuid(),
 });
 
 export const replyReviewSchema = z.object({

@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import type { IcpProfile } from "../lib/domain/lead";
+import { GlowCard } from "./aceternity";
 
 export function IcpReport({ profile }: { profile: IcpProfile }) {
   return (
@@ -32,7 +33,7 @@ export function IcpReport({ profile }: { profile: IcpProfile }) {
       </section>
 
       <section className="icp-profile-grid">
-        <article className="icp-company-card">
+        <GlowCard as="article" className="icp-company-card">
           <div className="icp-card-heading">
             <span><Building2 size={18} /></span>
             <div><p className="section-label">COMPANY FIT</p><h3>Firmographic shape</h3></div>
@@ -44,9 +45,9 @@ export function IcpReport({ profile }: { profile: IcpProfile }) {
             <div><dt>Maturity</dt><dd>{profile.companyProfile.maturity}</dd></div>
             <div><dt><MapPin size={13} /> Geography</dt><dd>{profile.companyProfile.geographies.join(", ")}</dd></div>
           </dl>
-        </article>
+        </GlowCard>
 
-        <article className="icp-roles-card">
+        <GlowCard as="article" className="icp-roles-card">
           <div className="icp-card-heading">
             <span><Users size={18} /></span>
             <div><p className="section-label">BUYING COMMITTEE</p><h3>People who feel the problem</h3></div>
@@ -60,25 +61,25 @@ export function IcpReport({ profile }: { profile: IcpProfile }) {
               </div>
             ))}
           </div>
-        </article>
+        </GlowCard>
       </section>
 
       <section className="icp-insight-grid">
-        <article>
+        <GlowCard as="article">
           <span><Target size={17} /></span>
           <h3>Problems worth solving</h3>
           <ul>{profile.painPoints.map((item) => <li key={item}><Check size={14} /> {item}</li>)}</ul>
-        </article>
-        <article>
+        </GlowCard>
+        <GlowCard as="article">
           <span><Sparkles size={17} /></span>
           <h3>Signals that raise priority</h3>
           <ul>{profile.buyingSignals.map((item) => <li key={item}><Check size={14} /> {item}</li>)}</ul>
-        </article>
-        <article>
+        </GlowCard>
+        <GlowCard as="article">
           <span><Ban size={17} /></span>
           <h3>Exclusions</h3>
           <ul>{profile.exclusions.map((item) => <li key={item}><Check size={14} /> {item}</li>)}</ul>
-        </article>
+        </GlowCard>
       </section>
 
       <section className="icp-evidence">
@@ -88,14 +89,14 @@ export function IcpReport({ profile }: { profile: IcpProfile }) {
         </div>
         <div>
           {profile.evidence.map((item) => (
-            <article key={item.id}>
+            <GlowCard as="article" key={item.id}>
               <span>{item.kind}</span>
               <div><h3>{item.sourceTitle}</h3><p>{item.excerpt}</p></div>
               <strong>{item.confidence}%</strong>
               <a href={item.sourceUrl} rel="noreferrer" target="_blank" aria-label={`Open source: ${item.sourceTitle}`}>
                 <ExternalLink size={15} />
               </a>
-            </article>
+            </GlowCard>
           ))}
         </div>
       </section>

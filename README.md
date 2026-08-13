@@ -46,6 +46,7 @@ table ever disagree.
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Yes | **Platform account only** — signup/reset OTP delivery and team-invite email. Never used for a client's outreach. |
 | `CRON_SECRET` | Yes (prod) | Bearer token Vercel Cron sends to `/api/cron/delivery`. |
 | `APP_BASE_URL` | Yes for unsubscribe/billing links | Public base URL used to build outreach unsubscribe links, Stripe checkout redirects, and team-invite links. |
+| `NEXT_PUBLIC_LIVEAVATAR_EMBED_URL` | Optional | Safe `https://embed.liveavatar.com/v1/...` URL for the landing-page product guide. Create the embedding with the LiveAvatar API key outside the browser; never expose that key here. See [the setup guide](docs/liveavatar-sales-guide.md). |
 | `COMPANY_MAILING_ADDRESS` | Recommended | Physical address included in outreach email footers (CAN-SPAM). |
 | `PARALLEL_API_KEY` | Yes | Lead research/enrichment via Parallel, used by the `lead-researcher` subagent. |
 | `AI_GATEWAY_API_KEY` | Yes (or Vercel OIDC) | Model access for the eve agent. |

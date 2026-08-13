@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recurrenceSchema } from "./pipeline";
 
 export const campaignStatuses = [
   "draft",
@@ -84,6 +85,8 @@ export const campaignSchema = campaignCreateSchema.extend({
   updatedAt: z.string().datetime(),
   approvals: z.array(approvalRecordSchema),
   providerSendReference: z.string().nullable(),
+  recurrence: recurrenceSchema.nullable(),
+  schedulePaused: z.boolean(),
 });
 
 export type Campaign = z.infer<typeof campaignSchema>;

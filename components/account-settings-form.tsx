@@ -3,6 +3,8 @@
 import { Check, LoaderCircle, Save } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AceternityButton, AceternityForm } from "./aceternity";
+import { Input } from "./ui/input";
 
 export function AccountSettingsForm({
   name,
@@ -44,7 +46,7 @@ export function AccountSettingsForm({
   }
 
   return (
-    <form className="account-settings-card" onSubmit={submit}>
+    <AceternityForm className="account-settings-card" onSubmit={submit}>
       <div>
         <span>PROFILE</span>
         <h2>Your identity</h2>
@@ -54,17 +56,17 @@ export function AccountSettingsForm({
       {saved && <div className="auth-form-success"><Check size={15} /> Profile updated.</div>}
       <label>
         <span>Display name</span>
-        <input defaultValue={name} name="name" required />
+        <Input defaultValue={name} name="name" required />
       </label>
       <label>
         <span>Verified email</span>
-        <input disabled value={email} />
+        <Input disabled value={email} />
       </label>
-      <button className="button-primary" disabled={busy} type="submit">
+      <AceternityButton className="button-primary" disabled={busy} type="submit">
         {busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}
         Save profile
-      </button>
+      </AceternityButton>
       <a href="/forgot-password">Reset password and revoke active sessions</a>
-    </form>
+    </AceternityForm>
   );
 }

@@ -1,6 +1,8 @@
 import { ArrowLeft, Check, ShieldCheck, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { ThemeToggle } from "./motion/theme-toggle";
+import { AceternityBackdrop } from "./aceternity";
+import { GlowingEffect } from "./ui/glowing-effect";
 
 export function AuthSurface({
   children,
@@ -16,6 +18,7 @@ export function AuthSurface({
   return (
     <main className="auth-page">
       <aside className="auth-story">
+        <GlowingEffect disabled={false} proximity={120} spread={40} />
         <a className="brand auth-brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></a>
         <div>
           <p className="section-label light"><Sparkles size={13} /> {eyebrow}</p>
@@ -30,6 +33,7 @@ export function AuthSurface({
         <span><ShieldCheck size={15} /> Secrets remain in the hosting platform</span>
       </aside>
       <section className="auth-content">
+        <AceternityBackdrop subtle />
         <div className="auth-page-actions">
           <ThemeToggle
             variant="rectangle"

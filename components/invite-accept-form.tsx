@@ -3,6 +3,13 @@
 import { ArrowRight, LoaderCircle, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AceternityButton,
+  AceternityForm,
+  AceternityLink,
+  GlowCard,
+} from "./aceternity";
+import { Input } from "./ui/input";
 
 type InvitePreview = {
   email: string;
@@ -89,43 +96,43 @@ export function InviteAcceptForm({ token }: { token: string }) {
 
   if (loadError) {
     return (
-      <div className="first-party-auth-form auth-complete">
+      <GlowCard className="first-party-auth-form auth-complete">
         <h2>This invite isn&apos;t valid</h2>
         <p>{loadError}</p>
-        <a className="auth-submit" href="/sign-in">
+        <AceternityLink className="auth-submit" href="/sign-in">
           Go to sign in <ArrowRight size={16} />
-        </a>
-      </div>
+        </AceternityLink>
+      </GlowCard>
     );
   }
 
   if (!preview) {
     return (
-      <div className="first-party-auth-form auth-complete">
+      <GlowCard className="first-party-auth-form auth-complete">
         <LoaderCircle className="spin" size={20} />
-      </div>
+      </GlowCard>
     );
   }
 
   if (signInRequired) {
     return (
-      <div className="first-party-auth-form auth-complete">
+      <GlowCard className="first-party-auth-form auth-complete">
         <span><ShieldCheck size={21} /></span>
         <h2>Sign in to accept</h2>
         <p>An account already exists for {preview.email}. Sign in, then return to this link.</p>
-        <a
+        <AceternityLink
           className="auth-submit"
           href={`/sign-in?next=${encodeURIComponent(`/invites/${token}`)}`}
         >
           Go to sign in <ArrowRight size={16} />
-        </a>
-      </div>
+        </AceternityLink>
+      </GlowCard>
     );
   }
 
   if (needsAccountDetails) {
     return (
-      <form className="first-party-auth-form" onSubmit={submitAccountDetails}>
+      <AceternityForm className="first-party-auth-form" onSubmit={submitAccountDetails}>
         <div className="auth-form-heading">
           <span><ShieldCheck size={15} /> Join {preview.organizationName}</span>
           <h2>Create your account</h2>
@@ -134,11 +141,11 @@ export function InviteAcceptForm({ token }: { token: string }) {
         {error ? <div className="auth-form-error" role="alert">{error}</div> : null}
         <label>
           <span>Your name</span>
-          <input autoComplete="name" name="name" required />
+          <Input autoComplete="name" name="name" required />
         </label>
         <label>
           <span>Password</span>
-          <input
+          <Input
             autoComplete="new-password"
             minLength={10}
             name="password"
@@ -147,17 +154,17 @@ export function InviteAcceptForm({ token }: { token: string }) {
           />
           <small>At least 10 characters with a letter and number.</small>
         </label>
-        <button className="auth-submit" disabled={busy} type="submit">
+        <AceternityButton className="auth-submit" disabled={busy} type="submit">
           {busy ? <LoaderCircle className="spin" size={17} /> : (
             <>Create account and join <ArrowRight size={16} /></>
           )}
-        </button>
-      </form>
+        </AceternityButton>
+      </AceternityForm>
     );
   }
 
   return (
-    <div className="first-party-auth-form auth-complete">
+    <GlowCard className="first-party-auth-form auth-complete">
       <div className="auth-form-heading">
         <span><ShieldCheck size={15} /> Team invite</span>
         <h2>Join {preview.organizationName}</h2>
@@ -166,11 +173,11 @@ export function InviteAcceptForm({ token }: { token: string }) {
         </p>
       </div>
       {error ? <div className="auth-form-error" role="alert">{error}</div> : null}
-      <button className="auth-submit" disabled={busy} onClick={() => void accept()} type="button">
+      <AceternityButton className="auth-submit" disabled={busy} onClick={() => void accept()} type="button">
         {busy ? <LoaderCircle className="spin" size={17} /> : (
           <>Accept invite <ArrowRight size={16} /></>
         )}
-      </button>
-    </div>
+      </AceternityButton>
+    </GlowCard>
   );
 }

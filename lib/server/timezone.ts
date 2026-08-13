@@ -39,6 +39,22 @@ function partsAt(date: Date, timezone: string) {
   };
 }
 
+export function localDateTimeAt(date: Date, timezone: string) {
+  assertValidTimezone(timezone);
+  const local = partsAt(date, timezone);
+  return {
+    date: [
+      local.year,
+      String(local.month).padStart(2, "0"),
+      String(local.day).padStart(2, "0"),
+    ].join("-"),
+    time: [
+      String(local.hour).padStart(2, "0"),
+      String(local.minute).padStart(2, "0"),
+    ].join(":"),
+  };
+}
+
 export function assertValidTimezone(timezone: string) {
   try {
     formatter(timezone).format(new Date());

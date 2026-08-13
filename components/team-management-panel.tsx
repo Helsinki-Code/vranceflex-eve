@@ -3,6 +3,8 @@
 import { LoaderCircle, Mail, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AceternityButton, AceternitySelect, GlowCard } from "./aceternity";
+import { Input } from "./ui/input";
 
 type Role = "admin" | "member" | "reviewer" | "billing";
 
@@ -139,35 +141,35 @@ export function TeamManagementPanel({
         <form className="team-invite-form" onSubmit={submitInvite}>
           <label>
             <span>Invite by email</span>
-            <input name="email" placeholder="teammate@company.com" required type="email" />
+            <Input name="email" placeholder="teammate@company.com" required type="email" />
           </label>
           <label>
             <span>Role</span>
-            <select defaultValue="member" name="role">
+            <AceternitySelect defaultValue="member" name="role">
               {roles.map((role) => (
                 <option key={role} value={role}>
                   {role}
                 </option>
               ))}
-            </select>
+            </AceternitySelect>
           </label>
-          <button className="button-primary compact" disabled={inviteBusy} type="submit">
+          <AceternityButton className="button-primary compact" disabled={inviteBusy} type="submit">
             {inviteBusy ? <LoaderCircle className="spin" size={15} /> : <UserPlus size={15} />}
             Send invite
-          </button>
+          </AceternityButton>
         </form>
       )}
 
       <div className="team-member-list">
         {members.map((member) => (
-          <article key={member.id}>
+          <GlowCard as="article" key={member.id}>
             <span>{(member.name ?? member.email ?? "U").slice(0, 2).toUpperCase()}</span>
             <div>
               <strong>{member.name ?? "Workspace member"}</strong>
               <small>{member.email}</small>
             </div>
             {isAdmin && member.id !== currentUserId ? (
-              <select
+              <AceternitySelect
                 disabled={rowBusy === member.id}
                 onChange={(event) => void changeRole(member.id, event.target.value as Role)}
                 value={member.role}
@@ -177,13 +179,13 @@ export function TeamManagementPanel({
                     {role}
                   </option>
                 ))}
-              </select>
+              </AceternitySelect>
             ) : (
               <em>{member.role}</em>
             )}
             <i><ShieldCheck size={14} /> {member.verifiedAt ? "Verified" : "Pending"}</i>
             {isAdmin && member.id !== currentUserId && (
-              <button
+              <AceternityButton
                 aria-label={`Remove ${member.name ?? member.email}`}
                 className="icon-button"
                 disabled={rowBusy === member.id}
@@ -195,9 +197,9 @@ export function TeamManagementPanel({
                 ) : (
                   <Trash2 size={15} />
                 )}
-              </button>
+              </AceternityButton>
             )}
-          </article>
+          </GlowCard>
         ))}
       </div>
 
@@ -205,13 +207,13 @@ export function TeamManagementPanel({
         <div className="team-invite-list">
           <p className="section-label">PENDING INVITES</p>
           {invites.map((invite) => (
-            <article key={invite.id}>
+            <GlowCard as="article" key={invite.id}>
               <span><Mail size={14} /></span>
               <div>
                 <strong>{invite.email}</strong>
                 <small>Invited as {invite.role}</small>
               </div>
-              <button
+              <AceternityButton
                 aria-label={`Revoke invite for ${invite.email}`}
                 className="icon-button"
                 disabled={rowBusy === invite.id}
@@ -223,8 +225,8 @@ export function TeamManagementPanel({
                 ) : (
                   <X size={15} />
                 )}
-              </button>
-            </article>
+              </AceternityButton>
+            </GlowCard>
           ))}
         </div>
       )}

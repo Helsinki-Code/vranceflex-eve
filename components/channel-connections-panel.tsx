@@ -3,6 +3,8 @@
 import { Check, CircleDashed, LoaderCircle, Unlink } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AceternityButton, GlowCard } from "./aceternity";
+import { Input } from "./ui/input";
 
 type ResendSummary = { connected: true; fromEmail: string; replyDomain: string } | { connected: false };
 type TwilioSummary = { connected: true; messagingServiceSid: string } | { connected: false };
@@ -118,7 +120,7 @@ function ResendCard({
   }
 
   return (
-    <section className="channel-card">
+    <GlowCard className="channel-card">
       <div className="channel-card-head">
         <span className={summary.connected ? "configured" : ""}>
           {summary.connected ? <Check size={15} /> : <CircleDashed size={15} />}
@@ -136,10 +138,10 @@ function ResendCard({
           <div><span>Sending from</span><strong>{summary.fromEmail}</strong></div>
           <div><span>Reply domain</span><strong>{summary.replyDomain}</strong></div>
           {isAdmin && (
-            <button className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
+            <AceternityButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
               {busy ? <LoaderCircle className="spin" size={14} /> : <Unlink size={14} />}
               Disconnect
-            </button>
+            </AceternityButton>
           )}
         </div>
       ) : isAdmin ? (
@@ -148,19 +150,19 @@ function ResendCard({
             Add an inbound webhook in Resend pointing to:
             <code>{webhookUrl || "…"}</code>
           </p>
-          <label><span>Resend API key</span><input name="apiKey" required type="password" /></label>
-          <label><span>From address</span><input name="fromEmail" placeholder="Acme <outreach@yourdomain.com>" required /></label>
-          <label><span>Reply domain</span><input name="replyDomain" placeholder="reply.yourdomain.com" required /></label>
-          <label><span>Webhook signing secret</span><input name="webhookSecret" required type="password" /></label>
-          <button className="button-primary compact" disabled={busy} type="submit">
+          <label><span>Resend API key</span><Input name="apiKey" required type="password" /></label>
+          <label><span>From address</span><Input name="fromEmail" placeholder="Acme <outreach@yourdomain.com>" required /></label>
+          <label><span>Reply domain</span><Input name="replyDomain" placeholder="reply.yourdomain.com" required /></label>
+          <label><span>Webhook signing secret</span><Input name="webhookSecret" required type="password" /></label>
+          <AceternityButton className="button-primary compact" disabled={busy} type="submit">
             {busy ? <LoaderCircle className="spin" size={14} /> : null}
             Connect Resend
-          </button>
+          </AceternityButton>
         </form>
       ) : (
         <p className="channel-empty-note">Not connected. Ask a workspace admin to connect Resend.</p>
       )}
-    </section>
+    </GlowCard>
   );
 }
 
@@ -219,7 +221,7 @@ function TwilioCard({
   }
 
   return (
-    <section className="channel-card">
+    <GlowCard className="channel-card">
       <div className="channel-card-head">
         <span className={summary.connected ? "configured" : ""}>
           {summary.connected ? <Check size={15} /> : <CircleDashed size={15} />}
@@ -236,25 +238,25 @@ function TwilioCard({
         <div className="channel-connected">
           <div><span>Messaging Service</span><strong>{summary.messagingServiceSid}</strong></div>
           {isAdmin && (
-            <button className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
+            <AceternityButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
               {busy ? <LoaderCircle className="spin" size={14} /> : <Unlink size={14} />}
               Disconnect
-            </button>
+            </AceternityButton>
           )}
         </div>
       ) : isAdmin ? (
         <form className="channel-connect-form" onSubmit={connect}>
-          <label><span>Account SID</span><input name="accountSid" placeholder="AC…" required /></label>
-          <label><span>Auth token</span><input name="authToken" required type="password" /></label>
-          <label><span>Messaging Service SID</span><input name="messagingServiceSid" placeholder="MG…" required /></label>
-          <button className="button-primary compact" disabled={busy} type="submit">
+          <label><span>Account SID</span><Input name="accountSid" placeholder="AC…" required /></label>
+          <label><span>Auth token</span><Input name="authToken" required type="password" /></label>
+          <label><span>Messaging Service SID</span><Input name="messagingServiceSid" placeholder="MG…" required /></label>
+          <AceternityButton className="button-primary compact" disabled={busy} type="submit">
             {busy ? <LoaderCircle className="spin" size={14} /> : null}
             Connect Twilio
-          </button>
+          </AceternityButton>
         </form>
       ) : (
         <p className="channel-empty-note">Not connected. Ask a workspace admin to connect Twilio.</p>
       )}
-    </section>
+    </GlowCard>
   );
 }

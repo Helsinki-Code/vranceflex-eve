@@ -11,12 +11,21 @@ import {
   LoaderCircle,
   Mail,
   MessageSquareText,
+  Pause,
+  Play,
   RefreshCw,
   Save,
   Send,
   ShieldCheck,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AceternityButton,
+  AceternitySelect,
+  AceternityTextarea,
+  GlowCard,
+} from "./aceternity";
+import { Input } from "./ui/input";
 import {
   campaignStatusLabels,
   type Campaign,
@@ -167,7 +176,7 @@ function ExecutionProgressPanel({
             this run may have stalled. Retrying is safe: nothing is sent without
             your approval.
           </p>
-          <button
+          <AceternityButton
             className="button-secondary compact"
             disabled={retryBusy}
             onClick={onRetry}
@@ -175,7 +184,7 @@ function ExecutionProgressPanel({
           >
             {retryBusy ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
             Retry research
-          </button>
+          </AceternityButton>
         </div>
       )}
     </section>
@@ -211,7 +220,7 @@ function CandidateWorkspacePanel({
           <strong>No candidates found yet</strong>
           <p>Discovery may still be starting, or the search may need broadening.</p>
         </div>
-        <button
+        <AceternityButton
           className="button-secondary"
           disabled={busyAction === "rediscover"}
           onClick={onRediscover}
@@ -219,7 +228,7 @@ function CandidateWorkspacePanel({
         >
           {busyAction === "rediscover" ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}
           Search again
-        </button>
+        </AceternityButton>
       </section>
     );
   }
@@ -234,7 +243,7 @@ function CandidateWorkspacePanel({
               <p>We check email, phone and LinkedIn for the people you select. Nothing is contacted yet.</p>
             </div>
             <div className="candidate-stage-actions">
-              <button
+              <AceternityButton
                 className="button-secondary compact"
                 disabled={busyAction === "rediscover"}
                 onClick={onRediscover}
@@ -242,8 +251,8 @@ function CandidateWorkspacePanel({
               >
                 {busyAction === "rediscover" ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
                 Search again
-              </button>
-              <button
+              </AceternityButton>
+              <AceternityButton
                 className="button-secondary compact"
                 onClick={() =>
                   setSelectedDiscovered(
@@ -255,8 +264,8 @@ function CandidateWorkspacePanel({
                 type="button"
               >
                 {selectedDiscovered.length === discovered.length ? "Clear all" : "Select all"}
-              </button>
-              <button
+              </AceternityButton>
+              <AceternityButton
                 className="button-primary compact"
                 disabled={!selectedDiscovered.length || busyAction === "verify"}
                 onClick={() => onVerify(selectedDiscovered)}
@@ -264,14 +273,14 @@ function CandidateWorkspacePanel({
               >
                 {busyAction === "verify" ? <LoaderCircle className="spin" size={14} /> : null}
                 Verify {selectedDiscovered.length || ""} selected
-              </button>
+              </AceternityButton>
             </div>
           </header>
           <ul className="candidate-list">
             {discovered.map((candidate) => (
               <li key={candidate.id}>
                 <label>
-                  <input
+                  <Input
                     checked={selectedDiscovered.includes(candidate.id)}
                     onChange={(event) =>
                       setSelectedDiscovered((current) =>
@@ -313,7 +322,7 @@ function CandidateWorkspacePanel({
               <p>Approved leads get personalized outreach sequences drafted for your review next.</p>
             </div>
             <div className="candidate-stage-actions">
-              <button
+              <AceternityButton
                 className="button-secondary compact"
                 onClick={() =>
                   setSelectedVerified(
@@ -325,8 +334,8 @@ function CandidateWorkspacePanel({
                 type="button"
               >
                 {selectedVerified.length === verified.length ? "Clear all" : "Select all"}
-              </button>
-              <button
+              </AceternityButton>
+              <AceternityButton
                 className="button-primary compact"
                 disabled={!selectedVerified.length || busyAction === "approve-leads"}
                 onClick={() => onApprove(selectedVerified)}
@@ -334,14 +343,14 @@ function CandidateWorkspacePanel({
               >
                 {busyAction === "approve-leads" ? <LoaderCircle className="spin" size={14} /> : null}
                 Approve {selectedVerified.length || ""} &amp; generate outreach
-              </button>
+              </AceternityButton>
             </div>
           </header>
           <ul className="candidate-list">
             {verified.map((candidate) => (
               <li key={candidate.id}>
                 <label>
-                  <input
+                  <Input
                     checked={selectedVerified.includes(candidate.id)}
                     onChange={(event) =>
                       setSelectedVerified((current) =>
@@ -411,6 +420,9 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
     ].join("-");
   });
   const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleCadence, setScheduleCadence] = useState<
+    "once" | "daily" | "weekly"
+  >("once");
   const [scheduleTimezone, setScheduleTimezone] = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
@@ -489,13 +501,10 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         .map((sequence) => sequence.id) ?? [],
     [payload],
   );
-  const approvedEmailIds = useMemo(
+  const approvedScheduleIds = useMemo(
     () =>
       payload?.sequences
-        .filter(
-          (sequence) =>
-            sequence.status === "approved" && sequence.channel === "email",
-        )
+        .filter((sequence) => sequence.status === "approved")
         .map((sequence) => sequence.id) ?? [],
     [payload],
   );
@@ -658,6 +667,12 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             startDate: scheduleDate,
             sendTime: scheduleTime,
             timezone: scheduleTimezone,
+            recurrence:
+              scheduleCadence === "weekly"
+                ? { intervalDays: 7 }
+                : scheduleCadence === "daily"
+                  ? { intervalDays: 1 }
+                  : null,
           }),
         },
       );
@@ -669,6 +684,29 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         scheduleError instanceof Error
           ? scheduleError.message
           : "The approved sequences could not be scheduled.",
+      );
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function setSchedulePaused(paused: boolean) {
+    setBusyAction(paused ? "pause-schedule" : "resume-schedule");
+    setError("");
+    try {
+      await readJson(
+        await fetch(`/api/campaigns/${campaignId}/schedule`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paused }),
+        }),
+      );
+      await load(true);
+    } catch (scheduleError) {
+      setError(
+        scheduleError instanceof Error
+          ? scheduleError.message
+          : "The schedule could not be updated.",
       );
     } finally {
       setBusyAction("");
@@ -691,9 +729,9 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         <AlertCircle />
         <h2>Campaign workspace is unavailable</h2>
         <p>{error}</p>
-        <button className="button-secondary" onClick={() => void load()} type="button">
+        <AceternityButton className="button-secondary" onClick={() => void load()} type="button">
           <RefreshCw size={16} /> Retry
-        </button>
+        </AceternityButton>
       </div>
     );
   }
@@ -749,7 +787,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             <strong>Campaign preparation needs attention</strong>
             <p>{execution.errorMessage ?? "The Eve run did not start or complete."}</p>
           </div>
-          <button
+          <AceternityButton
             className="button-secondary"
             disabled={busyAction === "retry"}
             onClick={() => void retryExecution()}
@@ -757,7 +795,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
           >
             {busyAction === "retry" ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}
             Retry research
-          </button>
+          </AceternityButton>
         </section>
       )}
 
@@ -780,7 +818,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
               <p>Approval changes draft records only. It does not schedule or send them.</p>
             </div>
             <div>
-              <button
+              <AceternityButton
                 className="button-secondary"
                 onClick={() =>
                   setSelected(
@@ -790,8 +828,8 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                 type="button"
               >
                 {selected.length === pendingIds.length ? "Clear selection" : "Select pending"}
-              </button>
-              <button
+              </AceternityButton>
+              <AceternityButton
                 className="button-primary"
                 disabled={!selected.length || busyAction === "approve"}
                 onClick={() => void approveSelected()}
@@ -799,11 +837,11 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
               >
                 {busyAction === "approve" ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}
                 Approve {selected.length || ""}
-              </button>
+              </AceternityButton>
             </div>
           </section>
 
-          {approvedEmailIds.length > 0 && (
+          {approvedScheduleIds.length > 0 && (
             <section className="schedule-toolbar">
               <div className="schedule-toolbar-copy">
                 <span><CalendarDays size={16} /> DELIVERY SCHEDULE</span>
@@ -816,7 +854,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
               <div className="schedule-fields">
                 <label>
                   Start date
-                  <input
+                  <Input
                     min={new Date().toISOString().slice(0, 10)}
                     onChange={(event) => setScheduleDate(event.target.value)}
                     type="date"
@@ -825,7 +863,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                 </label>
                 <label>
                   Local time
-                  <input
+                  <Input
                     onChange={(event) => setScheduleTime(event.target.value)}
                     type="time"
                     value={scheduleTime}
@@ -833,29 +871,44 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                 </label>
                 <label>
                   Time zone
-                  <input
+                  <Input
                     onChange={(event) => setScheduleTimezone(event.target.value)}
                     value={scheduleTimezone}
                   />
                 </label>
+                <label>
+                  Repeats
+                  <AceternitySelect
+                    onChange={(event) =>
+                      setScheduleCadence(
+                        event.target.value as "once" | "daily" | "weekly",
+                      )
+                    }
+                    value={scheduleCadence}
+                  >
+                    <option value="once">Does not repeat</option>
+                    <option value="daily">Every day</option>
+                    <option value="weekly">Every week</option>
+                  </AceternitySelect>
+                </label>
               </div>
               <div className="schedule-actions">
-                <button
+                <AceternityButton
                   className="button-secondary"
                   onClick={() =>
                     setScheduleSelected(
-                      scheduleSelected.length === approvedEmailIds.length
+                      scheduleSelected.length === approvedScheduleIds.length
                         ? []
-                        : approvedEmailIds,
+                        : approvedScheduleIds,
                     )
                   }
                   type="button"
                 >
-                  {scheduleSelected.length === approvedEmailIds.length
+                  {scheduleSelected.length === approvedScheduleIds.length
                     ? "Clear approved"
-                    : "Select approved email"}
-                </button>
-                <button
+                    : "Select approved sequences"}
+                </AceternityButton>
+                <AceternityButton
                   className="button-primary"
                   disabled={
                     !scheduleSelected.length || busyAction === "schedule"
@@ -869,7 +922,48 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                     <Send size={16} />
                   )}
                   Schedule {scheduleSelected.length || ""}
-                </button>
+                </AceternityButton>
+              </div>
+            </section>
+          )}
+
+          {campaign.recurrence && (
+            <section className="schedule-toolbar">
+              <div className="schedule-toolbar-copy">
+                <span><CalendarDays size={16} /> RECURRING DELIVERY</span>
+                <h3>
+                  {campaign.recurrence.intervalDays === 7
+                    ? "Sends weekly"
+                    : campaign.recurrence.intervalDays === 1
+                      ? "Sends daily"
+                      : campaign.recurrence.intervalDays
+                        ? `Sends every ${campaign.recurrence.intervalDays} days`
+                        : `Sends every ${campaign.recurrence.everyMinutes} minutes`}
+                </h3>
+                <p>
+                  {campaign.schedulePaused
+                    ? "This schedule is paused. No due deliveries will be claimed."
+                    : "This schedule is active and checked by eve every minute."}
+                </p>
+              </div>
+              <div className="schedule-actions">
+                <AceternityButton
+                  className="button-secondary"
+                  disabled={
+                    busyAction === "pause-schedule" ||
+                    busyAction === "resume-schedule"
+                  }
+                  onClick={() =>
+                    void setSchedulePaused(!campaign.schedulePaused)
+                  }
+                  type="button"
+                >
+                  {campaign.schedulePaused ? (
+                    <><Play size={16} /> Resume schedule</>
+                  ) : (
+                    <><Pause size={16} /> Pause schedule</>
+                  )}
+                </AceternityButton>
               </div>
             </section>
           )}
@@ -877,13 +971,12 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
           <section className="sequence-review-list">
             {sequences.map((sequence) => {
               const editable = sequence.status === "awaiting_approval";
-              const schedulable =
-                sequence.status === "approved" && sequence.channel === "email";
+              const schedulable = sequence.status === "approved";
               return (
-                <article className="sequence-review-card" key={sequence.id}>
+                <GlowCard as="article" className="sequence-review-card" key={sequence.id}>
                   <header>
                     <label>
-                      <input
+                      <Input
                         checked={
                           editable
                             ? selected.includes(sequence.id)
@@ -949,7 +1042,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                               <div className="field-grid two">
                                 <label>
                                   Subject A
-                                  <input
+                                  <Input
                                     disabled={!editable}
                                     onChange={(event) =>
                                       setDrafts((current) => ({
@@ -962,7 +1055,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                                 </label>
                                 <label>
                                   Subject B
-                                  <input
+                                  <Input
                                     disabled={!editable}
                                     onChange={(event) =>
                                       setDrafts((current) => ({
@@ -977,7 +1070,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                             )}
                             <label>
                               Message
-                              <textarea
+                              <AceternityTextarea
                                 disabled={!editable}
                                 onChange={(event) =>
                                   setDrafts((current) => ({
@@ -991,20 +1084,20 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                             </label>
                           </div>
                           {editable && (
-                            <button
+                            <AceternityButton
                               aria-label={`Save step ${message.stepNumber}`}
                               disabled={busyAction === message.id}
                               onClick={() => void saveMessage(message.id)}
                               type="button"
                             >
                               {busyAction === message.id ? <LoaderCircle className="spin" size={15} /> : <Save size={15} />}
-                            </button>
+                            </AceternityButton>
                           )}
                         </div>
                       );
                     })}
                   </div>
-                </article>
+                </GlowCard>
               );
             })}
           </section>

@@ -63,6 +63,8 @@ function mapCampaign(
     channels: row.channels,
     status: row.status,
     providerSendReference: row.providerSendReference,
+    recurrence: row.recurrence,
+    schedulePaused: row.schedulePaused,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     approvals: approvals.map((approval) => ({
@@ -138,6 +140,8 @@ export async function createCampaign(
       updatedAt: now,
       approvals: [],
       providerSendReference: null,
+      recurrence: null,
+      schedulePaused: false,
     };
     store.campaigns.set(campaign.id, campaign);
     store.idempotency.set(scopedKey, campaign.id);

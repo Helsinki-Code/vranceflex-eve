@@ -2,6 +2,10 @@ import { ArrowRight, Check, Search, ShieldCheck, Sparkles, Target, Workflow } fr
 import { AgentActivityStack } from "../components/agent-activity-stack";
 import { ProductInputSwitcher } from "../components/product-input-switcher";
 import { ThemeToggle } from "../components/motion/theme-toggle";
+import { AceternityBackdrop, GlowCard } from "../components/aceternity";
+import { BentoGrid } from "../components/ui/bento-grid";
+import { Button as MovingBorderButton } from "../components/ui/moving-border";
+import { LiveAvatarSalesGuide } from "../components/live-avatar-sales-guide";
 
 const agents = [
   ["01", "Lead researcher", "Maps your market and verifies every reachable decision-maker."],
@@ -19,8 +23,11 @@ const outcomes = [
 ];
 
 export default function HomePage() {
+  const liveAvatarEmbedUrl = process.env.NEXT_PUBLIC_LIVEAVATAR_EMBED_URL;
+
   return (
-    <main>
+    <main className="aceternity-page landing-page">
+      <AceternityBackdrop />
       <nav className="nav-shell" aria-label="Primary navigation">
         <a className="brand" href="#top" aria-label="VranceFlex home">
           <span className="brand-mark">VF</span>
@@ -39,9 +46,15 @@ export default function HomePage() {
             className="theme-toggle"
             iconClassName="theme-toggle-icon"
           />
-          <a className="nav-cta" href="/campaigns/new">
+          <MovingBorderButton
+            as="a"
+            borderRadius="0.8rem"
+            className="aceternity-button-inner"
+            containerClassName="aceternity-button nav-moving-cta"
+            href="/campaigns/new"
+          >
             Start a campaign <ArrowRight size={15} />
-          </a>
+          </MovingBorderButton>
         </div>
       </nav>
 
@@ -55,6 +68,7 @@ export default function HomePage() {
             researched—not automated.
           </p>
           <ProductInputSwitcher />
+          <LiveAvatarSalesGuide embedUrl={liveAvatarEmbedUrl} />
           <div className="hero-proof">
             <span><Check size={15} /> Source-backed research</span>
             <span><Check size={15} /> Human approval built in</span>
@@ -64,7 +78,7 @@ export default function HomePage() {
 
         <div className="hero-console-wrap" aria-label="Example VranceFlex campaign workflow">
           <div className="console-glow" />
-          <div className="hero-console">
+          <GlowCard className="hero-console">
             <div className="console-head">
               <div>
                 <span className="console-kicker">EXAMPLE CAMPAIGN</span>
@@ -83,16 +97,16 @@ export default function HomePage() {
               <span><ShieldCheck size={15} /> Approval required before outreach</span>
               <span>06 agents online</span>
             </div>
-          </div>
+          </GlowCard>
         </div>
       </section>
 
       <section className="signal-strip" aria-label="Product outcomes">
         {outcomes.map(([title, text]) => (
-          <article key={title}>
+          <GlowCard as="article" className="signal-card" key={title}>
             <span>{title}</span>
             <p>{text}</p>
-          </article>
+          </GlowCard>
         ))}
       </section>
 
@@ -102,18 +116,18 @@ export default function HomePage() {
           <h2>Six sharp specialists.<br />One revenue motion.</h2>
           <p>Each agent owns one job, receives only the context it needs and hands clean work to the next specialist.</p>
         </div>
-        <div className="agent-grid">
+        <BentoGrid className="agent-grid">
           {agents.map(([number, title, description], index) => (
-            <article className="agent-card" key={number}>
+            <GlowCard as="article" className="agent-card" key={number}>
               <div className="agent-card-top">
                 <span>{number}</span>
                 {index === 0 ? <Search size={18} /> : index === 5 ? <Workflow size={18} /> : <Target size={18} />}
               </div>
               <h3>{title}</h3>
               <p>{description}</p>
-            </article>
+            </GlowCard>
           ))}
-        </div>
+        </BentoGrid>
       </section>
 
       <section className="workflow-section" id="workflow">
@@ -129,17 +143,17 @@ export default function HomePage() {
             ["03", "Prepare", "Every channel gets context-rich, lead-specific messaging."],
             ["04", "Review", "You inspect, approve and keep full control of the campaign."],
           ].map(([number, title, text]) => (
-            <article key={number}>
+            <GlowCard as="article" className="workflow-step-card" key={number}>
               <span>{number}</span>
               <h3>{title}</h3>
               <p>{text}</p>
-            </article>
+            </GlowCard>
           ))}
         </div>
       </section>
 
       <section className="trust-section section-shell" id="trust">
-        <div className="trust-card">
+        <GlowCard className="trust-card">
           <div className="trust-copy">
             <span className="section-label">BUILT FOR TRUST</span>
             <h2>Automation without the black box.</h2>
@@ -150,14 +164,22 @@ export default function HomePage() {
             <li><Check size={20} /><div><strong>Approval before action</strong><span>Generated, approved and sent are always distinct.</span></div></li>
             <li><Target size={20} /><div><strong>Respect every signal</strong><span>Replies and unsubscribe requests stop future outreach.</span></div></li>
           </ul>
-        </div>
+        </GlowCard>
       </section>
 
       <section className="final-cta" id="start">
         <span className="section-label light">EARLY ACCESS</span>
         <h2>Your next campaign should begin with context.</h2>
         <p>Bring a URL—or the product idea you have not launched yet. VranceFlex will build the research, people and message strategy around it.</p>
-        <a className="button-light" href="/campaigns/new">Build your campaign <ArrowRight size={18} /></a>
+        <MovingBorderButton
+          as="a"
+          borderRadius="0.8rem"
+          className="aceternity-button-inner light"
+          containerClassName="aceternity-button final-moving-cta"
+          href="/campaigns/new"
+        >
+          Build your campaign <ArrowRight size={18} />
+        </MovingBorderButton>
       </section>
 
       <footer>

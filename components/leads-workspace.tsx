@@ -22,6 +22,13 @@ import {
   X,
 } from "lucide-react";
 import {
+  AceternityButton,
+  AceternityLink,
+  AceternitySelect,
+  GlowCard,
+} from "./aceternity";
+import { Input } from "./ui/input";
+import {
   useCallback,
   useDeferredValue,
   useEffect,
@@ -133,12 +140,12 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
   return (
     <>
       <section className="lead-metrics" aria-label="Lead summary">
-        <article>
+        <GlowCard as="article">
           <span><UserRound size={15} /> Matched leads</span>
           <strong>{state === "ready" ? total : "—"}</strong>
           <small>Scoped to this workspace</small>
-        </article>
-        <article>
+        </GlowCard>
+        <GlowCard as="article">
           <span><Sparkles size={15} /> High confidence</span>
           <strong>
             {state === "ready"
@@ -146,8 +153,8 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               : "—"}
           </strong>
           <small>80% confidence or higher</small>
-        </article>
-        <article>
+        </GlowCard>
+        <GlowCard as="article">
           <span><BadgeCheck size={15} /> Verified email</span>
           <strong>
             {state === "ready"
@@ -155,8 +162,8 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               : "—"}
           </strong>
           <small>Verification is shown separately</small>
-        </article>
-        <article>
+        </GlowCard>
+        <GlowCard as="article">
           <span><ShieldOff size={15} /> Suppressed</span>
           <strong>
             {state === "ready"
@@ -164,7 +171,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               : "—"}
           </strong>
           <small>Never eligible for outreach</small>
-        </article>
+        </GlowCard>
       </section>
 
       <section className="leads-panel">
@@ -174,12 +181,12 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
             <h2>Evidence-backed people</h2>
           </div>
           <div className="lead-toolbar-actions">
-            <a className="button-secondary compact" href="/icp">
+            <AceternityLink className="button-secondary compact" href="/icp">
               View ICP report <ArrowUpRight size={15} />
-            </a>
-            <a className="button-primary compact" download href={exportHref}>
+            </AceternityLink>
+            <AceternityLink className="button-primary compact" download href={exportHref}>
               <Download size={15} /> Export CSV
-            </a>
+            </AceternityLink>
           </div>
         </div>
 
@@ -187,7 +194,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
           <label className="lead-search">
             <Search size={16} />
             <span className="sr-only">Search leads</span>
-            <input
+            <Input
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search company, person, title or market"
               type="search"
@@ -196,7 +203,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
           </label>
           <label>
             <span className="sr-only">Confidence</span>
-            <select
+            <AceternitySelect
               onChange={(event) =>
                 setConfidence(event.target.value as ConfidenceBand | "")
               }
@@ -206,11 +213,11 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               <option value="high">High confidence</option>
               <option value="medium">Medium confidence</option>
               <option value="low">Low confidence</option>
-            </select>
+            </AceternitySelect>
           </label>
           <label>
             <span className="sr-only">Lead status</span>
-            <select
+            <AceternitySelect
               onChange={(event) => setStatus(event.target.value as LeadStatus | "")}
               value={status}
             >
@@ -220,11 +227,11 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               <option value="needs_review">Needs review</option>
               <option value="approved">Approved</option>
               <option value="suppressed">Suppressed</option>
-            </select>
+            </AceternitySelect>
           </label>
           <label>
             <span className="sr-only">Contact availability</span>
-            <select
+            <AceternitySelect
               onChange={(event) =>
                 setContact(event.target.value as "any" | "email" | "phone")
               }
@@ -233,10 +240,10 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               <option value="any">Any contact</option>
               <option value="email">Has email</option>
               <option value="phone">Has phone</option>
-            </select>
+            </AceternitySelect>
           </label>
           {hasFilters && (
-            <button
+            <AceternityButton
               className="clear-filters"
               onClick={() => {
                 setSearch("");
@@ -247,7 +254,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               type="button"
             >
               <X size={14} /> Clear
-            </button>
+            </AceternityButton>
           )}
         </div>
 
@@ -264,9 +271,9 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
             <AlertCircle />
             <h3>Lead research is unavailable</h3>
             <p>{error}</p>
-            <button className="button-secondary" onClick={() => void load()} type="button">
+            <AceternityButton className="button-secondary" onClick={() => void load()} type="button">
               <RefreshCw size={15} /> Retry
-            </button>
+            </AceternityButton>
           </div>
         )}
 
@@ -334,13 +341,13 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
                       </span>
                     </td>
                     <td>
-                      <button
+                      <AceternityButton
                         aria-label={`Inspect evidence for ${lead.personName} at ${lead.companyName}`}
                         onClick={() => setSelectedId(lead.id)}
                         type="button"
                       >
                         <ChevronRight size={17} />
-                      </button>
+                      </AceternityButton>
                     </td>
                   </tr>
                 ))}
@@ -362,13 +369,13 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
                 <h2>{selected.personName}</h2>
                 <p>{selected.jobTitle} · {selected.companyName}</p>
               </div>
-              <button
+              <AceternityButton
                 aria-label="Close lead evidence"
                 onClick={() => setSelectedId(null)}
                 type="button"
               >
                 <X size={18} />
-              </button>
+              </AceternityButton>
             </div>
 
             <div className="lead-detail-score">
@@ -394,7 +401,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
             <section className="evidence-list">
               <h3>Source evidence</h3>
               {selected.evidence.map((item) => (
-                <article key={item.id}>
+                <GlowCard as="article" key={item.id}>
                   <div>
                     <span>{item.kind}</span>
                     <strong>{item.confidence}%</strong>
@@ -404,7 +411,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
                   <a href={item.sourceUrl} rel="noreferrer" target="_blank">
                     Open source <ExternalLink size={13} />
                   </a>
-                </article>
+                </GlowCard>
               ))}
             </section>
 

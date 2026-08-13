@@ -2,6 +2,11 @@
 
 import { ArrowRight, Globe2, Lightbulb } from "lucide-react";
 import { useState } from "react";
+import {
+  AceternityButton,
+  AceternityTextarea,
+} from "./aceternity";
+import { Input } from "./ui/input";
 
 export function ProductInputSwitcher() {
   const [mode, setMode] = useState<"website" | "idea">("website");
@@ -15,7 +20,7 @@ export function ProductInputSwitcher() {
   return (
     <div className="source-intake">
       <div className="source-tabs" role="tablist" aria-label="How would you like to start?">
-        <button
+        <AceternityButton
           aria-selected={mode === "website"}
           className={mode === "website" ? "active" : ""}
           onClick={() => setMode("website")}
@@ -23,8 +28,8 @@ export function ProductInputSwitcher() {
           type="button"
         >
           <Globe2 size={15} /> I have a website
-        </button>
-        <button
+        </AceternityButton>
+        <AceternityButton
           aria-selected={mode === "idea"}
           className={mode === "idea" ? "active" : ""}
           onClick={() => setMode("idea")}
@@ -32,11 +37,11 @@ export function ProductInputSwitcher() {
           type="button"
         >
           <Lightbulb size={15} /> I have a product idea
-        </button>
+        </AceternityButton>
       </div>
       <div className="source-field">
         {mode === "website" ? (
-          <input
+          <Input
             aria-label="Website URL"
             onChange={(event) => setValue(event.target.value)}
             placeholder="https://yourcompany.com"
@@ -44,7 +49,7 @@ export function ProductInputSwitcher() {
             value={value}
           />
         ) : (
-          <textarea
+          <AceternityTextarea
             aria-label="Product idea"
             onChange={(event) => setValue(event.target.value)}
             placeholder="Describe the product, who it helps and the problem it solves…"

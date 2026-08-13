@@ -2,6 +2,9 @@ import { BarChart3, LogOut, MessageSquareText, Settings2, Users } from "lucide-r
 import type { ReactNode } from "react";
 import { AuthWorkspaceControls } from "./auth-workspace-controls";
 import { ThemeToggle } from "./motion/theme-toggle";
+import { AceternityBackdrop } from "./aceternity";
+import { GlowingEffect } from "./ui/glowing-effect";
+import { Button as MovingBorderButton } from "./ui/moving-border";
 
 const links = [
   ["Campaigns", "/dashboard", BarChart3],
@@ -26,6 +29,7 @@ export function AppShell({
   return (
     <div className="product-app">
       <aside className="app-sidebar">
+        <GlowingEffect disabled={false} proximity={120} spread={38} />
         <a className="brand" href="/" aria-label="VranceFlex home">
           <span className="brand-mark">VF</span>
           <span>VranceFlex</span>
@@ -48,7 +52,9 @@ export function AppShell({
         )}
       </aside>
       <main className="app-main">
+        <AceternityBackdrop subtle />
         <header className="app-header">
+          <GlowingEffect disabled={false} proximity={100} spread={30} />
           <div><span>{eyebrow}</span><h1>{title}</h1></div>
           <div className="app-header-actions">
             <ThemeToggle
@@ -57,10 +63,26 @@ export function AppShell({
               className="theme-toggle"
               iconClassName="theme-toggle-icon"
             />
-            <a className="button-primary compact" href="/campaigns/new">New campaign</a>
+            <MovingBorderButton
+              as="a"
+              borderRadius="0.75rem"
+              className="aceternity-button-inner"
+              containerClassName="aceternity-button compact"
+              href="/campaigns/new"
+            >
+              New campaign
+            </MovingBorderButton>
           </div>
         </header>
-        {children}
+        <section className="app-surface">
+          <GlowingEffect
+            borderWidth={1}
+            disabled={false}
+            proximity={140}
+            spread={44}
+          />
+          {children}
+        </section>
       </main>
     </div>
   );

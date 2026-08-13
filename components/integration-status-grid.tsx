@@ -1,11 +1,12 @@
 import { Check, CircleDashed, LockKeyhole } from "lucide-react";
 import type { IntegrationStatus } from "../lib/server/integration-status";
+import { GlowCard } from "./aceternity";
 
 export function IntegrationStatusGrid({ integrations }: { integrations: IntegrationStatus[] }) {
   return (
     <section className="integration-grid">
       {integrations.map((integration) => (
-        <article key={integration.id}>
+        <GlowCard as="article" key={integration.id}>
           <div className="integration-heading">
             <span className={integration.configured ? "configured" : ""}>
               {integration.configured ? <Check size={15} /> : <CircleDashed size={15} />}
@@ -19,7 +20,7 @@ export function IntegrationStatusGrid({ integrations }: { integrations: Integrat
               {integration.configured ? "Configured" : "Needs secret"}
             </strong>
           </div>
-        </article>
+        </GlowCard>
       ))}
     </section>
   );

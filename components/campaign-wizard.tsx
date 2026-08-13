@@ -3,6 +3,14 @@
 import { ArrowLeft, ArrowRight, Check, Globe2, Lightbulb, LoaderCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CampaignCreateInput } from "../lib/domain/campaign";
+import {
+  AceternityButton,
+  AceternityLink,
+  AceternitySelect,
+  AceternityTextarea,
+  GlowCard,
+} from "./aceternity";
+import { Input } from "./ui/input";
 
 type Mode = "website" | "idea";
 type FormState = {
@@ -139,7 +147,7 @@ export function CampaignWizard({
 
   if (state === "success") {
     return (
-      <section className="wizard-success">
+      <GlowCard as="section" className="wizard-success">
         <span><Check size={24} /></span>
         <p className="section-label">Campaign accepted</p>
         <h2>{message ? "Campaign saved." : "Research has started."}</h2>
@@ -152,17 +160,17 @@ export function CampaignWizard({
           )}
         </p>
         <div>
-          <a className="button-primary" href={`/campaigns/${campaignId}`}>
+          <AceternityLink className="button-primary" href={`/campaigns/${campaignId}`}>
             View campaign <ArrowRight size={17} />
-          </a>
-          <a className="button-secondary" href="/campaigns/new">Create another</a>
+          </AceternityLink>
+          <AceternityLink className="button-secondary" href="/campaigns/new">Create another</AceternityLink>
         </div>
-      </section>
+      </GlowCard>
     );
   }
 
   return (
-    <section className="campaign-wizard">
+    <GlowCard as="section" className="campaign-wizard">
       <div className="wizard-progress" aria-label={`Step ${step + 1} of ${stepNames.length}`}>
         {stepNames.map((name, index) => (
           <div className={index <= step ? "active" : ""} key={name}>
@@ -180,27 +188,27 @@ export function CampaignWizard({
             <p>Start with a live website or describe an idea that has not launched yet.</p>
           </div>
           <div className="source-choice">
-            <button className={mode === "website" ? "active" : ""} onClick={() => setMode("website")} type="button">
+            <AceternityButton className={mode === "website" ? "active" : ""} onClick={() => setMode("website")} type="button">
               <Globe2 size={19} /><span><strong>Website</strong><small>We analyse your existing pages.</small></span>
-            </button>
-            <button className={mode === "idea" ? "active" : ""} onClick={() => setMode("idea")} type="button">
+            </AceternityButton>
+            <AceternityButton className={mode === "idea" ? "active" : ""} onClick={() => setMode("idea")} type="button">
               <Lightbulb size={19} /><span><strong>Product idea</strong><small>No website or launch required.</small></span>
-            </button>
+            </AceternityButton>
           </div>
           <div className="field-grid two">
-            <label>Business or founder name<input value={form.businessName} onChange={(event) => update("businessName", event.target.value)} placeholder="Acme Labs" /></label>
-            <label>Product name<input value={form.productName} onChange={(event) => update("productName", event.target.value)} placeholder="SignalOS" /></label>
+            <label>Business or founder name<Input value={form.businessName} onChange={(event) => update("businessName", event.target.value)} placeholder="Acme Labs" /></label>
+            <label>Product name<Input value={form.productName} onChange={(event) => update("productName", event.target.value)} placeholder="SignalOS" /></label>
           </div>
           {mode === "website" ? (
-            <label>Website URL<input value={form.websiteUrl} onChange={(event) => update("websiteUrl", event.target.value)} placeholder="https://example.com" type="url" /></label>
+            <label>Website URL<Input value={form.websiteUrl} onChange={(event) => update("websiteUrl", event.target.value)} placeholder="https://example.com" type="url" /></label>
           ) : (
             <div className="field-grid idea-grid">
-              <label>Idea name<input value={form.ideaName} onChange={(event) => update("ideaName", event.target.value)} placeholder="AI onboarding copilot" /></label>
-              <label>Current stage<select value={form.ideaStage} onChange={(event) => update("ideaStage", event.target.value as FormState["ideaStage"])}><option value="concept">Concept</option><option value="prototype">Prototype</option><option value="mvp">MVP</option><option value="launched">Launched</option></select></label>
-              <label className="full">Describe the idea<textarea value={form.ideaDescription} onChange={(event) => update("ideaDescription", event.target.value)} placeholder="What does it do, who needs it, and what painful problem does it solve?" rows={4} /></label>
+              <label>Idea name<Input value={form.ideaName} onChange={(event) => update("ideaName", event.target.value)} placeholder="AI onboarding copilot" /></label>
+              <label>Current stage<AceternitySelect value={form.ideaStage} onChange={(event) => update("ideaStage", event.target.value as FormState["ideaStage"])}><option value="concept">Concept</option><option value="prototype">Prototype</option><option value="mvp">MVP</option><option value="launched">Launched</option></AceternitySelect></label>
+              <label className="full">Describe the idea<AceternityTextarea value={form.ideaDescription} onChange={(event) => update("ideaDescription", event.target.value)} placeholder="What does it do, who needs it, and what painful problem does it solve?" rows={4} /></label>
             </div>
           )}
-          <label>Product summary<textarea value={form.productSummary} onChange={(event) => update("productSummary", event.target.value)} placeholder="Explain the outcome customers get and why your approach is different." rows={4} /></label>
+          <label>Product summary<AceternityTextarea value={form.productSummary} onChange={(event) => update("productSummary", event.target.value)} placeholder="Explain the outcome customers get and why your approach is different." rows={4} /></label>
         </div>
       )}
 
@@ -211,10 +219,10 @@ export function CampaignWizard({
             <h2>Who should care first?</h2>
             <p>Give the agents a strong starting hypothesis. Research will validate and sharpen it.</p>
           </div>
-          <label>Ideal audience<textarea value={form.audience} onChange={(event) => update("audience", event.target.value)} placeholder="e.g. RevOps leaders at 50–500 person B2B SaaS companies struggling with stale CRM data" rows={5} /></label>
+          <label>Ideal audience<AceternityTextarea value={form.audience} onChange={(event) => update("audience", event.target.value)} placeholder="e.g. RevOps leaders at 50–500 person B2B SaaS companies struggling with stale CRM data" rows={5} /></label>
           <div className="field-grid two">
-            <label>Primary geography<input value={form.geography} onChange={(event) => update("geography", event.target.value)} placeholder="United Kingdom and DACH" /></label>
-            <label>Campaign goal<select value={form.goal} onChange={(event) => update("goal", event.target.value as FormState["goal"])}><option value="book_meetings">Book qualified meetings</option><option value="validate_demand">Validate market demand</option><option value="build_waitlist">Build a waitlist</option><option value="sell_product">Generate sales opportunities</option></select></label>
+            <label>Primary geography<Input value={form.geography} onChange={(event) => update("geography", event.target.value)} placeholder="United Kingdom and DACH" /></label>
+            <label>Campaign goal<AceternitySelect value={form.goal} onChange={(event) => update("goal", event.target.value as FormState["goal"])}><option value="book_meetings">Book qualified meetings</option><option value="validate_demand">Validate market demand</option><option value="build_waitlist">Build a waitlist</option><option value="sell_product">Generate sales opportunities</option></AceternitySelect></label>
           </div>
         </div>
       )}
@@ -230,7 +238,7 @@ export function CampaignWizard({
             <label>Verified lead target</label>
             <div className="option-row">
               {[10, 25, 50, 100, 250, 500].map((count) => (
-                <button className={form.leadCount === count ? "active" : ""} onClick={() => update("leadCount", count as FormState["leadCount"])} type="button" key={count}>{count}</button>
+                <AceternityButton className={form.leadCount === count ? "active" : ""} onClick={() => update("leadCount", count as FormState["leadCount"])} type="button" key={count}>{count}</AceternityButton>
               ))}
             </div>
             <p className="option-row-note">
@@ -238,12 +246,12 @@ export function CampaignWizard({
             </p>
           </div>
           <div className="field-grid two">
-            <label>Monthly campaign budget (USD)<input min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} /></label>
+            <label>Monthly campaign budget (USD)<Input min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} /></label>
             <div className="choice-section">
               <label>Channels to prepare</label>
               <div className="channel-row">
                 {(["email", "sms"] as const).map((channel) => (
-                  <button className={form.channels.includes(channel) ? "active" : ""} onClick={() => toggleChannel(channel)} type="button" key={channel}><span>{form.channels.includes(channel) && <Check size={12} />}</span>{channel.toUpperCase()}</button>
+                  <AceternityButton className={form.channels.includes(channel) ? "active" : ""} onClick={() => toggleChannel(channel)} type="button" key={channel}><span>{form.channels.includes(channel) && <Check size={12} />}</span>{channel.toUpperCase()}</AceternityButton>
                 ))}
               </div>
             </div>
@@ -252,18 +260,18 @@ export function CampaignWizard({
         </div>
       )}
 
-      {state === "error" && <div className="form-error" role="alert">{message}<button onClick={() => setState("idle")} type="button">Try again</button></div>}
+      {state === "error" && <div className="form-error" role="alert">{message}<AceternityButton onClick={() => setState("idle")} type="button">Try again</AceternityButton></div>}
 
       <div className="wizard-actions">
-        {step > 0 ? <button className="button-secondary" onClick={() => setStep((current) => current - 1)} type="button"><ArrowLeft size={16} /> Back</button> : <a className="button-secondary" href="/">Cancel</a>}
+        {step > 0 ? <AceternityButton className="button-secondary" onClick={() => setStep((current) => current - 1)} type="button"><ArrowLeft size={16} /> Back</AceternityButton> : <AceternityLink className="button-secondary" href="/">Cancel</AceternityLink>}
         {step < 2 ? (
-          <button className="button-primary" disabled={!canContinue} onClick={() => setStep((current) => current + 1)} type="button">Continue <ArrowRight size={16} /></button>
+          <AceternityButton className="button-primary" disabled={!canContinue} onClick={() => setStep((current) => current + 1)} type="button">Continue <ArrowRight size={16} /></AceternityButton>
         ) : (
-          <button className="button-primary" disabled={!canContinue || state === "submitting"} onClick={() => void submit()} type="button">
+          <AceternityButton className="button-primary" disabled={!canContinue || state === "submitting"} onClick={() => void submit()} type="button">
             {state === "submitting" ? <><LoaderCircle className="spin" size={17} /> Creating campaign</> : <>Start research <ArrowRight size={16} /></>}
-          </button>
+          </AceternityButton>
         )}
       </div>
-    </section>
+    </GlowCard>
   );
 }

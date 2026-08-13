@@ -23,6 +23,7 @@ import { getOrgResendCredentials, getOrgTwilioCredentials } from "./channel-cred
 import { getDatabase } from "./database";
 import {
   campaigns,
+  deliveryDispatches,
   deliveryJobs,
   leads,
   organizationSendingSettings,
@@ -31,8 +32,14 @@ import {
   suppressionEntries,
   usageLedger,
 } from "./database/schema";
-import { localDayBounds } from "./timezone";
+import {
+  addLocalDays,
+  localDateTimeAt,
+  localDayBounds,
+  zonedDateTimeToUtc,
+} from "./timezone";
 import { getReplyToAddress } from "./reply-address";
+import type { ScheduleRecurrence } from "../domain/pipeline";
 
 const batchSize = 20;
 const processingTimeoutMs = 10 * 60 * 1_000;
@@ -46,6 +53,24 @@ function errorMessage(error: unknown) {
   return error instanceof Error
     ? error.message.slice(0, 1_000)
     : "The provider request failed.";
+}
+
+function nextOccurrence(
+  scheduledFor: Date,
+  recurrence: ScheduleRecurrence,
+  timezone: string,
+) {
+  if (recurrence.everyMinutes !== undefined) {
+    return new Date(
+      scheduledFor.getTime() + recurrence.everyMinutes * 60_000,
+    );
+  }
+  const local = localDateTimeAt(scheduledFor, timezone);
+  return zonedDateTimeToUtc(
+    addLocalDays(local.date, recurrence.intervalDays!),
+    local.time,
+    timezone,
+  );
 }
 
 type DeliveryChannel = "email" | "sms";
@@ -65,11 +90,12 @@ async function reserveDailySendCapacity(input: {
   messageId: string;
   timezone: string;
   dailyLimit: number;
+  occurrenceKey: string;
 }) {
   const database = getDatabase();
   const now = new Date();
   const bounds = localDayBounds(now, input.timezone);
-  const reservationKey = `outreach-${input.channel}-capacity/${input.messageId}`;
+  const reservationKey = `outreach-${input.channel}-capacity/${input.occurrenceKey}`;
   const reservedKind = channelReservedKind(input.channel);
   const acceptedKind = channelAcceptedKind(input.channel);
 
@@ -184,11 +210,15 @@ async function processClaimedJob(jobId: string) {
     channel === "sms"
       ? Boolean(lead.phone && lead.phoneVerified)
       : Boolean(lead.email && lead.emailVerified);
+  const acceptedMessageStatuses = job.recurrence
+    ? ["scheduled", "sending", "sent", "delivered"]
+    : ["scheduled"];
   if (
     (channel !== "email" && channel !== "sms") ||
-    message.status !== "scheduled" ||
+    !acceptedMessageStatuses.includes(message.status) ||
     !["scheduled", "active"].includes(sequence.status) ||
     !["scheduled", "sent", "delivered"].includes(campaign.status) ||
+    campaign.schedulePaused ||
     lead.doNotContact ||
     lead.status === "suppressed" ||
     !recipientEligible
@@ -240,6 +270,7 @@ async function processClaimedJob(jobId: string) {
     messageId: message.id,
     timezone,
     dailyLimit,
+    occurrenceKey: `${job.idempotencyKey}/${job.scheduledFor.toISOString()}`,
   });
   if (!capacity.reserved) {
     await database
@@ -272,7 +303,11 @@ async function processClaimedJob(jobId: string) {
   if (
     !fresh ||
     fresh.jobStatus !== "processing" ||
-    fresh.messageStatus !== "scheduled" ||
+    !(job.recurrence
+      ? ["scheduled", "sending", "sent", "delivered"].includes(
+          fresh.messageStatus,
+        )
+      : fresh.messageStatus === "scheduled") ||
     !["scheduled", "active"].includes(fresh.sequenceStatus) ||
     fresh.doNotContact ||
     fresh.leadStatus === "suppressed"
@@ -284,6 +319,88 @@ async function processClaimedJob(jobId: string) {
       "Delivery stopped after a final reply and suppression safety check.",
     );
     return "cancelled" as const;
+  }
+
+  const occurrenceKey = `${job.idempotencyKey}/${job.scheduledFor.toISOString()}`;
+  const [dispatch] = await database
+    .insert(deliveryDispatches)
+    .values({
+      id: crypto.randomUUID(),
+      deliveryJobId: job.id,
+      organizationId: job.organizationId,
+      occurrenceKey,
+      status: "processing",
+    })
+    .onConflictDoNothing({
+      target: [
+        deliveryDispatches.deliveryJobId,
+        deliveryDispatches.occurrenceKey,
+      ],
+    })
+    .returning({ id: deliveryDispatches.id });
+  if (!dispatch) {
+    const [existingDispatch] = await database
+      .select({ status: deliveryDispatches.status })
+      .from(deliveryDispatches)
+      .where(
+        and(
+          eq(deliveryDispatches.deliveryJobId, job.id),
+          eq(deliveryDispatches.occurrenceKey, occurrenceKey),
+        ),
+      )
+      .limit(1);
+    if (existingDispatch?.status === "failed") {
+      await database
+        .update(deliveryDispatches)
+        .set({
+          status: "processing",
+          lastError: null,
+          completedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(deliveryDispatches.deliveryJobId, job.id),
+            eq(deliveryDispatches.occurrenceKey, occurrenceKey),
+          ),
+        );
+    } else {
+      const now = new Date();
+      await database.transaction(async (transaction) => {
+        await transaction
+          .update(deliveryDispatches)
+          .set({
+            status:
+              existingDispatch?.status === "accepted"
+                ? "accepted"
+                : "ambiguous",
+            lastError:
+              existingDispatch?.status === "accepted"
+                ? null
+                : "Provider outcome is ambiguous; replay was blocked.",
+            completedAt: now,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(deliveryDispatches.deliveryJobId, job.id),
+              eq(deliveryDispatches.occurrenceKey, occurrenceKey),
+            ),
+          );
+        await transaction
+          .update(deliveryJobs)
+          .set({
+            status: "failed",
+            lockedAt: null,
+            completedAt: now,
+            lastError:
+              "An earlier provider dispatch has an ambiguous result; automatic replay was blocked to prevent a duplicate send.",
+            updatedAt: now,
+          })
+          .where(eq(deliveryJobs.id, job.id));
+      });
+      return "deduplicated" as const;
+    }
   }
 
   try {
@@ -312,7 +429,7 @@ async function processClaimedJob(jobId: string) {
                 campaignId: campaign.id,
                 leadId: lead.id,
                 messageId: message.id,
-                idempotencyKey: job.idempotencyKey,
+                idempotencyKey: occurrenceKey,
                 replyTo: getReplyToAddress(message.id, resendCredentials?.replyDomain),
                 approved: true,
                 doNotContact: false,
@@ -321,12 +438,18 @@ async function processClaimedJob(jobId: string) {
             );
           })();
     const now = new Date();
+    const nextRunAt = job.recurrence
+      ? nextOccurrence(job.scheduledFor, job.recurrence, timezone)
+      : null;
     await database.transaction(async (transaction) => {
       await transaction
         .update(deliveryJobs)
         .set({
-          status: "completed",
-          completedAt: now,
+          status: nextRunAt ? "queued" : "completed",
+          scheduledFor: nextRunAt ?? job.scheduledFor,
+          availableAt: nextRunAt ?? job.availableAt,
+          attemptCount: nextRunAt ? 0 : job.attemptCount,
+          completedAt: nextRunAt ? null : now,
           lockedAt: null,
           lastError: null,
           updatedAt: now,
@@ -335,13 +458,28 @@ async function processClaimedJob(jobId: string) {
       await transaction
         .update(outreachMessages)
         .set({
-          status: "sending",
+          status: nextRunAt ? "scheduled" : "sending",
+          scheduledFor: nextRunAt ?? message.scheduledFor,
           providerMessageId: result.providerMessageId,
           attemptCount: job.attemptCount,
           lastError: null,
           updatedAt: now,
         })
         .where(eq(outreachMessages.id, message.id));
+      await transaction
+        .update(deliveryDispatches)
+        .set({
+          status: "accepted",
+          providerMessageId: result.providerMessageId,
+          completedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(deliveryDispatches.deliveryJobId, job.id),
+            eq(deliveryDispatches.occurrenceKey, occurrenceKey),
+          ),
+        );
       await transaction
         .update(usageLedger)
         .set({ kind: channelAcceptedKind(channel), occurredAt: now })
@@ -358,6 +496,20 @@ async function processClaimedJob(jobId: string) {
       job.attemptCount >= job.maxAttempts;
     const now = new Date();
     await database.transaction(async (transaction) => {
+      await transaction
+        .update(deliveryDispatches)
+        .set({
+          status: "failed",
+          lastError: errorMessage(error),
+          completedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(deliveryDispatches.deliveryJobId, job.id),
+            eq(deliveryDispatches.occurrenceKey, occurrenceKey),
+          ),
+        );
       await transaction
         .update(deliveryJobs)
         .set({
@@ -405,12 +557,14 @@ export async function processDueDeliveryJobs() {
   const candidates = await database
     .select({ id: deliveryJobs.id })
     .from(deliveryJobs)
+    .innerJoin(campaigns, eq(deliveryJobs.campaignId, campaigns.id))
     .where(
       and(
         inArray(deliveryJobs.status, ["queued", "retry"]),
         lte(deliveryJobs.scheduledFor, now),
         lte(deliveryJobs.availableAt, now),
         or(eq(deliveryJobs.channel, "email"), eq(deliveryJobs.channel, "sms")),
+        eq(campaigns.schedulePaused, false),
       ),
     )
     .orderBy(asc(deliveryJobs.availableAt))
@@ -444,5 +598,6 @@ export async function processDueDeliveryJobs() {
     limited: results.filter((result) => result === "limited").length,
     failed: results.filter((result) => result === "failed").length,
     cancelled: results.filter((result) => result === "cancelled").length,
+    deduplicated: results.filter((result) => result === "deduplicated").length,
   };
 }

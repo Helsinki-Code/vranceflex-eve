@@ -3,6 +3,7 @@
 import { AlertCircle, ArrowRight, Check, CircleDashed, LoaderCircle, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { campaignStatusLabels, type Campaign } from "../lib/domain/campaign";
+import { AceternityButton, AceternityLink, GlowCard } from "./aceternity";
 
 const progressStatuses = [
   "researching",
@@ -43,11 +44,11 @@ export function CampaignDashboard() {
   }
 
   if (state === "error") {
-    return <div className="dashboard-state error"><AlertCircle /><h2>Campaigns are unavailable</h2><p>{error}</p><button className="button-secondary" onClick={() => void load()} type="button"><RefreshCw size={16} /> Retry</button></div>;
+    return <div className="dashboard-state error"><AlertCircle /><h2>Campaigns are unavailable</h2><p>{error}</p><AceternityButton className="button-secondary" onClick={() => void load()} type="button"><RefreshCw size={16} /> Retry</AceternityButton></div>;
   }
 
   if (campaigns.length === 0) {
-    return <div className="dashboard-state empty"><span><CircleDashed /></span><h2>No campaigns yet</h2><p>Start with a website or an unlaunched product idea. VranceFlex will turn either into a research plan.</p><a className="button-primary" href="/campaigns/new"><Plus size={17} /> Create your first campaign</a></div>;
+    return <div className="dashboard-state empty"><span><CircleDashed /></span><h2>No campaigns yet</h2><p>Start with a website or an unlaunched product idea. VranceFlex will turn either into a research plan.</p><AceternityLink className="button-primary" href="/campaigns/new"><Plus size={17} /> Create your first campaign</AceternityLink></div>;
   }
 
   return (
@@ -58,11 +59,11 @@ export function CampaignDashboard() {
         <article><span>Awaiting approval</span><strong>{campaigns.filter((campaign) => campaign.status === "awaiting_approval").length}</strong><small>Nothing sends automatically</small></article>
       </section>
       <section className="campaign-list">
-        <div className="list-heading"><div><span>CAMPAIGNS</span><h2>Live work</h2></div><button aria-label="Refresh campaigns" onClick={() => void load()} type="button"><RefreshCw size={16} /></button></div>
+        <div className="list-heading"><div><span>CAMPAIGNS</span><h2>Live work</h2></div><AceternityButton aria-label="Refresh campaigns" onClick={() => void load()} type="button"><RefreshCw size={16} /></AceternityButton></div>
         {campaigns.map((campaign) => {
           const statusIndex = progressStatuses.indexOf(campaign.status as (typeof progressStatuses)[number]);
           return (
-            <article className="campaign-row" key={campaign.id}>
+            <GlowCard as="article" className="campaign-row" key={campaign.id}>
               <div className="campaign-identity">
                 <span>{campaign.source.kind === "website" ? "URL" : "IDEA"}</span>
                 <div><h3>{campaign.productName}</h3><p>{campaign.audience}</p></div>
@@ -73,7 +74,7 @@ export function CampaignDashboard() {
               <div className={`status-badge status-${campaign.status}`}>{campaignStatusLabels[campaign.status]}</div>
               <div className="campaign-meta"><span>{campaign.leadCount} leads</span><span>{campaign.geography}</span></div>
               <a href={`/campaigns/${campaign.id}`} aria-label={`Open ${campaign.productName}`}><ArrowRight size={17} /></a>
-            </article>
+            </GlowCard>
           );
         })}
       </section>
