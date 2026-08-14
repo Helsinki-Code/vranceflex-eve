@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { ArrowRight, Mic2, Sparkles, X } from "lucide-react";
+import { ArrowRight, MessageCircle, Mic2, Sparkles, X } from "lucide-react";
 import { GlowCard } from "./aceternity";
 import { BackgroundBeams } from "./ui/background-beams";
 import { normalizeLiveAvatarEmbedUrl } from "./live-avatar-embed-url";
@@ -20,6 +20,15 @@ export function LiveAvatarSalesGuide({ embedUrl }: { embedUrl?: string }) {
         </Dialog.Trigger>
         <span>Ask about agents, lead research, approvals, or how to begin.</span>
       </div>
+
+      <Dialog.Trigger className="live-avatar-floating-trigger" aria-label="Open the VranceFlex AI product guide">
+        <span className="live-avatar-floating-status" aria-hidden="true"><i /></span>
+        <span className="live-avatar-floating-copy">
+          <strong>Ask VranceFlex</strong>
+          <small>AI product guide</small>
+        </span>
+        <MessageCircle size={19} aria-hidden="true" />
+      </Dialog.Trigger>
 
       <Dialog.Portal>
         <Dialog.Backdrop className="live-avatar-backdrop" />
