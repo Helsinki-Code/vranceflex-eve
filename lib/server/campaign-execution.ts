@@ -5,6 +5,7 @@ import type { ApiActor } from "./api-actor";
 import type { ApprovedLead } from "./candidate-store";
 import { getDatabase } from "./database";
 import { campaignExecutions } from "./database/schema";
+import { classifyEveTerminalEvent } from "./eve-terminal";
 import { getCampaignExecution, recordCampaignProgress } from "./pipeline-store";
 
 function executionPrompt(campaign: Campaign, approvedLeads: ApprovedLead[]) {
@@ -201,4 +202,81 @@ export async function startCampaignExecution({
   }
 
   return getCampaignExecution(campaign.id, actor.organizationId);
+}
+
+/**
+ * Reconciles the application execution row with Eve's durable stream tail.
+ * Session creation is asynchronous: a POST can be accepted and the model turn
+ * can fail moments later, so treating a successful `send()` as proof that the
+ * run is still alive leaves campaigns permanently marked as running.
+ */
+export async function reconcileCampaignExecution({
+  campaignId,
+  organizationId,
+  origin,
+  sessionToken,
+}: {
+  campaignId: string;
+  organizationId: string;
+  origin: string;
+  sessionToken: string;
+}) {
+  const execution = await getCampaignExecution(campaignId, organizationId);
+  if (
+    !execution ||
+    !["queued", "running"].includes(execution.status) ||
+    !execution.eveSessionId ||
+    !sessionToken
+  ) {
+    return execution;
+  }
+
+  try {
+    const client = new Client({
+      host: origin,
+      auth: { bearer: sessionToken },
+      redirect: "manual",
+    });
+    const session = client.session({
+      sessionId: execution.eveSessionId,
+      streamIndex: 0,
+    });
+
+    for await (const event of session.stream({ startIndex: -1 })) {
+      const terminal = classifyEveTerminalEvent(event);
+      if (!terminal) break;
+
+      const now = new Date();
+      const database = getDatabase();
+      await database
+        .update(campaignExecutions)
+        .set({
+          status: "failed",
+          stage: "eve_failed",
+          errorCode: terminal.errorCode,
+          errorMessage: terminal.errorMessage.slice(0, 2_000),
+          completedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(campaignExecutions.id, execution.id),
+            eq(campaignExecutions.organizationId, organizationId),
+            eq(campaignExecutions.status, execution.status),
+          ),
+        );
+      await recordCampaignProgress(database, {
+        organizationId,
+        campaignId,
+        stage: "eve_failed",
+        message: terminal.errorMessage,
+      });
+      return getCampaignExecution(campaignId, organizationId);
+    }
+  } catch {
+    // Reconciliation is best-effort. A transient stream/auth failure must not
+    // make the campaign workspace unavailable; the next poll retries it.
+  }
+
+  return execution;
 }

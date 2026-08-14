@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getApiActor } from "../../../../lib/server/api-actor";
 import { apiErrorResponse } from "../../../../lib/server/api-response";
+import { currentSessionToken } from "../../../../lib/server/auth-store";
+import { reconcileCampaignExecution } from "../../../../lib/server/campaign-execution";
 import { getCampaign } from "../../../../lib/server/campaign-store";
 import { listCandidates } from "../../../../lib/server/candidate-store";
 import {
@@ -15,7 +17,7 @@ type RouteContext = {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     const actor = await getApiActor();
     const { campaignId } = await context.params;
@@ -23,6 +25,13 @@ export async function GET(_request: Request, context: RouteContext) {
     if (!campaign) {
       return NextResponse.json({ error: "Campaign was not found." }, { status: 404 });
     }
+
+    await reconcileCampaignExecution({
+      campaignId,
+      organizationId: actor.organizationId,
+      origin: new URL(request.url).origin,
+      sessionToken: await currentSessionToken(),
+    });
 
     const [execution, sequences, progress, candidates] = await Promise.all([
       getCampaignExecution(campaignId, actor.organizationId),

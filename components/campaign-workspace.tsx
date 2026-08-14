@@ -207,6 +207,7 @@ function CandidateWorkspacePanel({
   const discovered = candidates.filter((candidate) => candidate.status === "discovered");
   const enriching = candidates.filter((candidate) => candidate.status === "enriching");
   const verified = candidates.filter((candidate) => candidate.status === "verified");
+  const approved = candidates.filter((candidate) => candidate.status === "approved");
   const failed = candidates.filter((candidate) => candidate.status === "failed");
 
   const [selectedDiscovered, setSelectedDiscovered] = useState<string[]>([]);
@@ -319,7 +320,7 @@ function CandidateWorkspacePanel({
           <header>
             <div>
               <strong>{verified.length} verified — choose who to approve</strong>
-              <p>Approved leads get personalized outreach sequences drafted for your review next.</p>
+              <p>Approval saves these enriched leads. You decide when Eve starts preparing outreach.</p>
             </div>
             <div className="candidate-stage-actions">
               <AceternityButton
@@ -342,7 +343,7 @@ function CandidateWorkspacePanel({
                 type="button"
               >
                 {busyAction === "approve-leads" ? <LoaderCircle className="spin" size={14} /> : null}
-                Approve {selectedVerified.length || ""} &amp; generate outreach
+                Approve {selectedVerified.length || ""} selected
               </AceternityButton>
             </div>
           </header>
@@ -373,6 +374,18 @@ function CandidateWorkspacePanel({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {approved.length > 0 && (
+        <div className="candidate-stage muted">
+          <header>
+            <div>
+              <strong>{approved.length} approved {approved.length === 1 ? "lead" : "leads"} saved</strong>
+              <p>Parallel enrichment is complete for these leads. They are ready for the Eve handoff.</p>
+            </div>
+            <CheckCircle2 size={18} />
+          </header>
         </div>
       )}
 
@@ -738,9 +751,11 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
 
   const { campaign, execution, sequences } = payload;
   const candidates = payload.candidates ?? [];
+  const approvedLeadCount = candidates.filter((candidate) => candidate.status === "approved").length;
   const processing = execution && ["queued", "running"].includes(execution.status);
   const failed = execution?.status === "failed";
   const showCandidateWorkspace = !execution && candidates.length > 0;
+  const readyForEve = !execution && approvedLeadCount > 0;
 
   return (
     <div className="campaign-workspace">
@@ -771,6 +786,28 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         />
       )}
 
+      {readyForEve && (
+        <section className="pipeline-live-card">
+          <span><CheckCircle2 size={20} /></span>
+          <div>
+            <strong>Enrichment complete — continue with Eve</strong>
+            <p>
+              {approvedLeadCount} approved {approvedLeadCount === 1 ? "lead is" : "leads are"} safely saved.
+              Eve will organize ICPs, research personalization signals and draft outreach from this point.
+            </p>
+          </div>
+          <AceternityButton
+            className="button-primary"
+            disabled={busyAction === "retry"}
+            onClick={() => void retryExecution()}
+            type="button"
+          >
+            {busyAction === "retry" ? <LoaderCircle className="spin" size={15} /> : <Play size={15} />}
+            Continue with Eve
+          </AceternityButton>
+        </section>
+      )}
+
       {processing && (
         <ExecutionProgressPanel
           execution={execution}
@@ -786,6 +823,12 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
           <div>
             <strong>Campaign preparation needs attention</strong>
             <p>{execution.errorMessage ?? "The Eve run did not start or complete."}</p>
+            {approvedLeadCount > 0 && (
+              <small>
+                Parallel enrichment is complete and {approvedLeadCount} approved {approvedLeadCount === 1 ? "lead remains" : "leads remain"} saved.
+                Continuing restarts only the Eve preparation stage.
+              </small>
+            )}
           </div>
           <AceternityButton
             className="button-secondary"
@@ -794,12 +837,12 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             type="button"
           >
             {busyAction === "retry" ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}
-            Retry research
+            Continue with Eve
           </AceternityButton>
         </section>
       )}
 
-      {!processing && !failed && !showCandidateWorkspace && sequences.length === 0 && (
+      {!processing && !failed && !showCandidateWorkspace && !readyForEve && sequences.length === 0 && (
         <section className="pipeline-live-card">
           <span><CircleDashed size={20} /></span>
           <div>

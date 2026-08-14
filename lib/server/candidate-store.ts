@@ -507,14 +507,14 @@ function domainFromUrl(url: string | null) {
 
 /**
  * Converts user-approved, Parallel-verified candidates into real `leads`
- * rows, then starts the Eve session for ICP synthesis, personalization
- * research, and sequence generation over exactly this approved list.
+ * rows. Starting Eve is deliberately a separate user action so enrichment
+ * remains a durable, visible handoff point and a failed model run never forces
+ * the user to repeat discovery or contact verification.
  */
 export async function approveCandidates(
   actor: ApiActor,
   campaignId: string,
   candidateIds: string[],
-  start: (campaign: Campaign, approvedLeads: ApprovedLead[]) => Promise<unknown>,
 ) {
   if (!["admin", "reviewer", "member"].includes(actor.organizationRole)) {
     throw new AuthRequestError(
@@ -624,16 +624,8 @@ export async function approveCandidates(
     organizationId: actor.organizationId,
     campaignId,
     stage: "enriching",
-    message: `${approvedLeads.length} ${approvedLeads.length === 1 ? "lead" : "leads"} approved. Preparing personalized outreach…`,
+    message: `${approvedLeads.length} ${approvedLeads.length === 1 ? "lead" : "leads"} approved. Enrichment is complete — continue with Eve when you are ready.`,
   });
-
-  try {
-    await start(campaign, approvedLeads);
-  } catch {
-    // startCampaignExecution already persists a "failed" execution status
-    // and a progress event on failure — leads remain approved either way,
-    // and the workspace UI's "Retry research" action can restart the run.
-  }
 
   return { approved: approvedLeads.length };
 }
