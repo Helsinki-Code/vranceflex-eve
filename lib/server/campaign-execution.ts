@@ -242,36 +242,46 @@ export async function reconcileCampaignExecution({
       streamIndex: 0,
     });
 
-    for await (const event of session.stream({ startIndex: -1 })) {
-      const terminal = classifyEveTerminalEvent(event);
-      if (!terminal) break;
+    const streamController = new AbortController();
+    const streamTimeout = setTimeout(() => streamController.abort(), 1_000);
 
-      const now = new Date();
-      const database = getDatabase();
-      await database
-        .update(campaignExecutions)
-        .set({
-          status: "failed",
+    try {
+      for await (const event of session.stream({
+        startIndex: -1,
+        signal: streamController.signal,
+      })) {
+        const terminal = classifyEveTerminalEvent(event);
+        if (!terminal) break;
+
+        const now = new Date();
+        const database = getDatabase();
+        await database
+          .update(campaignExecutions)
+          .set({
+            status: "failed",
+            stage: "eve_failed",
+            errorCode: terminal.errorCode,
+            errorMessage: terminal.errorMessage.slice(0, 2_000),
+            completedAt: now,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(campaignExecutions.id, execution.id),
+              eq(campaignExecutions.organizationId, organizationId),
+              eq(campaignExecutions.status, execution.status),
+            ),
+          );
+        await recordCampaignProgress(database, {
+          organizationId,
+          campaignId,
           stage: "eve_failed",
-          errorCode: terminal.errorCode,
-          errorMessage: terminal.errorMessage.slice(0, 2_000),
-          completedAt: now,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(campaignExecutions.id, execution.id),
-            eq(campaignExecutions.organizationId, organizationId),
-            eq(campaignExecutions.status, execution.status),
-          ),
-        );
-      await recordCampaignProgress(database, {
-        organizationId,
-        campaignId,
-        stage: "eve_failed",
-        message: terminal.errorMessage,
-      });
-      return getCampaignExecution(campaignId, organizationId);
+          message: terminal.errorMessage,
+        });
+        return getCampaignExecution(campaignId, organizationId);
+      }
+    } finally {
+      clearTimeout(streamTimeout);
     }
   } catch {
     // Reconciliation is best-effort. A transient stream/auth failure must not
