@@ -5,7 +5,10 @@ import {
   currentSessionToken,
 } from "../../../../../lib/server/auth-store";
 import { getCampaign } from "../../../../../lib/server/campaign-store";
-import { startCampaignExecution } from "../../../../../lib/server/campaign-execution";
+import {
+  cancelCampaignExecution,
+  startCampaignExecution,
+} from "../../../../../lib/server/campaign-execution";
 import {
   discoverCandidates,
   getApprovedLeadsForCampaign,
@@ -55,6 +58,17 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ execution: null, discovery }, { status: 202 });
     }
 
+    const currentExecution = await getCampaignExecution(
+      campaignId,
+      actor.organizationId,
+    );
+    if (["queued", "running"].includes(currentExecution?.status ?? "")) {
+      return NextResponse.json(
+        { error: "This Eve run is still active. Stop it before continuing." },
+        { status: 409 },
+      );
+    }
+
     const execution = await startCampaignExecution({
       campaign,
       approvedLeads,
@@ -64,6 +78,28 @@ export async function POST(request: Request, context: RouteContext) {
       force: true,
     });
     return NextResponse.json({ execution }, { status: 202 });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request, context: RouteContext) {
+  try {
+    assertSameOrigin(request);
+    const actor = await getApiActor();
+    const { campaignId } = await context.params;
+    const campaign = await getCampaign(campaignId, actor);
+    if (!campaign) {
+      return NextResponse.json({ error: "Campaign was not found." }, { status: 404 });
+    }
+
+    const execution = await cancelCampaignExecution({
+      campaignId,
+      organizationId: actor.organizationId,
+      origin: new URL(request.url).origin,
+      sessionToken: await currentSessionToken(),
+    });
+    return NextResponse.json({ execution });
   } catch (error) {
     return apiErrorResponse(error);
   }

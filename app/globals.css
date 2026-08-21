@@ -3576,6 +3576,20 @@ button:disabled {
   background: rgba(201, 255, 114, 0.35);
 }
 
+.execution-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.execution-actions .button-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: rgba(179, 83, 47, 0.4);
+  color: #9f4528;
+}
+
 .execution-feed {
   display: grid;
   gap: 7px;

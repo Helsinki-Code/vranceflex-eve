@@ -136,6 +136,7 @@ export const campaignExecutionSchema = z.object({
   stage: z.string(),
   attempt: z.number().int().positive(),
   eveSessionId: z.string().nullable(),
+  errorCode: z.string().nullable(),
   errorMessage: z.string().nullable(),
   startedAt: z.string().datetime().nullable(),
   completedAt: z.string().datetime().nullable(),

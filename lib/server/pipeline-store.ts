@@ -42,6 +42,7 @@ function mapExecution(
     stage: row.stage,
     attempt: row.attempt,
     eveSessionId: row.eveSessionId,
+    errorCode: row.errorCode,
     errorMessage: row.errorMessage,
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,

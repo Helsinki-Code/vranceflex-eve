@@ -17,6 +17,7 @@ import {
   Save,
   Send,
   ShieldCheck,
+  Square,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -91,13 +92,13 @@ const STALL_THRESHOLD_MS = 10 * 60 * 1_000;
 function ExecutionProgressPanel({
   execution,
   progress,
-  onRetry,
-  retryBusy,
+  onStop,
+  stopBusy,
 }: {
   execution: CampaignExecution;
   progress: CampaignProgressEvent[];
-  onRetry: () => void;
-  retryBusy: boolean;
+  onStop: () => void;
+  stopBusy: boolean;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -157,6 +158,18 @@ function ExecutionProgressPanel({
         ))}
       </ol>
 
+      <div className="execution-actions">
+        <AceternityButton
+          className="button-secondary compact"
+          disabled={stopBusy}
+          onClick={onStop}
+          type="button"
+        >
+          {stopBusy ? <LoaderCircle className="spin" size={14} /> : <Square size={13} />}
+          Stop campaign
+        </AceternityButton>
+      </div>
+
       {recent.length > 0 && (
         <ul aria-live="polite" className="execution-feed">
           {recent.map((event, index) => (
@@ -173,18 +186,9 @@ function ExecutionProgressPanel({
           <AlertCircle size={15} />
           <p>
             No updates for {Math.floor((now - lastActivityAt) / 60_000)} minutes —
-            this run may have stalled. Retrying is safe: nothing is sent without
-            your approval.
+            this run may have stalled. Stop the active run, then continue from
+            its saved Eve checkpoint.
           </p>
-          <AceternityButton
-            className="button-secondary compact"
-            disabled={retryBusy}
-            onClick={onRetry}
-            type="button"
-          >
-            {retryBusy ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
-            Retry research
-          </AceternityButton>
         </div>
       )}
     </section>
@@ -608,6 +612,27 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
     }
   }
 
+  async function stopExecution() {
+    setBusyAction("stop");
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/campaigns/${campaignId}/execution`,
+        { method: "DELETE" },
+      );
+      await readJson(response);
+      await load(true);
+    } catch (stopError) {
+      setError(
+        stopError instanceof Error
+          ? stopError.message
+          : "Campaign preparation could not be stopped.",
+      );
+    } finally {
+      setBusyAction("");
+    }
+  }
+
   async function saveMessage(messageId: string) {
     const draft = drafts[messageId];
     if (!draft) return;
@@ -753,7 +778,8 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
   const candidates = payload.candidates ?? [];
   const approvedLeadCount = candidates.filter((candidate) => candidate.status === "approved").length;
   const processing = execution && ["queued", "running"].includes(execution.status);
-  const failed = execution?.status === "failed";
+  const cancelled = execution?.status === "failed" && execution.errorCode === "user_cancelled";
+  const failed = execution?.status === "failed" && !cancelled;
   const showCandidateWorkspace = !execution && candidates.length > 0;
   const readyForEve = !execution && approvedLeadCount > 0;
 
@@ -811,10 +837,32 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
       {processing && (
         <ExecutionProgressPanel
           execution={execution}
-          onRetry={() => void retryExecution()}
+          onStop={() => void stopExecution()}
           progress={payload.progress ?? []}
-          retryBusy={busyAction === "retry"}
+          stopBusy={busyAction === "stop"}
         />
+      )}
+
+      {cancelled && (
+        <section className="pipeline-live-card">
+          <span><Square size={18} /></span>
+          <div>
+            <strong>Campaign preparation stopped</strong>
+            <p>
+              Eve preserved this campaign at {execution.stage.replaceAll("_", " ")}.
+              Continue when you are ready; completed work will not be repeated.
+            </p>
+          </div>
+          <AceternityButton
+            className="button-primary"
+            disabled={busyAction === "retry"}
+            onClick={() => void retryExecution()}
+            type="button"
+          >
+            {busyAction === "retry" ? <LoaderCircle className="spin" size={15} /> : <Play size={15} />}
+            Continue from checkpoint
+          </AceternityButton>
+        </section>
       )}
 
       {failed && (
@@ -826,7 +874,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             {approvedLeadCount > 0 && (
               <small>
                 Parallel enrichment is complete and {approvedLeadCount} approved {approvedLeadCount === 1 ? "lead remains" : "leads remain"} saved.
-                Continuing restarts only the Eve preparation stage.
+                Continuing reuses the latest persisted campaign checkpoint and performs only unfinished Eve work.
               </small>
             )}
           </div>
@@ -842,7 +890,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         </section>
       )}
 
-      {!processing && !failed && !showCandidateWorkspace && !readyForEve && sequences.length === 0 && (
+      {!processing && !failed && !cancelled && !showCandidateWorkspace && !readyForEve && sequences.length === 0 && (
         <section className="pipeline-live-card">
           <span><CircleDashed size={20} /></span>
           <div>
