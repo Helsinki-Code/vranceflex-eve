@@ -1,0 +1,21 @@
+"use client";
+import * as React from "react";
+import { DropdownMenu as DropdownPrimitive } from "radix-ui";
+import { Check, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+const DropdownMenu = DropdownPrimitive.Root;
+const DropdownMenuTrigger = DropdownPrimitive.Trigger;
+const DropdownMenuGroup = DropdownPrimitive.Group;
+const DropdownMenuPortal = DropdownPrimitive.Portal;
+const DropdownMenuSub = DropdownPrimitive.Sub;
+const DropdownMenuRadioGroup = DropdownPrimitive.RadioGroup;
+function DropdownMenuContent({ className, sideOffset = 6, ...props }: React.ComponentProps<typeof DropdownPrimitive.Content>) { return <DropdownPrimitive.Portal><DropdownPrimitive.Content sideOffset={sideOffset} className={cn("z-50 min-w-48 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg", className)} {...props} /></DropdownPrimitive.Portal>; }
+const DropdownMenuItem = ({ className, inset, ...props }: React.ComponentProps<typeof DropdownPrimitive.Item> & { inset?: boolean }) => <DropdownPrimitive.Item className={cn("relative flex min-h-10 cursor-default select-none items-center gap-2 rounded-md px-2 py-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[variant=destructive]:text-destructive", inset && "pl-8", className)} {...props} />;
+const DropdownMenuCheckboxItem = ({ className, children, checked, ...props }: React.ComponentProps<typeof DropdownPrimitive.CheckboxItem>) => <DropdownPrimitive.CheckboxItem checked={checked} className={cn("relative flex min-h-10 select-none items-center rounded-md py-2 pl-8 pr-2 text-sm outline-none focus:bg-accent", className)} {...props}><span className="absolute left-2"><DropdownPrimitive.ItemIndicator><Check className="size-4" /></DropdownPrimitive.ItemIndicator></span>{children}</DropdownPrimitive.CheckboxItem>;
+const DropdownMenuRadioItem = ({ className, children, ...props }: React.ComponentProps<typeof DropdownPrimitive.RadioItem>) => <DropdownPrimitive.RadioItem className={cn("relative flex min-h-10 select-none items-center rounded-md py-2 pl-8 pr-2 text-sm outline-none focus:bg-accent", className)} {...props}><span className="absolute left-2"><DropdownPrimitive.ItemIndicator><span className="block size-2 rounded-full bg-current" /></DropdownPrimitive.ItemIndicator></span>{children}</DropdownPrimitive.RadioItem>;
+const DropdownMenuLabel = ({ className, inset, ...props }: React.ComponentProps<typeof DropdownPrimitive.Label> & { inset?: boolean }) => <DropdownPrimitive.Label className={cn("px-2 py-1.5 text-xs font-semibold", inset && "pl-8", className)} {...props} />;
+const DropdownMenuSeparator = ({ className, ...props }: React.ComponentProps<typeof DropdownPrimitive.Separator>) => <DropdownPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-muted", className)} {...props} />;
+const DropdownMenuShortcut = ({ className, ...props }: React.ComponentProps<"span">) => <span className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)} {...props} />;
+const DropdownMenuSubTrigger = ({ className, inset, children, ...props }: React.ComponentProps<typeof DropdownPrimitive.SubTrigger> & { inset?: boolean }) => <DropdownPrimitive.SubTrigger className={cn("flex min-h-10 items-center rounded-md px-2 py-2 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent", inset && "pl-8", className)} {...props}>{children}<ChevronRight className="ml-auto size-4" /></DropdownPrimitive.SubTrigger>;
+const DropdownMenuSubContent = ({ className, ...props }: React.ComponentProps<typeof DropdownPrimitive.SubContent>) => <DropdownPrimitive.SubContent className={cn("z-50 min-w-40 rounded-lg border bg-popover p-1 shadow-lg", className)} {...props} />;
+export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuPortal, DropdownMenuSub, DropdownMenuRadioGroup, DropdownMenuItem, DropdownMenuCheckboxItem, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSubTrigger, DropdownMenuSubContent };

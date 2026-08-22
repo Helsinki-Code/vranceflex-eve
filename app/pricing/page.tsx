@@ -1,7 +1,7 @@
-import { ArrowLeft, ShieldCheck } from "lucide-react";
-import { AceternityBackdrop } from "../../components/aceternity";
+import { ShieldCheck } from "lucide-react";
+import { AppBackdrop } from "../../components/design-system";
 import { PublicPricing } from "../../components/public-pricing";
-import { ThemeToggle } from "../../components/motion/theme-toggle";
+import { PublicNav } from "../../components/public-nav";
 
 export const metadata = {
   title: "Pricing · VranceFlex",
@@ -10,13 +10,9 @@ export const metadata = {
 
 export default function PricingPage() {
   return (
-    <main className="aceternity-page pricing-page">
-      <AceternityBackdrop subtle />
-      <nav className="nav-shell" aria-label="Pricing navigation">
-        <a className="brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></a>
-        <a className="settings-back" href="/"><ArrowLeft size={15} /> Back to product</a>
-        <ThemeToggle variant="rectangle" start="bottom-up" className="theme-toggle" iconClassName="theme-toggle-icon" />
-      </nav>
+    <main className="marketing-page pricing-page">
+      <AppBackdrop subtle />
+      <PublicNav backHref="/" backLabel="Back to product" />
       <header className="pricing-hero">
         <span className="section-label">PREMIUM WORKSPACE PRICING</span>
         <h1>Pay for verified opportunity—not seats or sends.</h1>

@@ -4,11 +4,11 @@ import { ArrowRight, LoaderCircle, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AceternityButton,
-  AceternityForm,
-  AceternityLink,
-  GlowCard,
-} from "./aceternity";
+  ActionButton,
+  FormSurface,
+  ActionLink,
+  SurfaceCard,
+} from "./design-system";
 import { Input } from "./ui/input";
 
 type InvitePreview = {
@@ -96,43 +96,43 @@ export function InviteAcceptForm({ token }: { token: string }) {
 
   if (loadError) {
     return (
-      <GlowCard className="first-party-auth-form auth-complete">
+      <SurfaceCard className="first-party-auth-form auth-complete">
         <h2>This invite isn&apos;t valid</h2>
         <p>{loadError}</p>
-        <AceternityLink className="auth-submit" href="/sign-in">
+        <ActionLink className="auth-submit" href="/sign-in">
           Go to sign in <ArrowRight size={16} />
-        </AceternityLink>
-      </GlowCard>
+        </ActionLink>
+      </SurfaceCard>
     );
   }
 
   if (!preview) {
     return (
-      <GlowCard className="first-party-auth-form auth-complete">
+      <SurfaceCard className="first-party-auth-form auth-complete">
         <LoaderCircle className="spin" size={20} />
-      </GlowCard>
+      </SurfaceCard>
     );
   }
 
   if (signInRequired) {
     return (
-      <GlowCard className="first-party-auth-form auth-complete">
+      <SurfaceCard className="first-party-auth-form auth-complete">
         <span><ShieldCheck size={21} /></span>
         <h2>Sign in to accept</h2>
         <p>An account already exists for {preview.email}. Sign in, then return to this link.</p>
-        <AceternityLink
+        <ActionLink
           className="auth-submit"
           href={`/sign-in?next=${encodeURIComponent(`/invites/${token}`)}`}
         >
           Go to sign in <ArrowRight size={16} />
-        </AceternityLink>
-      </GlowCard>
+        </ActionLink>
+      </SurfaceCard>
     );
   }
 
   if (needsAccountDetails) {
     return (
-      <AceternityForm className="first-party-auth-form" onSubmit={submitAccountDetails}>
+      <FormSurface className="first-party-auth-form" onSubmit={submitAccountDetails}>
         <div className="auth-form-heading">
           <span><ShieldCheck size={15} /> Join {preview.organizationName}</span>
           <h2>Create your account</h2>
@@ -154,17 +154,17 @@ export function InviteAcceptForm({ token }: { token: string }) {
           />
           <small>At least 10 characters with a letter and number.</small>
         </label>
-        <AceternityButton className="auth-submit" disabled={busy} type="submit">
+        <ActionButton className="auth-submit" disabled={busy} type="submit">
           {busy ? <LoaderCircle className="spin" size={17} /> : (
             <>Create account and join <ArrowRight size={16} /></>
           )}
-        </AceternityButton>
-      </AceternityForm>
+        </ActionButton>
+      </FormSurface>
     );
   }
 
   return (
-    <GlowCard className="first-party-auth-form auth-complete">
+    <SurfaceCard className="first-party-auth-form auth-complete">
       <div className="auth-form-heading">
         <span><ShieldCheck size={15} /> Team invite</span>
         <h2>Join {preview.organizationName}</h2>
@@ -173,11 +173,11 @@ export function InviteAcceptForm({ token }: { token: string }) {
         </p>
       </div>
       {error ? <div className="auth-form-error" role="alert">{error}</div> : null}
-      <AceternityButton className="auth-submit" disabled={busy} onClick={() => void accept()} type="button">
+      <ActionButton className="auth-submit" disabled={busy} onClick={() => void accept()} type="button">
         {busy ? <LoaderCircle className="spin" size={17} /> : (
           <>Accept invite <ArrowRight size={16} /></>
         )}
-      </AceternityButton>
-    </GlowCard>
+      </ActionButton>
+    </SurfaceCard>
   );
 }

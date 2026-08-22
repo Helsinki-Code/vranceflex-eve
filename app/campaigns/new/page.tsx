@@ -1,7 +1,8 @@
 import { CampaignWizard } from "../../../components/campaign-wizard";
-import { AceternityLink, GlowCard } from "../../../components/aceternity";
+import { ActionLink, SurfaceCard } from "../../../components/design-system";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 import { getBillingOverview } from "../../../lib/server/billing-entitlements";
+import Link from "next/link";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export const metadata = { title: "New campaign · VranceFlex" };
@@ -18,9 +19,9 @@ export default async function NewCampaignPage({ searchParams }: { searchParams: 
   return (
     <main className="wizard-page">
       <nav className="wizard-nav">
-        <a className="brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></a>
+        <Link className="brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></Link>
         <span>New campaign</span>
-        <a href="/dashboard">Exit to dashboard</a>
+        <Link href="/dashboard">Exit to dashboard</Link>
       </nav>
       {billing.active ? (
         <CampaignWizard
@@ -30,7 +31,7 @@ export default async function NewCampaignPage({ searchParams }: { searchParams: 
           planName={billing.plan?.name ?? "Paid"}
         />
       ) : (
-        <GlowCard as="section" className="campaign-billing-gate">
+        <SurfaceCard as="section" className="campaign-billing-gate">
           <span className="section-label">LIVE RESEARCH REQUIRES A PLAN</span>
           <h1>See the workflow first. Activate it when you are ready.</h1>
           <p>
@@ -38,10 +39,10 @@ export default async function NewCampaignPage({ searchParams }: { searchParams: 
             Explore the guided sample campaign or activate a plan to create a live campaign.
           </p>
           <div>
-            <AceternityLink className="button-primary" href="/settings/billing">Choose a plan</AceternityLink>
-            <AceternityLink className="button-secondary" href="/demo">View sample campaign</AceternityLink>
+            <ActionLink className="button-primary" href="/settings/billing">Choose a plan</ActionLink>
+            <ActionLink className="button-secondary" href="/demo">View sample campaign</ActionLink>
           </div>
-        </GlowCard>
+        </SurfaceCard>
       )}
       <p className="wizard-footnote">Drafts are private to your workspace. No external action occurs during setup.</p>
     </main>

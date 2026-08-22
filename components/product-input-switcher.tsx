@@ -2,13 +2,15 @@
 
 import { ArrowRight, Globe2, Lightbulb } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  AceternityButton,
-  AceternityTextarea,
-} from "./aceternity";
+  ActionButton,
+  NativeTextarea,
+} from "./design-system";
 import { Input } from "./ui/input";
 
 export function ProductInputSwitcher() {
+  const router = useRouter();
   const [mode, setMode] = useState<"website" | "idea">("website");
   const [value, setValue] = useState("");
 
@@ -20,7 +22,7 @@ export function ProductInputSwitcher() {
   return (
     <div className="source-intake">
       <div className="source-tabs" role="tablist" aria-label="How would you like to start?">
-        <AceternityButton
+        <ActionButton
           aria-selected={mode === "website"}
           className={mode === "website" ? "active" : ""}
           onClick={() => setMode("website")}
@@ -28,8 +30,8 @@ export function ProductInputSwitcher() {
           type="button"
         >
           <Globe2 size={15} /> I have a website
-        </AceternityButton>
-        <AceternityButton
+        </ActionButton>
+        <ActionButton
           aria-selected={mode === "idea"}
           className={mode === "idea" ? "active" : ""}
           onClick={() => setMode("idea")}
@@ -37,7 +39,7 @@ export function ProductInputSwitcher() {
           type="button"
         >
           <Lightbulb size={15} /> I have a product idea
-        </AceternityButton>
+        </ActionButton>
       </div>
       <div className="source-field">
         {mode === "website" ? (
@@ -49,7 +51,7 @@ export function ProductInputSwitcher() {
             value={value}
           />
         ) : (
-          <AceternityTextarea
+          <NativeTextarea
             aria-label="Product idea"
             onChange={(event) => setValue(event.target.value)}
             placeholder="Describe the product, who it helps and the problem it solves…"
@@ -57,16 +59,15 @@ export function ProductInputSwitcher() {
             value={value}
           />
         )}
-        <a
+        <button
           aria-disabled={!value.trim()}
           className="source-submit"
-          href={value.trim() ? href : undefined}
-          onClick={(event) => {
-            if (!value.trim()) event.preventDefault();
-          }}
+          disabled={!value.trim()}
+          onClick={() => router.push(href)}
+          type="button"
         >
           Build my campaign <ArrowRight size={17} />
-        </a>
+        </button>
       </div>
       <p>No website needed. A clear product idea is enough to research a market and build an ICP.</p>
     </div>

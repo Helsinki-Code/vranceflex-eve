@@ -1,4 +1,5 @@
 import { Building2 } from "lucide-react";
+import Link from "next/link";
 import { getCurrentActor } from "../lib/server/auth-store";
 import { getDatabase } from "../lib/server/database";
 import { organizations } from "../lib/server/database/schema";
@@ -27,17 +28,17 @@ export async function AuthWorkspaceControls() {
 
   return (
     <div className="workspace-controls">
-      <a className="workspace-identity" href="/settings/team">
+      <Link className="workspace-identity" href="/settings/team">
         <Building2 size={14} />
         <span>
           <strong>{organization?.name ?? "Workspace"}</strong>
           <small>{actor.organizationRole}</small>
         </span>
-      </a>
+      </Link>
       <div className="workspace-user">
-        <a href="/settings/account" aria-label="Open account settings">
+        <Link href="/settings/account" aria-label="Open account settings">
           {initials(actor.name, actor.email)}
-        </a>
+        </Link>
         <span>
           <strong>{actor.name ?? actor.email}</strong>
           <small>{actor.email}</small>

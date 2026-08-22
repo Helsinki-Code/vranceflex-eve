@@ -7,6 +7,7 @@ import { requireWorkspacePage } from "../../../../lib/auth/page-actor";
 import { getDatabase } from "../../../../lib/server/database";
 import { organizations } from "../../../../lib/server/database/schema";
 import { listMembers, listPendingInvites } from "../../../../lib/server/team-store";
+import Link from "next/link";
 
 export const metadata = { title: "Team settings · VranceFlex" };
 export const dynamic = "force-dynamic";
@@ -30,9 +31,9 @@ export default async function TeamSettingsPage() {
       eyebrow="WORKSPACE CONTROL"
       title="Team"
     >
-      <a className="settings-back" href="/settings">
+      <Link className="settings-back" href="/settings">
         <ArrowLeft size={15} /> All settings
-      </a>
+      </Link>
       <section className="team-settings-card">
         <div className="team-settings-head">
           <span><UsersRound size={20} /></span>

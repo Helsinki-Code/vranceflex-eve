@@ -1,8 +1,8 @@
 import { ArrowLeft, Check, ShieldCheck, Sparkles } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { ThemeToggle } from "./motion/theme-toggle";
-import { AceternityBackdrop } from "./aceternity";
-import { GlowingEffect } from "./ui/glowing-effect";
+import { AppBackdrop } from "./design-system";
 
 export function AuthSurface({
   children,
@@ -18,8 +18,7 @@ export function AuthSurface({
   return (
     <main className="auth-page">
       <aside className="auth-story">
-        <GlowingEffect disabled={false} proximity={120} spread={40} />
-        <a className="brand auth-brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></a>
+        <Link className="brand auth-brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></Link>
         <div>
           <p className="section-label light"><Sparkles size={13} /> {eyebrow}</p>
           <h1>{title}</h1>
@@ -33,7 +32,7 @@ export function AuthSurface({
         <span><ShieldCheck size={15} /> Secrets remain in the hosting platform</span>
       </aside>
       <section className="auth-content">
-        <AceternityBackdrop subtle />
+        <AppBackdrop subtle />
         <div className="auth-page-actions">
           <ThemeToggle
             variant="rectangle"
@@ -41,7 +40,7 @@ export function AuthSurface({
             className="theme-toggle"
             iconClassName="theme-toggle-icon"
           />
-          <a className="auth-back" href="/"><ArrowLeft size={15} /> Back to VranceFlex</a>
+          <Link className="auth-back" href="/"><ArrowLeft size={15} /> Back to VranceFlex</Link>
         </div>
         <div className="auth-component-wrap">{children}</div>
       </section>

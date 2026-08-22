@@ -3,6 +3,7 @@ import { AppShell } from "../../../components/app-shell";
 import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 import { hasDatabaseConfiguration } from "../../../lib/server/database";
+import Link from "next/link";
 
 export const metadata = { title: "API security · VranceFlex" };
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export default async function SecurityPage() {
       eyebrow="WORKSPACE CONTROL"
       title="API security"
     >
-      <a className="settings-back" href="/settings"><ArrowLeft size={15} /> All settings</a>
+      <Link className="settings-back" href="/settings"><ArrowLeft size={15} /> All settings</Link>
       <section className="security-panel">
         <div className="security-copy"><span><KeyRound size={21} /></span><h2>Identity at every boundary.</h2><p>VranceFlex derives user and organization scope from verified sessions—not from form fields, prompts or URLs.</p></div>
         <div className="security-checks">

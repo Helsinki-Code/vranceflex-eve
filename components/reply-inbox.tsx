@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReplyIntent, ReplyStatus } from "../lib/domain/pipeline";
-import { AceternityButton, GlowCard } from "./aceternity";
+import { ActionButton, SurfaceCard } from "./design-system";
 
 type ReplyRow = {
   reply: {
@@ -124,9 +124,9 @@ export function ReplyInbox() {
         <AlertCircle />
         <h2>Reply inbox is unavailable</h2>
         <p>{error}</p>
-        <AceternityButton className="button-secondary" onClick={() => void load()} type="button">
+        <ActionButton className="button-secondary" onClick={() => void load()} type="button">
           <RefreshCw size={16} /> Retry
-        </AceternityButton>
+        </ActionButton>
       </div>
     );
   }
@@ -150,14 +150,14 @@ export function ReplyInbox() {
 
       <div className="reply-filters" aria-label="Reply filters">
         {filters.map(([value, label]) => (
-          <AceternityButton
+          <ActionButton
             className={filter === value ? "active" : ""}
             key={value}
             onClick={() => setFilter(value)}
             type="button"
           >
             {label}
-          </AceternityButton>
+          </ActionButton>
         ))}
       </div>
 
@@ -174,7 +174,7 @@ export function ReplyInbox() {
       ) : (
         <section className="reply-list">
           {visible.map(({ reply, leadName, companyName, campaignName }) => (
-            <GlowCard as="article" className={`reply-card intent-${reply.intent ?? "NEUTRAL"}`} key={reply.id}>
+            <SurfaceCard as="article" className={`reply-card intent-${reply.intent ?? "NEUTRAL"}`} key={reply.id}>
               <header>
                 <div>
                   <span>{reply.intent ?? "UNCLASSIFIED"}</span>
@@ -199,15 +199,15 @@ export function ReplyInbox() {
                   {reply.status === "classified" ? "Awaiting review" : reply.status}
                 </span>
                 <div>
-                  <AceternityButton
+                  <ActionButton
                     className="button-secondary"
                     disabled={busy === reply.id}
                     onClick={() => void updateStatus(reply.id, "archived")}
                     type="button"
                   >
                     <Archive size={14} /> Archive
-                  </AceternityButton>
-                  <AceternityButton
+                  </ActionButton>
+                  <ActionButton
                     className="button-primary compact"
                     disabled={busy === reply.id || reply.status === "reviewed"}
                     onClick={() => void updateStatus(reply.id, "reviewed")}
@@ -215,10 +215,10 @@ export function ReplyInbox() {
                   >
                     {busy === reply.id ? <LoaderCircle className="spin" size={14} /> : <CheckCircle2 size={14} />}
                     Mark reviewed
-                  </AceternityButton>
+                  </ActionButton>
                 </div>
               </footer>
-            </GlowCard>
+            </SurfaceCard>
           ))}
         </section>
       )}

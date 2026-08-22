@@ -1,80 +1,66 @@
 "use client";
 
-import { Dialog } from "@base-ui/react/dialog";
-import { ArrowRight, MessageCircle, Mic2, Sparkles, X } from "lucide-react";
-import { GlowCard } from "./aceternity";
-import { BackgroundBeams } from "./ui/background-beams";
+import { MessageCircle, Mic2, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { normalizeLiveAvatarEmbedUrl } from "./live-avatar-embed-url";
+
+type ConversationPanelProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  safeEmbedUrl: string;
+};
 
 export function LiveAvatarSalesGuide({ embedUrl }: { embedUrl?: string }) {
   const safeEmbedUrl = normalizeLiveAvatarEmbedUrl(embedUrl);
+  const [open, setOpen] = useState(false);
+  const [inlineVisible, setInlineVisible] = useState(true);
+  const [ConversationPanel, setConversationPanel] = useState<ComponentType<ConversationPanelProps> | null>(null);
+  const inlineLaunchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const launch = inlineLaunchRef.current;
+    if (!launch) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInlineVisible(entry.isIntersecting),
+      { rootMargin: "0px 0px 120px 0px", threshold: 0.05 },
+    );
+    observer.observe(launch);
+    return () => observer.disconnect();
+  }, []);
+
   if (!safeEmbedUrl) return null;
 
+  async function openConversation() {
+    if (!ConversationPanel) {
+      const module = await import("./live-avatar-conversation-panel");
+      setConversationPanel(() => module.default);
+    }
+    setOpen(true);
+  }
+
   return (
-    <Dialog.Root>
-      <div className="live-avatar-launch">
-        <Dialog.Trigger className="live-avatar-trigger">
-          <Sparkles size={16} aria-hidden="true" />
-          Talk to a VranceFlex guide
-          <Mic2 size={15} aria-hidden="true" />
-        </Dialog.Trigger>
-        <span>Ask about agents, lead research, approvals, or how to begin.</span>
+    <>
+      <div className="live-avatar-launch" ref={inlineLaunchRef}>
+        <button className="live-avatar-inline-trigger" type="button" onClick={openConversation}>
+          <Sparkles aria-hidden="true" />Talk to a VranceFlex guide<Mic2 aria-hidden="true" />
+        </button>
+        <span>Ask about research, verification, approval, scheduling, or delivery.</span>
       </div>
-
-      <Dialog.Trigger className="live-avatar-floating-trigger" aria-label="Open the VranceFlex AI product guide">
-        <span className="live-avatar-floating-status" aria-hidden="true"><i /></span>
-        <span className="live-avatar-floating-copy">
-          <strong>Ask VranceFlex</strong>
-          <small>AI product guide</small>
-        </span>
-        <MessageCircle size={19} aria-hidden="true" />
-      </Dialog.Trigger>
-
-      <Dialog.Portal>
-        <Dialog.Backdrop className="live-avatar-backdrop" />
-        <Dialog.Popup className="live-avatar-dialog">
-          <GlowCard className="live-avatar-card" interactive={false}>
-            <BackgroundBeams className="live-avatar-beams" />
-            <header className="live-avatar-header">
-              <div>
-                <span className="live-avatar-kicker">
-                  <i aria-hidden="true" /> AI product guide
-                </span>
-                <Dialog.Title>Talk through your growth idea</Dialog.Title>
-                <Dialog.Description>
-                  Ask how VranceFlex researches a market, finds buyers, and prepares outreach for human approval.
-                </Dialog.Description>
-              </div>
-              <Dialog.Close className="live-avatar-close" aria-label="Close VranceFlex guide">
-                <X size={19} aria-hidden="true" />
-              </Dialog.Close>
-            </header>
-
-            <div className="live-avatar-frame-shell">
-              <iframe
-                allow="microphone"
-                loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-                src={safeEmbedUrl}
-                title="VranceFlex LiveAvatar sales guide"
-              />
-            </div>
-
-            <footer className="live-avatar-footer">
-              <p>
-                Your microphone is requested only when you start the conversation. Don&apos;t share passwords,
-                provider keys, or customer data.
-              </p>
-              <div>
-                <a className="live-avatar-secondary-action" href="/sign-up">Create an account</a>
-                <a className="live-avatar-primary-action" href="/campaigns/new">
-                  Start a campaign <ArrowRight size={15} aria-hidden="true" />
-                </a>
-              </div>
-            </footer>
-          </GlowCard>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <button
+        className={`live-avatar-floating-trigger${inlineVisible ? " is-hidden" : ""}`}
+        type="button"
+        aria-label="Open the VranceFlex conversational product guide"
+        aria-hidden={inlineVisible}
+        tabIndex={inlineVisible ? -1 : 0}
+        onClick={openConversation}
+      >
+        <span className="live-avatar-floating-status" aria-hidden="true" />
+        <span className="live-avatar-floating-copy"><strong>Ask VranceFlex</strong><small>AI product guide</small></span>
+        <MessageCircle aria-hidden="true" />
+      </button>
+      {open && ConversationPanel ? (
+        <ConversationPanel open={open} onOpenChange={setOpen} safeEmbedUrl={safeEmbedUrl} />
+      ) : null}
+    </>
   );
 }

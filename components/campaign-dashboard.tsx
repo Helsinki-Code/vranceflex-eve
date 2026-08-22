@@ -1,9 +1,12 @@
 "use client";
 
-import { AlertCircle, ArrowRight, Check, CircleDashed, LoaderCircle, Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, Check, Plus, RefreshCw, Search } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { campaignStatusLabels, type Campaign } from "../lib/domain/campaign";
-import { AceternityButton, AceternityLink, GlowCard } from "./aceternity";
+import { ActionButton, ActionLink, SurfaceCard } from "./design-system";
+import { AsyncState, StatusBadge } from "./product-ui";
+import { Input } from "./ui/input";
 
 const progressStatuses = [
   "researching",
@@ -20,6 +23,8 @@ export function CampaignDashboard() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [cadence, setCadence] = useState<"all" | "one-shot" | "recurring">("all");
 
   const load = useCallback(async () => {
     setState("loading");
@@ -40,16 +45,22 @@ export function CampaignDashboard() {
   }, [load]);
 
   if (state === "loading") {
-    return <div className="dashboard-state"><LoaderCircle className="spin" /><h2>Loading campaigns</h2><p>Checking the latest verified campaign state…</p></div>;
+    return <AsyncState state="loading" title="Loading campaigns" />;
   }
 
   if (state === "error") {
-    return <div className="dashboard-state error"><AlertCircle /><h2>Campaigns are unavailable</h2><p>{error}</p><AceternityButton className="button-secondary" onClick={() => void load()} type="button"><RefreshCw size={16} /> Retry</AceternityButton></div>;
+    return <AsyncState state="error" title="Campaigns are unavailable" description={error} action={<ActionButton className="button-secondary" onClick={() => void load()} type="button"><RefreshCw size={16} /> Retry</ActionButton>} />;
   }
 
   if (campaigns.length === 0) {
-    return <div className="dashboard-state empty"><span><CircleDashed /></span><h2>No campaigns yet</h2><p>Start with a website or an unlaunched product idea. VranceFlex will turn either into a research plan.</p><AceternityLink className="button-primary" href="/campaigns/new"><Plus size={17} /> Create your first campaign</AceternityLink></div>;
+    return <AsyncState state="empty" title="No campaigns yet" description="Start with a website or an unlaunched product idea. VranceFlex will turn either into a research plan." action={<ActionLink className="button-primary" href="/campaigns/new"><Plus size={17} /> Create your first campaign</ActionLink>} />;
   }
+
+  const visibleCampaigns = campaigns.filter((campaign) => {
+    const matchesQuery = `${campaign.productName} ${campaign.audience} ${campaign.geography}`.toLowerCase().includes(query.toLowerCase());
+    const matchesCadence = cadence === "all" || (cadence === "recurring" ? Boolean(campaign.recurrence) : !campaign.recurrence);
+    return matchesQuery && matchesCadence;
+  });
 
   return (
     <>
@@ -59,11 +70,12 @@ export function CampaignDashboard() {
         <article><span>Awaiting approval</span><strong>{campaigns.filter((campaign) => campaign.status === "awaiting_approval").length}</strong><small>Nothing sends automatically</small></article>
       </section>
       <section className="campaign-list">
-        <div className="list-heading"><div><span>CAMPAIGNS</span><h2>Live work</h2></div><AceternityButton aria-label="Refresh campaigns" onClick={() => void load()} type="button"><RefreshCw size={16} /></AceternityButton></div>
-        {campaigns.map((campaign) => {
+        <div className="list-heading"><div><span>CAMPAIGNS</span><h2>Live work</h2></div><ActionButton aria-label="Refresh campaigns" onClick={() => void load()} type="button"><RefreshCw size={16} /></ActionButton></div>
+        <div className="campaign-list-controls"><label><span className="sr-only">Search campaigns</span><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search campaigns" /></label><div role="group" aria-label="Campaign cadence"><button className={cadence === "all" ? "active" : ""} onClick={() => setCadence("all")} type="button">All</button><button className={cadence === "one-shot" ? "active" : ""} onClick={() => setCadence("one-shot")} type="button">One-shot</button><button className={cadence === "recurring" ? "active" : ""} onClick={() => setCadence("recurring")} type="button">Recurring</button></div></div>
+        {visibleCampaigns.map((campaign) => {
           const statusIndex = progressStatuses.indexOf(campaign.status as (typeof progressStatuses)[number]);
           return (
-            <GlowCard as="article" className="campaign-row" key={campaign.id}>
+            <SurfaceCard as="article" className="campaign-row" key={campaign.id}>
               <div className="campaign-identity">
                 <span>{campaign.source.kind === "website" ? "URL" : "IDEA"}</span>
                 <div><h3>{campaign.productName}</h3><p>{campaign.audience}</p></div>
@@ -71,12 +83,13 @@ export function CampaignDashboard() {
               <div className="status-track" aria-label={`Campaign status: ${campaignStatusLabels[campaign.status]}`}>
                 {progressStatuses.slice(0, 4).map((status, index) => <i className={index <= statusIndex ? "complete" : ""} key={status} />)}
               </div>
-              <div className={`status-badge status-${campaign.status}`}>{campaignStatusLabels[campaign.status]}</div>
+              <StatusBadge tone={campaign.status === "stopped" ? "danger" : campaign.status === "replied" || campaign.status === "delivered" ? "success" : campaign.status === "awaiting_approval" ? "warning" : "info"}>{campaignStatusLabels[campaign.status]}</StatusBadge>
               <div className="campaign-meta"><span>{campaign.leadCount} leads</span><span>{campaign.geography}</span></div>
-              <a href={`/campaigns/${campaign.id}`} aria-label={`Open ${campaign.productName}`}><ArrowRight size={17} /></a>
-            </GlowCard>
+              <Link href={`/campaigns/${campaign.id}`} aria-label={`Open ${campaign.productName}`}><ArrowRight size={17} /></Link>
+            </SurfaceCard>
           );
         })}
+        {!visibleCampaigns.length ? <AsyncState state="empty" title="No campaigns match" description="Change the search or cadence filter." /> : null}
       </section>
       <div className="truth-banner"><Check size={18} /><p><strong>Truthful by design.</strong> Generated messages never appear as sent. Sent, delivered and replied states require verified provider events.</p></div>
     </>

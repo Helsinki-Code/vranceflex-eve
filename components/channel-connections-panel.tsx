@@ -3,7 +3,7 @@
 import { Check, CircleDashed, LoaderCircle, Unlink } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AceternityButton, GlowCard } from "./aceternity";
+import { ActionButton, SurfaceCard } from "./design-system";
 import { Input } from "./ui/input";
 
 type ResendSummary = { connected: true; fromEmail: string; replyDomain: string } | { connected: false };
@@ -120,7 +120,7 @@ function ResendCard({
   }
 
   return (
-    <GlowCard className="channel-card">
+    <SurfaceCard className="channel-card">
       <div className="channel-card-head">
         <span className={summary.connected ? "configured" : ""}>
           {summary.connected ? <Check size={15} /> : <CircleDashed size={15} />}
@@ -138,10 +138,10 @@ function ResendCard({
           <div><span>Sending from</span><strong>{summary.fromEmail}</strong></div>
           <div><span>Reply domain</span><strong>{summary.replyDomain}</strong></div>
           {isAdmin && (
-            <AceternityButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
+            <ActionButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
               {busy ? <LoaderCircle className="spin" size={14} /> : <Unlink size={14} />}
               Disconnect
-            </AceternityButton>
+            </ActionButton>
           )}
         </div>
       ) : isAdmin ? (
@@ -154,15 +154,15 @@ function ResendCard({
           <label><span>From address</span><Input name="fromEmail" placeholder="Acme <outreach@yourdomain.com>" required /></label>
           <label><span>Reply domain</span><Input name="replyDomain" placeholder="reply.yourdomain.com" required /></label>
           <label><span>Webhook signing secret</span><Input name="webhookSecret" required type="password" /></label>
-          <AceternityButton className="button-primary compact" disabled={busy} type="submit">
+          <ActionButton className="button-primary compact" disabled={busy} type="submit">
             {busy ? <LoaderCircle className="spin" size={14} /> : null}
             Connect Resend
-          </AceternityButton>
+          </ActionButton>
         </form>
       ) : (
         <p className="channel-empty-note">Not connected. Ask a workspace admin to connect Resend.</p>
       )}
-    </GlowCard>
+    </SurfaceCard>
   );
 }
 
@@ -221,7 +221,7 @@ function TwilioCard({
   }
 
   return (
-    <GlowCard className="channel-card">
+    <SurfaceCard className="channel-card">
       <div className="channel-card-head">
         <span className={summary.connected ? "configured" : ""}>
           {summary.connected ? <Check size={15} /> : <CircleDashed size={15} />}
@@ -238,10 +238,10 @@ function TwilioCard({
         <div className="channel-connected">
           <div><span>Messaging Service</span><strong>{summary.messagingServiceSid}</strong></div>
           {isAdmin && (
-            <AceternityButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
+            <ActionButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
               {busy ? <LoaderCircle className="spin" size={14} /> : <Unlink size={14} />}
               Disconnect
-            </AceternityButton>
+            </ActionButton>
           )}
         </div>
       ) : isAdmin ? (
@@ -249,14 +249,14 @@ function TwilioCard({
           <label><span>Account SID</span><Input name="accountSid" placeholder="AC…" required /></label>
           <label><span>Auth token</span><Input name="authToken" required type="password" /></label>
           <label><span>Messaging Service SID</span><Input name="messagingServiceSid" placeholder="MG…" required /></label>
-          <AceternityButton className="button-primary compact" disabled={busy} type="submit">
+          <ActionButton className="button-primary compact" disabled={busy} type="submit">
             {busy ? <LoaderCircle className="spin" size={14} /> : null}
             Connect Twilio
-          </AceternityButton>
+          </ActionButton>
         </form>
       ) : (
         <p className="channel-empty-note">Not connected. Ask a workspace admin to connect Twilio.</p>
       )}
-    </GlowCard>
+    </SurfaceCard>
   );
 }

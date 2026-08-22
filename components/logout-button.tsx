@@ -3,14 +3,14 @@
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AceternityButton } from "./aceternity";
+import { ActionButton } from "./design-system";
 
 export function LogoutButton() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   return (
-    <AceternityButton
+    <ActionButton
       aria-label="Sign out"
       disabled={busy}
       onClick={async () => {
@@ -25,6 +25,6 @@ export function LogoutButton() {
       type="button"
     >
       <LogOut size={15} />
-    </AceternityButton>
+    </ActionButton>
   );
 }

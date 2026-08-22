@@ -3,6 +3,8 @@
 import {
   ArrowRight,
   Check,
+  Eye,
+  EyeOff,
   KeyRound,
   LoaderCircle,
   Mail,
@@ -10,15 +12,17 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { FormEvent, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  AceternityButton,
-  AceternityForm,
-  AceternityLink,
-  AceternitySelect,
-  AceternityTextarea,
-  GlowCard,
-} from "./aceternity";
+  ActionButton,
+  FormSurface,
+  ActionLink,
+  NativeSelect,
+  NativeTextarea,
+  SurfaceCard,
+} from "./design-system";
 import { Input } from "./ui/input";
 
 async function authRequest<T>(path: string, body: Record<string, unknown>) {
@@ -49,9 +53,9 @@ function SubmitButton({
   children: React.ReactNode;
 }) {
   return (
-    <AceternityButton className="auth-submit" disabled={busy} type="submit">
+    <ActionButton className="auth-submit" disabled={busy} type="submit">
       {busy ? <LoaderCircle className="spin" size={17} /> : children}
-    </AceternityButton>
+    </ActionButton>
   );
 }
 
@@ -61,6 +65,19 @@ function ErrorMessage({ error }: { error: string }) {
       {error}
     </div>
   ) : null;
+}
+
+function PasswordField({ autoComplete, newPassword = false }: { autoComplete: "current-password" | "new-password"; newPassword?: boolean }) {
+  const [visible, setVisible] = useState(false);
+  const [value, setValue] = useState("");
+  const [capsLock, setCapsLock] = useState(false);
+  const strength = Math.min(3, Number(value.length >= 10) + Number(/[A-Za-z]/.test(value) && /\d/.test(value)) + Number(/[^A-Za-z0-9]/.test(value)));
+  return <div className="password-field">
+    <Input autoComplete={autoComplete} minLength={newPassword ? 10 : undefined} name="password" onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => setCapsLock(event.getModifierState("CapsLock"))} onKeyUp={(event) => setCapsLock(event.getModifierState("CapsLock"))} required type={visible ? "text" : "password"} value={value} />
+    <button aria-label={visible ? "Hide password" : "Show password"} className="password-visibility" onClick={() => setVisible((current) => !current)} type="button">{visible ? <EyeOff /> : <Eye />}</button>
+    {capsLock ? <span className="caps-lock-warning" role="status">Caps Lock is on</span> : null}
+    {newPassword ? <div className="password-strength" aria-label={`Password strength ${strength} of 3`}><span className={strength >= 1 ? "active" : ""} /><span className={strength >= 2 ? "active" : ""} /><span className={strength >= 3 ? "active" : ""} /></div> : null}
+  </div>;
 }
 
 export function SignInForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
@@ -98,7 +115,7 @@ export function SignInForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
   }
 
   return (
-    <AceternityForm className="first-party-auth-form" onSubmit={submit}>
+    <FormSurface className="first-party-auth-form" onSubmit={submit}>
       <div className="auth-form-heading">
         <span><ShieldCheck size={15} /> Secure workspace access</span>
         <h2>Welcome back</h2>
@@ -111,18 +128,18 @@ export function SignInForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
       </label>
       <label>
         <span>Password</span>
-        <Input autoComplete="current-password" name="password" required type="password" />
+        <PasswordField autoComplete="current-password" />
       </label>
       <div className="auth-form-row">
-        <a href="/forgot-password">Forgot password?</a>
+        <Link href="/forgot-password">Forgot password?</Link>
       </div>
       <SubmitButton busy={busy}>
         Sign in <ArrowRight size={16} />
       </SubmitButton>
       <p className="auth-form-switch">
-        New to VranceFlex? <a href="/sign-up">Create an account</a>
+        New to VranceFlex? <Link href="/sign-up">Create an account</Link>
       </p>
-    </AceternityForm>
+    </FormSurface>
   );
 }
 
@@ -133,6 +150,13 @@ export function SignUpFlow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [resent, setResent] = useState(false);
+  const [resendRemaining, setResendRemaining] = useState(0);
+
+  useEffect(() => {
+    if (resendRemaining <= 0) return;
+    const timer = window.setInterval(() => setResendRemaining((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [resendRemaining]);
 
   async function createAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -190,6 +214,7 @@ export function SignUpFlow() {
     try {
       await authRequest("/api/auth/resend", { email });
       setResent(true);
+      setResendRemaining(30);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -203,7 +228,7 @@ export function SignUpFlow() {
 
   if (stage === "verify") {
     return (
-      <AceternityForm className="first-party-auth-form" onSubmit={verify}>
+      <FormSurface className="first-party-auth-form" onSubmit={verify}>
         <div className="auth-form-heading">
           <span><Mail size={15} /> Email verification</span>
           <h2>Check your inbox</h2>
@@ -228,20 +253,20 @@ export function SignUpFlow() {
         <SubmitButton busy={busy}>
           Verify and continue <ArrowRight size={16} />
         </SubmitButton>
-        <AceternityButton
+        <ActionButton
           className="auth-text-button"
-          disabled={busy}
+          disabled={busy || resendRemaining > 0}
           onClick={() => void resend()}
           type="button"
         >
-          <RefreshCw size={14} /> Send another code
-        </AceternityButton>
-      </AceternityForm>
+          <RefreshCw size={14} /> {resendRemaining > 0 ? `Send again in ${resendRemaining}s` : "Send another code"}
+        </ActionButton>
+      </FormSurface>
     );
   }
 
   return (
-    <AceternityForm className="first-party-auth-form" onSubmit={createAccount}>
+    <FormSurface className="first-party-auth-form" onSubmit={createAccount}>
       <div className="auth-form-heading">
         <span><ShieldCheck size={15} /> Verified signup</span>
         <h2>Create your workspace</h2>
@@ -264,22 +289,16 @@ export function SignUpFlow() {
       </label>
       <label>
         <span>Password</span>
-        <Input
-          autoComplete="new-password"
-          minLength={10}
-          name="password"
-          required
-          type="password"
-        />
+        <PasswordField autoComplete="new-password" newPassword />
         <small>At least 10 characters with a letter and number.</small>
       </label>
       <SubmitButton busy={busy}>
         Send verification code <ArrowRight size={16} />
       </SubmitButton>
       <p className="auth-form-switch">
-        Already have an account? <a href="/sign-in">Sign in</a>
+        Already have an account? <Link href="/sign-in">Sign in</Link>
       </p>
-    </AceternityForm>
+    </FormSurface>
   );
 }
 
@@ -337,18 +356,18 @@ export function ForgotPasswordFlow() {
 
   if (stage === "complete") {
     return (
-      <GlowCard className="first-party-auth-form auth-complete">
+      <SurfaceCard className="first-party-auth-form auth-complete">
         <span><Check size={21} /></span>
         <h2>Password updated</h2>
         <p>Your previous sessions were revoked. Sign in again with your new password.</p>
-        <AceternityLink className="auth-submit" href="/sign-in">Return to sign in <ArrowRight size={16} /></AceternityLink>
-      </GlowCard>
+        <ActionLink className="auth-submit" href="/sign-in">Return to sign in <ArrowRight size={16} /></ActionLink>
+      </SurfaceCard>
     );
   }
 
   if (stage === "reset") {
     return (
-      <AceternityForm className="first-party-auth-form" onSubmit={completeReset}>
+      <FormSurface className="first-party-auth-form" onSubmit={completeReset}>
         <div className="auth-form-heading">
           <span><KeyRound size={15} /> Password recovery</span>
           <h2>Choose a new password</h2>
@@ -369,17 +388,17 @@ export function ForgotPasswordFlow() {
         </label>
         <label>
           <span>New password</span>
-          <Input autoComplete="new-password" minLength={10} name="password" required type="password" />
+          <PasswordField autoComplete="new-password" newPassword />
         </label>
         <SubmitButton busy={busy}>
           Reset password <ArrowRight size={16} />
         </SubmitButton>
-      </AceternityForm>
+      </FormSurface>
     );
   }
 
   return (
-    <AceternityForm className="first-party-auth-form" onSubmit={requestCode}>
+    <FormSurface className="first-party-auth-form" onSubmit={requestCode}>
       <div className="auth-form-heading">
         <span><KeyRound size={15} /> Password recovery</span>
         <h2>Recover your account</h2>
@@ -393,7 +412,7 @@ export function ForgotPasswordFlow() {
       <SubmitButton busy={busy}>
         Send reset code <ArrowRight size={16} />
       </SubmitButton>
-      <p className="auth-form-switch"><a href="/sign-in">Return to sign in</a></p>
-    </AceternityForm>
+      <p className="auth-form-switch"><Link href="/sign-in">Return to sign in</Link></p>
+    </FormSurface>
   );
 }

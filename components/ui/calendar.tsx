@@ -1,0 +1,6 @@
+"use client";
+import * as React from "react";
+import { DayPicker } from "react-day-picker";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "./button";
+export function Calendar({ className, classNames, showOutsideDays = true, ...props }: React.ComponentProps<typeof DayPicker>) { return <DayPicker showOutsideDays={showOutsideDays} className={cn("p-3", className)} classNames={{ months: "flex flex-col gap-4 sm:flex-row", month: "space-y-4", month_caption: "relative flex h-9 items-center justify-center", caption_label: "text-sm font-medium", nav: "absolute inset-x-0 top-0 flex items-center justify-between", button_previous: cn(buttonVariants({ variant: "outline", size: "icon" }), "size-9"), button_next: cn(buttonVariants({ variant: "outline", size: "icon" }), "size-9"), month_grid: "w-full border-collapse space-y-1", weekdays: "flex", weekday: "w-10 rounded-md text-center text-xs text-muted-foreground", week: "mt-2 flex w-full", day: "relative size-10 p-0 text-center text-sm", day_button: cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-10 font-normal"), selected: "[&>button]:bg-primary [&>button]:text-primary-foreground", today: "[&>button]:bg-accent [&>button]:text-accent-foreground", outside: "text-muted-foreground opacity-50", disabled: "text-muted-foreground opacity-50", hidden: "invisible", ...classNames }} {...props} />; }

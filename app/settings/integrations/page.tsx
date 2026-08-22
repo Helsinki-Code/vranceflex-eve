@@ -6,6 +6,7 @@ import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 import { getChannelConnectionSummary } from "../../../lib/server/channel-credentials";
 import { getIntegrationStatuses } from "../../../lib/server/integration-status";
+import Link from "next/link";
 
 export const metadata = { title: "Integrations · VranceFlex" };
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function IntegrationsPage() {
       eyebrow="WORKSPACE CONTROL"
       title="Integrations"
     >
-      <a className="settings-back" href="/settings"><ArrowLeft size={15} /> All settings</a>
+      <Link className="settings-back" href="/settings"><ArrowLeft size={15} /> All settings</Link>
 
       <div className="settings-intro">
         <div><span>CLIENT-CONNECTED CHANNELS</span><h2>Connect your own Resend and Twilio accounts.</h2></div>

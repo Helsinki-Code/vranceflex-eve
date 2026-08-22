@@ -1,15 +1,15 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Check, Globe2, Lightbulb, LoaderCircle } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, CalendarClock, Check, Globe2, Lightbulb, LoaderCircle, Save } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CampaignCreateInput } from "../lib/domain/campaign";
 import {
-  AceternityButton,
-  AceternityLink,
-  AceternitySelect,
-  AceternityTextarea,
-  GlowCard,
-} from "./aceternity";
+  ActionButton,
+  ActionLink,
+  NativeSelect,
+  NativeTextarea,
+  SurfaceCard,
+} from "./design-system";
 import { Input } from "./ui/input";
 
 type Mode = "website" | "idea";
@@ -45,7 +45,7 @@ const initialForm: FormState = {
   channels: ["email"],
 };
 
-const stepNames = ["Product", "Audience", "Campaign"];
+const stepNames = ["Product", "Audience", "Campaign", "Review"];
 
 export function CampaignWizard({
   initialMode = "website",
@@ -69,6 +69,15 @@ export function CampaignWizard({
   const [message, setMessage] = useState("");
   const [campaignId, setCampaignId] = useState("");
   const idempotencyKey = useRef<string | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<string>("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      window.localStorage.setItem("vranceflex:campaign-draft", JSON.stringify({ mode, form }));
+      setDraftSavedAt(new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date()));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [form, mode]);
 
   const canContinue = useMemo(() => {
     if (step === 0) {
@@ -163,7 +172,7 @@ export function CampaignWizard({
 
   if (state === "success") {
     return (
-      <GlowCard as="section" className="wizard-success">
+      <SurfaceCard as="section" className="wizard-success">
         <span><Check size={24} /></span>
         <p className="section-label">Campaign accepted</p>
         <h2>{message ? "Campaign saved." : "Research has started."}</h2>
@@ -176,17 +185,17 @@ export function CampaignWizard({
           )}
         </p>
         <div>
-          <AceternityLink className="button-primary" href={`/campaigns/${campaignId}`}>
+          <ActionLink className="button-primary" href={`/campaigns/${campaignId}`}>
             View campaign <ArrowRight size={17} />
-          </AceternityLink>
-          <AceternityLink className="button-secondary" href="/campaigns/new">Create another</AceternityLink>
+          </ActionLink>
+          <ActionLink className="button-secondary" href="/campaigns/new">Create another</ActionLink>
         </div>
-      </GlowCard>
+      </SurfaceCard>
     );
   }
 
   return (
-    <GlowCard as="section" className="campaign-wizard">
+    <SurfaceCard as="section" className="campaign-wizard">
       <div className="wizard-progress" aria-label={`Step ${step + 1} of ${stepNames.length}`}>
         {stepNames.map((name, index) => (
           <div className={index <= step ? "active" : ""} key={name}>
@@ -195,6 +204,7 @@ export function CampaignWizard({
           </div>
         ))}
       </div>
+      <div className="wizard-autosave" role="status"><Save />{draftSavedAt ? `Draft saved at ${draftSavedAt}` : "Saving draft…"}</div>
 
       {step === 0 && (
         <div className="wizard-panel">
@@ -204,12 +214,12 @@ export function CampaignWizard({
             <p>Start with a live website or describe an idea that has not launched yet.</p>
           </div>
           <div className="source-choice">
-            <AceternityButton className={mode === "website" ? "active" : ""} onClick={() => switchMode("website")} type="button">
+            <ActionButton className={mode === "website" ? "active" : ""} onClick={() => switchMode("website")} type="button">
               <Globe2 size={19} /><span><strong>Website</strong><small>We analyse your existing pages.</small></span>
-            </AceternityButton>
-            <AceternityButton className={mode === "idea" ? "active" : ""} onClick={() => switchMode("idea")} type="button">
+            </ActionButton>
+            <ActionButton className={mode === "idea" ? "active" : ""} onClick={() => switchMode("idea")} type="button">
               <Lightbulb size={19} /><span><strong>Product idea</strong><small>No website or launch required.</small></span>
-            </AceternityButton>
+            </ActionButton>
           </div>
           <div className="field-grid two">
             <label>Business or founder name<Input value={form.businessName} onChange={(event) => update("businessName", event.target.value)} placeholder="Acme Labs" /></label>
@@ -220,11 +230,11 @@ export function CampaignWizard({
           ) : (
             <div className="field-grid idea-grid">
               <label>Idea name<Input value={form.ideaName} onChange={(event) => update("ideaName", event.target.value)} placeholder="AI onboarding copilot" /></label>
-              <label>Current stage<AceternitySelect value={form.ideaStage} onChange={(event) => update("ideaStage", event.target.value as FormState["ideaStage"])}><option value="concept">Concept</option><option value="prototype">Prototype</option><option value="mvp">MVP</option><option value="launched">Launched</option></AceternitySelect></label>
-              <label className="full">Describe the idea<AceternityTextarea value={form.ideaDescription} onChange={(event) => update("ideaDescription", event.target.value)} placeholder="What does it do, who needs it, and what painful problem does it solve?" rows={4} /></label>
+              <label>Current stage<NativeSelect value={form.ideaStage} onChange={(event) => update("ideaStage", event.target.value as FormState["ideaStage"])}><option value="concept">Concept</option><option value="prototype">Prototype</option><option value="mvp">MVP</option><option value="launched">Launched</option></NativeSelect></label>
+              <label className="full">Describe the idea<NativeTextarea value={form.ideaDescription} onChange={(event) => update("ideaDescription", event.target.value)} placeholder="What does it do, who needs it, and what painful problem does it solve?" rows={4} /></label>
             </div>
           )}
-          <label>Product summary<AceternityTextarea value={form.productSummary} onChange={(event) => update("productSummary", event.target.value)} placeholder="Explain the outcome customers get and why your approach is different." rows={4} /></label>
+          <label>Product summary<NativeTextarea value={form.productSummary} onChange={(event) => update("productSummary", event.target.value)} placeholder="Explain the outcome customers get and why your approach is different." rows={4} /></label>
         </div>
       )}
 
@@ -235,10 +245,10 @@ export function CampaignWizard({
             <h2>Who should care first?</h2>
             <p>Give the agents a strong starting hypothesis. Research will validate and sharpen it.</p>
           </div>
-          <label>Ideal audience<AceternityTextarea value={form.audience} onChange={(event) => update("audience", event.target.value)} placeholder="e.g. RevOps leaders at 50–500 person B2B SaaS companies struggling with stale CRM data" rows={5} /></label>
+          <label>Ideal audience<NativeTextarea value={form.audience} onChange={(event) => update("audience", event.target.value)} placeholder="e.g. RevOps leaders at 50–500 person B2B SaaS companies struggling with stale CRM data" rows={5} /></label>
           <div className="field-grid two">
             <label>Primary geography<Input value={form.geography} onChange={(event) => update("geography", event.target.value)} placeholder="United Kingdom and DACH" /></label>
-            <label>Campaign goal<AceternitySelect value={form.goal} onChange={(event) => update("goal", event.target.value as FormState["goal"])}><option value="book_meetings">Book qualified meetings</option><option value="validate_demand">Validate market demand</option><option value="build_waitlist">Build a waitlist</option><option value="sell_product">Generate sales opportunities</option></AceternitySelect></label>
+            <label>Campaign goal<NativeSelect value={form.goal} onChange={(event) => update("goal", event.target.value as FormState["goal"])}><option value="book_meetings">Book qualified meetings</option><option value="validate_demand">Validate market demand</option><option value="build_waitlist">Build a waitlist</option><option value="sell_product">Generate sales opportunities</option></NativeSelect></label>
           </div>
         </div>
       )}
@@ -254,7 +264,7 @@ export function CampaignWizard({
             <label>Verified lead target</label>
             <div className="option-row">
               {[10, 25, 50, 100, 250, 500].map((count) => (
-                <AceternityButton
+                <ActionButton
                   className={form.leadCount === count ? "active" : ""}
                   disabled={count > creditBalance}
                   onClick={() => update("leadCount", count as FormState["leadCount"])}
@@ -263,7 +273,7 @@ export function CampaignWizard({
                   key={count}
                 >
                   {count}
-                </AceternityButton>
+                </ActionButton>
               ))}
             </div>
             <p className="option-row-note">
@@ -274,7 +284,7 @@ export function CampaignWizard({
                 <strong>{creditBalance.toLocaleString()} credits available</strong>
                 <span>{planName} plan · this campaign can consume up to {form.leadCount} after successful verification</span>
               </div>
-              <a href="/settings/billing">Add credits</a>
+              <ActionLink href="/settings/billing">Add credits</ActionLink>
             </div>
           </div>
           <div className="field-grid two">
@@ -287,7 +297,7 @@ export function CampaignWizard({
               <label>Channels to prepare</label>
               <div className="channel-row">
                 {(["email", "sms"] as const).map((channel) => (
-                  <AceternityButton className={form.channels.includes(channel) ? "active" : ""} onClick={() => toggleChannel(channel)} type="button" key={channel}><span>{form.channels.includes(channel) && <Check size={12} />}</span>{channel.toUpperCase()}</AceternityButton>
+                  <ActionButton className={form.channels.includes(channel) ? "active" : ""} onClick={() => toggleChannel(channel)} type="button" key={channel}><span>{form.channels.includes(channel) && <Check size={12} />}</span>{channel.toUpperCase()}</ActionButton>
                 ))}
               </div>
             </div>
@@ -296,18 +306,32 @@ export function CampaignWizard({
         </div>
       )}
 
-      {state === "error" && <div className="form-error" role="alert">{message}<AceternityButton onClick={() => setState("idle")} type="button">Try again</AceternityButton></div>}
+      {step === 3 && (
+        <div className="wizard-panel wizard-review">
+          <div className="panel-heading"><span>04 · FINAL REVIEW</span><h2>Confirm before external research begins.</h2><p>VranceFlex will reserve capacity, discover candidates, and wait for you to choose who gets verified.</p></div>
+          <div className="wizard-review-grid">
+            <article><span>Product</span><strong>{form.productName}</strong><p>{mode === "website" ? form.websiteUrl : form.ideaName}</p></article>
+            <article><span>Audience</span><strong>{form.geography}</strong><p>{form.audience}</p></article>
+            <article><span>Credit estimate</span><strong className="font-mono">Up to {form.leadCount}</strong><p>{creditBalance.toLocaleString()} available on {planName}</p></article>
+            <article><span>Channels</span><strong>{form.channels.map((channel) => channel.toUpperCase()).join(" + ")}</strong><p>Every message requires human approval.</p></article>
+            <article><span>Scheduling</span><strong><CalendarClock /> After approval</strong><p>Choose one-shot, daily, or weekly delivery after reviewing sequences.</p></article>
+            <article><span>Timezone preview</span><strong>{Intl.DateTimeFormat().resolvedOptions().timeZone}</strong><p>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date())}</p></article>
+          </div>
+        </div>
+      )}
+
+      {state === "error" && <div className="form-error" role="alert">{message}<ActionButton onClick={() => setState("idle")} type="button">Try again</ActionButton></div>}
 
       <div className="wizard-actions">
-        {step > 0 ? <AceternityButton className="button-secondary" onClick={() => setStep((current) => current - 1)} type="button"><ArrowLeft size={16} /> Back</AceternityButton> : <AceternityLink className="button-secondary" href="/">Cancel</AceternityLink>}
-        {step < 2 ? (
-          <AceternityButton className="button-primary" disabled={!canContinue} onClick={() => setStep((current) => current + 1)} type="button">Continue <ArrowRight size={16} /></AceternityButton>
+        {step > 0 ? <ActionButton className="button-secondary" onClick={() => setStep((current) => current - 1)} type="button"><ArrowLeft size={16} /> Back</ActionButton> : <ActionLink className="button-secondary" href="/">Cancel</ActionLink>}
+        {step < stepNames.length - 1 ? (
+          <ActionButton className="button-primary" disabled={!canContinue} onClick={() => setStep((current) => current + 1)} type="button">Continue <ArrowRight size={16} /></ActionButton>
         ) : (
-          <AceternityButton className="button-primary" disabled={!canContinue || state === "submitting"} onClick={() => void submit()} type="button">
+          <ActionButton className="button-primary" disabled={!canContinue || state === "submitting"} onClick={() => void submit()} type="button">
             {state === "submitting" ? <><LoaderCircle className="spin" size={17} /> Creating campaign</> : <>Start research <ArrowRight size={16} /></>}
-          </AceternityButton>
+          </ActionButton>
         )}
       </div>
-    </GlowCard>
+    </SurfaceCard>
   );
 }

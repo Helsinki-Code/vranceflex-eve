@@ -1,16 +1,13 @@
 "use client";
 
 import {
-  AlertCircle,
   ArrowUpRight,
   BadgeCheck,
   Building2,
   Check,
   ChevronRight,
-  CircleDashed,
   Download,
   ExternalLink,
-  LoaderCircle,
   Mail,
   MapPin,
   Phone,
@@ -22,11 +19,11 @@ import {
   X,
 } from "lucide-react";
 import {
-  AceternityButton,
-  AceternityLink,
-  AceternitySelect,
-  GlowCard,
-} from "./aceternity";
+  ActionButton,
+  ActionLink,
+  NativeSelect,
+  SurfaceCard,
+} from "./design-system";
 import { Input } from "./ui/input";
 import {
   useCallback,
@@ -41,6 +38,8 @@ import {
   type Lead,
   type LeadStatus,
 } from "../lib/domain/lead";
+import { AsyncState, StatusBadge } from "./product-ui";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -86,6 +85,14 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
   const [status, setStatus] = useState<LeadStatus | "">("");
   const [contact, setContact] = useState<"any" | "email" | "phone">("any");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [density, setDensity] = useState<"comfortable" | "compact">("compact");
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("vranceflex:leads-density");
+    if (stored === "comfortable" || stored === "compact") setDensity(stored);
+  }, []);
+
+  useEffect(() => { window.localStorage.setItem("vranceflex:leads-density", density); }, [density]);
 
   const params = useMemo(
     () =>
@@ -140,12 +147,12 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
   return (
     <>
       <section className="lead-metrics" aria-label="Lead summary">
-        <GlowCard as="article">
+        <SurfaceCard as="article">
           <span><UserRound size={15} /> Matched leads</span>
           <strong>{state === "ready" ? total : "—"}</strong>
           <small>Scoped to this workspace</small>
-        </GlowCard>
-        <GlowCard as="article">
+        </SurfaceCard>
+        <SurfaceCard as="article">
           <span><Sparkles size={15} /> High confidence</span>
           <strong>
             {state === "ready"
@@ -153,8 +160,8 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               : "—"}
           </strong>
           <small>80% confidence or higher</small>
-        </GlowCard>
-        <GlowCard as="article">
+        </SurfaceCard>
+        <SurfaceCard as="article">
           <span><BadgeCheck size={15} /> Verified email</span>
           <strong>
             {state === "ready"
@@ -162,8 +169,8 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               : "—"}
           </strong>
           <small>Verification is shown separately</small>
-        </GlowCard>
-        <GlowCard as="article">
+        </SurfaceCard>
+        <SurfaceCard as="article">
           <span><ShieldOff size={15} /> Suppressed</span>
           <strong>
             {state === "ready"
@@ -171,7 +178,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               : "—"}
           </strong>
           <small>Never eligible for outreach</small>
-        </GlowCard>
+        </SurfaceCard>
       </section>
 
       <section className="leads-panel">
@@ -181,12 +188,13 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
             <h2>Evidence-backed people</h2>
           </div>
           <div className="lead-toolbar-actions">
-            <AceternityLink className="button-secondary compact" href="/icp">
+            <label className="density-control"><span className="sr-only">Table density</span><NativeSelect value={density} onChange={(event) => setDensity(event.target.value as "comfortable" | "compact")}><option value="compact">Compact rows</option><option value="comfortable">Comfortable rows</option></NativeSelect></label>
+            <ActionLink className="button-secondary compact" href="/icp">
               View ICP report <ArrowUpRight size={15} />
-            </AceternityLink>
-            <AceternityLink className="button-primary compact" download href={exportHref}>
+            </ActionLink>
+            <ActionLink className="button-primary compact" download href={exportHref}>
               <Download size={15} /> Export CSV
-            </AceternityLink>
+            </ActionLink>
           </div>
         </div>
 
@@ -203,7 +211,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
           </label>
           <label>
             <span className="sr-only">Confidence</span>
-            <AceternitySelect
+            <NativeSelect
               onChange={(event) =>
                 setConfidence(event.target.value as ConfidenceBand | "")
               }
@@ -213,11 +221,11 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               <option value="high">High confidence</option>
               <option value="medium">Medium confidence</option>
               <option value="low">Low confidence</option>
-            </AceternitySelect>
+            </NativeSelect>
           </label>
           <label>
             <span className="sr-only">Lead status</span>
-            <AceternitySelect
+            <NativeSelect
               onChange={(event) => setStatus(event.target.value as LeadStatus | "")}
               value={status}
             >
@@ -227,11 +235,11 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               <option value="needs_review">Needs review</option>
               <option value="approved">Approved</option>
               <option value="suppressed">Suppressed</option>
-            </AceternitySelect>
+            </NativeSelect>
           </label>
           <label>
             <span className="sr-only">Contact availability</span>
-            <AceternitySelect
+            <NativeSelect
               onChange={(event) =>
                 setContact(event.target.value as "any" | "email" | "phone")
               }
@@ -240,10 +248,10 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               <option value="any">Any contact</option>
               <option value="email">Has email</option>
               <option value="phone">Has phone</option>
-            </AceternitySelect>
+            </NativeSelect>
           </label>
           {hasFilters && (
-            <AceternityButton
+            <ActionButton
               className="clear-filters"
               onClick={() => {
                 setSearch("");
@@ -254,39 +262,24 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               type="button"
             >
               <X size={14} /> Clear
-            </AceternityButton>
+            </ActionButton>
           )}
         </div>
 
         {state === "loading" && (
-          <div className="lead-state">
-            <LoaderCircle className="spin" />
-            <h3>Checking current evidence</h3>
-            <p>Filtering organization-scoped research without changing lead status.</p>
-          </div>
+          <AsyncState state="loading" title="Checking current evidence" />
         )}
 
         {state === "error" && (
-          <div className="lead-state error">
-            <AlertCircle />
-            <h3>Lead research is unavailable</h3>
-            <p>{error}</p>
-            <AceternityButton className="button-secondary" onClick={() => void load()} type="button">
-              <RefreshCw size={15} /> Retry
-            </AceternityButton>
-          </div>
+          <AsyncState state="error" title="Lead research is unavailable" description={error} action={<ActionButton className="button-secondary" onClick={() => void load()} type="button"><RefreshCw size={15} /> Retry</ActionButton>} />
         )}
 
         {state === "ready" && leads.length === 0 && (
-          <div className="lead-state empty">
-            <CircleDashed />
-            <h3>No leads match these filters</h3>
-            <p>Change the filters or wait for research and enrichment to produce evidence.</p>
-          </div>
+          <AsyncState state="empty" title="No leads match these filters" description="Change the filters or wait for research and enrichment to produce evidence." />
         )}
 
         {state === "ready" && leads.length > 0 && (
-          <div className="lead-table-wrap">
+          <div className={`lead-table-wrap lead-density-${density}`}>
             <table className="lead-table">
               <thead>
                 <tr>
@@ -336,18 +329,16 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
                     </td>
                     <td data-label="Confidence"><Confidence lead={lead} /></td>
                     <td data-label="Status">
-                      <span className={`lead-status lead-status-${lead.status}`}>
-                        {leadStatusLabels[lead.status]}
-                      </span>
+                      <StatusBadge tone={lead.status === "suppressed" ? "danger" : lead.status === "approved" ? "success" : lead.status === "needs_review" ? "warning" : "info"}>{leadStatusLabels[lead.status]}</StatusBadge>
                     </td>
                     <td>
-                      <AceternityButton
+                      <ActionButton
                         aria-label={`Inspect evidence for ${lead.personName} at ${lead.companyName}`}
                         onClick={() => setSelectedId(lead.id)}
                         type="button"
                       >
                         <ChevronRight size={17} />
-                      </AceternityButton>
+                      </ActionButton>
                     </td>
                   </tr>
                 ))}
@@ -357,25 +348,22 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
         )}
       </section>
 
-      {selected && (
-        <div className="lead-detail-backdrop" role="presentation">
-          <aside
-            aria-label={`Evidence for ${selected.personName}`}
-            className="lead-detail"
-          >
+      <Sheet open={Boolean(selected)} onOpenChange={(next) => { if (!next) setSelectedId(null); }}>
+        {selected ? <SheetContent side="right" className="lead-detail">
+          <SheetHeader className="sr-only"><SheetTitle>Evidence for {selected.personName}</SheetTitle><SheetDescription>Verification sources, confidence, and suppression state.</SheetDescription></SheetHeader>
             <div className="lead-detail-head">
               <div>
                 <span className="section-label">LEAD EVIDENCE</span>
                 <h2>{selected.personName}</h2>
                 <p>{selected.jobTitle} · {selected.companyName}</p>
               </div>
-              <AceternityButton
+              <ActionButton
                 aria-label="Close lead evidence"
                 onClick={() => setSelectedId(null)}
                 type="button"
               >
                 <X size={18} />
-              </AceternityButton>
+              </ActionButton>
             </div>
 
             <div className="lead-detail-score">
@@ -401,7 +389,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
             <section className="evidence-list">
               <h3>Source evidence</h3>
               {selected.evidence.map((item) => (
-                <GlowCard as="article" key={item.id}>
+                <SurfaceCard as="article" key={item.id}>
                   <div>
                     <span>{item.kind}</span>
                     <strong>{item.confidence}%</strong>
@@ -411,7 +399,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
                   <a href={item.sourceUrl} rel="noreferrer" target="_blank">
                     Open source <ExternalLink size={13} />
                   </a>
-                </GlowCard>
+                </SurfaceCard>
               ))}
             </section>
 
@@ -421,9 +409,8 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
                 <p><strong>Do not contact.</strong> This lead is permanently excluded from outreach.</p>
               </div>
             )}
-          </aside>
-        </div>
-      )}
+        </SheetContent> : null}
+      </Sheet>
     </>
   );
 }

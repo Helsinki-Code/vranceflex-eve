@@ -1,0 +1,421 @@
+/* Campaign creation */
+
+.wizard-page {
+  min-height: 100vh;
+  padding-bottom: 44px;
+  background:
+    linear-gradient(rgba(var(--foreground-rgb), 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--foreground-rgb), 0.025) 1px, transparent 1px),
+    var(--background);
+  background-size: 32px 32px;
+}
+
+.wizard-nav {
+  width: min(1180px, calc(100% - 40px));
+  min-height: 72px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  border-bottom: 1px solid rgba(var(--foreground-rgb), 0.14);
+}
+
+.wizard-nav > span {
+  color: rgba(var(--foreground-rgb), 0.48);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.wizard-nav > a:last-child {
+  justify-self: end;
+  color: rgba(var(--foreground-rgb), 0.64);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.campaign-wizard,
+.wizard-success {
+  width: min(830px, calc(100% - 40px));
+  margin: 70px auto 0;
+}
+
+.wizard-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 24px;
+}
+
+.wizard-progress div {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: rgba(var(--foreground-rgb), 0.37);
+}
+
+.wizard-progress div::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 15px;
+  right: 12px;
+  left: 45px;
+  height: 1px;
+  background: rgba(var(--foreground-rgb), 0.13);
+}
+
+.wizard-progress div:last-child::after {
+  display: none;
+}
+
+.wizard-progress div > span {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(var(--foreground-rgb), 0.17);
+  background: var(--background);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.wizard-progress div.active {
+  color: var(--foreground);
+}
+
+.wizard-progress div.active > span {
+  border-color: var(--foreground);
+  background: var(--foreground);
+  color: var(--primary);
+}
+
+.wizard-progress small {
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.wizard-panel {
+  padding: 46px;
+  border: 1px solid rgba(var(--foreground-rgb), 0.16);
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  border-radius: 24px 24px 24px 7px;
+  box-shadow: 0 30px 80px rgba(var(--foreground-rgb), 0.08);
+}
+
+.panel-heading {
+  margin-bottom: 34px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(var(--foreground-rgb), 0.12);
+}
+
+.panel-heading > span,
+.list-heading > div > span,
+.app-header > div > span {
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.panel-heading h2 {
+  margin: 10px 0 8px;
+  font-size: clamp(32px, 5vw, 47px);
+  line-height: 1;
+  letter-spacing: -0.055em;
+}
+
+.panel-heading p {
+  max-width: 570px;
+  margin: 0;
+  color: rgba(var(--foreground-rgb), 0.58);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.source-choice {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.source-choice button {
+  min-height: 84px;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid rgba(var(--foreground-rgb), 0.14);
+  background: transparent;
+  border-radius: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.source-choice button.active {
+  border-color: var(--foreground);
+  background: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--foreground);
+}
+
+.source-choice strong,
+.source-choice small {
+  display: block;
+}
+
+.source-choice strong {
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.source-choice small {
+  color: rgba(var(--foreground-rgb), 0.55);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.wizard-panel label,
+.choice-section > label {
+  display: grid;
+  gap: 8px;
+  color: rgba(var(--foreground-rgb), 0.72);
+  font-size: 11px;
+  font-weight: 780;
+}
+
+.wizard-panel > label,
+.field-grid {
+  margin-top: 18px;
+}
+
+.wizard-panel input,
+.wizard-panel textarea,
+.wizard-panel select {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid rgba(var(--foreground-rgb), 0.16);
+  outline: none;
+  background: white;
+  color: var(--foreground);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  resize: vertical;
+}
+
+.wizard-panel input,
+.wizard-panel select {
+  min-height: 48px;
+}
+
+.wizard-panel input:focus,
+.wizard-panel textarea:focus,
+.wizard-panel select:focus {
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent);
+}
+
+.field-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.field-grid.two,
+.idea-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.field-grid .full {
+  grid-column: 1 / -1;
+}
+
+.choice-section {
+  margin-top: 20px;
+}
+
+.option-row,
+.channel-row {
+  display: flex;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.option-row button {
+  min-width: 64px;
+  min-height: 46px;
+  border: 1px solid rgba(var(--foreground-rgb), 0.16);
+  background: white;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.option-row button.active {
+  border-color: var(--foreground);
+  background: var(--foreground);
+  color: var(--primary);
+}
+
+.option-row-note {
+  margin: 8px 0 0;
+  color: rgba(var(--foreground-rgb), 0.5);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.channel-row button {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid rgba(var(--foreground-rgb), 0.16);
+  background: white;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.channel-row button > span {
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(var(--foreground-rgb), 0.22);
+  border-radius: 5px;
+}
+
+.channel-row button.active {
+  border-color: var(--foreground);
+}
+
+.channel-row button.active > span {
+  background: var(--foreground);
+  color: var(--primary);
+}
+
+.approval-note,
+.truth-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin-top: 28px;
+  padding: 17px;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+  background: rgba(37, 99, 235, 0.15);
+  border-radius: 12px;
+}
+
+.approval-note svg,
+.truth-banner svg {
+  flex: 0 0 auto;
+  color: var(--success);
+}
+
+.approval-note strong {
+  font-size: 12px;
+}
+
+.approval-note p,
+.truth-banner p {
+  margin: 5px 0 0;
+  color: rgba(var(--foreground-rgb), 0.61);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.wizard-actions .button-primary,
+.wizard-actions .button-secondary,
+.dashboard-state .button-primary,
+.dashboard-state .button-secondary {
+  width: auto;
+  border: 0;
+  cursor: pointer;
+}
+
+.form-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(172, 61, 41, 0.25);
+  background: #fff2ed;
+  color: #7b2d20;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.form-error button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 800;
+}
+
+.wizard-footnote {
+  margin: 22px auto 0;
+  color: rgba(var(--foreground-rgb), 0.42);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.wizard-success {
+  padding: 80px 45px;
+  border: 1px solid rgba(var(--foreground-rgb), 0.14);
+  background: var(--card);
+  border-radius: 25px 25px 25px 7px;
+  text-align: center;
+}
+
+.wizard-success > span {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 25px;
+  background: var(--primary);
+  border-radius: 50%;
+}
+
+.wizard-success h2 {
+  margin: 0;
+  font-size: 52px;
+  letter-spacing: -0.055em;
+}
+
+.wizard-success > p:not(.section-label) {
+  max-width: 520px;
+  margin: 18px auto 28px;
+  color: rgba(var(--foreground-rgb), 0.6);
+  line-height: 1.65;
+}
+
+.wizard-success > div {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

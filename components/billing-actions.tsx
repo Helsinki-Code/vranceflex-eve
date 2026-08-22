@@ -11,7 +11,7 @@ import {
   type TopUpPackageKey,
 } from "../lib/domain/billing";
 import type { checkoutConfiguration } from "../lib/server/billing-prices";
-import { AceternityButton, AceternityLink, GlowCard } from "./aceternity";
+import { ActionButton, ActionLink, SurfaceCard } from "./design-system";
 
 type CheckoutConfiguration = ReturnType<typeof checkoutConfiguration>;
 
@@ -60,11 +60,11 @@ export function BillingActions({
     <div className="premium-billing-actions">
       <div className="billing-action-head">
         <div className="pricing-toggle" aria-label="Billing interval">
-          <AceternityButton className={interval === "month" ? "active" : ""} onClick={() => setInterval("month")} type="button">Monthly</AceternityButton>
-          <AceternityButton className={interval === "year" ? "active" : ""} onClick={() => setInterval("year")} type="button">Annual · 2 months free</AceternityButton>
+          <ActionButton className={interval === "month" ? "active" : ""} onClick={() => setInterval("month")} type="button">Monthly</ActionButton>
+          <ActionButton className={interval === "year" ? "active" : ""} onClick={() => setInterval("year")} type="button">Annual · 2 months free</ActionButton>
         </div>
         {hasActiveSubscription ? (
-          <AceternityButton
+          <ActionButton
             className="button-secondary compact"
             disabled={Boolean(busy)}
             onClick={() => void redirectFrom("/api/billing/portal")}
@@ -72,7 +72,7 @@ export function BillingActions({
           >
             {busy.startsWith("/api/billing/portal") ? <LoaderCircle className="spin" size={15} /> : <Settings2 size={15} />}
             Manage subscription
-          </AceternityButton>
+          </ActionButton>
         ) : null}
       </div>
 
@@ -97,7 +97,7 @@ export function BillingActions({
             hasActiveSubscription ? {} : checkoutBody,
           );
           return (
-            <GlowCard className={`pricing-plan-card ${key === "growth" ? "recommended" : ""}`} key={key}>
+            <SurfaceCard className={`pricing-plan-card ${key === "growth" ? "recommended" : ""}`} key={key}>
               {key === "growth" ? <span className="pricing-recommended">RECOMMENDED</span> : null}
               <span className="section-label">{plan.name.toUpperCase()}</span>
               <h3>{key === "enterprise" ? "Custom" : `$${displayPrice}`}<small>{key === "enterprise" ? "" : "/mo"}</small></h3>
@@ -110,9 +110,9 @@ export function BillingActions({
                 <li><Check size={14} /> BYOK Resend and Twilio delivery</li>
               </ul>
               {activePlan === key ? (
-                <AceternityButton className="pricing-current" disabled type="button">Current plan</AceternityButton>
+                <ActionButton className="pricing-current" disabled type="button">Current plan</ActionButton>
               ) : key === "launch" || key === "growth" ? (
-                <AceternityButton
+                <ActionButton
                   className={key === "growth" ? "button-primary" : "button-secondary"}
                   disabled={Boolean(busy) || !configured}
                   onClick={() =>
@@ -129,13 +129,13 @@ export function BillingActions({
                       ? "Change in billing portal"
                       : `Choose ${plan.name}`
                     : "Stripe price not configured"} <ArrowRight size={15} />
-                </AceternityButton>
+                </ActionButton>
               ) : (
-                <AceternityLink className="button-secondary" href="mailto:sales@vranceflex.com?subject=VranceFlex%20premium%20plan">
+                <ActionLink className="button-secondary" href="mailto:sales@vranceflex.com?subject=VranceFlex%20premium%20plan">
                   Book a demo <ArrowRight size={15} />
-                </AceternityLink>
+                </ActionLink>
               )}
-            </GlowCard>
+            </SurfaceCard>
           );
         })}
       </div>
@@ -152,7 +152,7 @@ export function BillingActions({
               const item = topUpCatalog[configuredTopUp.key];
               const actionKey = "/api/billing/top-up" + JSON.stringify({ packageKey: item.key });
               return (
-                <AceternityButton
+                <ActionButton
                   className="topup-button"
                   disabled={Boolean(busy) || !configuredTopUp.configured}
                   key={item.key}
@@ -162,7 +162,7 @@ export function BillingActions({
                   {busy === actionKey ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}
                   <strong>{item.credits.toLocaleString()} credits</strong>
                   <span>{configuredTopUp.configured ? `$${item.priceUsd}` : "Not configured"}</span>
-                </AceternityButton>
+                </ActionButton>
               );
             })}
           </div>
