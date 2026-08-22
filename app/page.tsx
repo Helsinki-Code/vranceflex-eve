@@ -37,6 +37,8 @@ export default function HomePage() {
           <a href="#agents">Agents</a>
           <a href="#workflow">Workflow</a>
           <a href="#trust">Trust</a>
+          <a href="/demo">Demo</a>
+          <a href="/pricing">Pricing</a>
           <a href="/sign-in">Sign in</a>
         </div>
         <div className="nav-actions">

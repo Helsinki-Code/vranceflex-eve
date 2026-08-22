@@ -5,6 +5,11 @@ import { cn } from "@/lib/utils";
 
 export const BackgroundBeams = React.memo(
   ({ className }: { className?: string }) => {
+    const animationFor = (index: number) => ({
+      y2: 93 + ((index * 17) % 9),
+      duration: 10 + ((index * 7) % 11),
+      delay: (index * 13) % 10,
+    });
     const paths = [
       "M-380 -189C-380 -189 -312 216 152 343C616 470 684 875 684 875",
       "M-373 -197C-373 -197 -305 208 159 335C623 462 691 867 691 867",
@@ -89,8 +94,9 @@ export const BackgroundBeams = React.memo(
             ></motion.path>
           ))}
           <defs>
-            {paths.map((path, index) => (
-              <motion.linearGradient
+            {paths.map((path, index) => {
+              const animation = animationFor(index);
+              return <motion.linearGradient
                 id={`linearGradient-${index}`}
                 key={`gradient-${index}`}
                 initial={{
@@ -103,21 +109,21 @@ export const BackgroundBeams = React.memo(
                   x1: ["0%", "100%"],
                   x2: ["0%", "95%"],
                   y1: ["0%", "100%"],
-                  y2: ["0%", `${93 + Math.random() * 8}%`],
+                  y2: ["0%", `${animation.y2}%`],
                 }}
                 transition={{
-                  duration: Math.random() * 10 + 10,
+                  duration: animation.duration,
                   ease: "easeInOut",
                   repeat: Infinity,
-                  delay: Math.random() * 10,
+                  delay: animation.delay,
                 }}
               >
                 <stop stopColor="var(--lime)" stopOpacity="0"></stop>
                 <stop stopColor="var(--lime)"></stop>
                 <stop offset="32.5%" stopColor="var(--forest)"></stop>
                 <stop offset="100%" stopColor="var(--orange)" stopOpacity="0"></stop>
-              </motion.linearGradient>
-            ))}
+              </motion.linearGradient>;
+            })}
 
             <radialGradient
               id="paint0_radial_242_278"

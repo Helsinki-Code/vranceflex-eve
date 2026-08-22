@@ -3,6 +3,10 @@ import { and, eq } from "drizzle-orm";
 import type { Campaign } from "../domain/campaign";
 import type { ApiActor } from "./api-actor";
 import type { ApprovedLead } from "./candidate-store";
+import {
+  recordAiGenerationUsage,
+  requireActivePlan,
+} from "./billing-entitlements";
 import { getDatabase } from "./database";
 import { campaignExecutions } from "./database/schema";
 import { classifyEveTerminalEvent } from "./eve-terminal";
@@ -101,6 +105,7 @@ async function prepareExecution(
         id: existing.id,
         resumeState: null,
         resumeStage: existing.stage,
+        attempt: existing.attempt,
       };
     }
 
@@ -110,6 +115,7 @@ async function prepareExecution(
         id: existing.id,
         resumeState: null,
         resumeStage: existing.stage,
+        attempt: existing.attempt,
       };
     }
 
@@ -150,6 +156,7 @@ async function prepareExecution(
             }
           : null,
         resumeStage: existing.stage,
+        attempt: existing.attempt + 1,
       };
     }
 
@@ -164,7 +171,7 @@ async function prepareExecution(
       createdAt: now,
       updatedAt: now,
     });
-    return { shouldStart: true, id, resumeState: null, resumeStage: "queued" };
+    return { shouldStart: true, id, resumeState: null, resumeStage: "queued", attempt: 1 };
   });
 }
 
@@ -187,6 +194,7 @@ export async function startCampaignExecution({
     throw new Error("The authenticated session token is unavailable.");
   }
 
+  await requireActivePlan(actor.organizationId);
   const prepared = await prepareExecution(campaign, actor, force);
   if (!prepared.shouldStart) {
     return getCampaignExecution(campaign.id, actor.organizationId);
@@ -200,6 +208,14 @@ export async function startCampaignExecution({
     message: "Preparing personalized outreach for your approved leads…",
   });
   try {
+    await recordAiGenerationUsage({
+      organizationId: actor.organizationId,
+      campaignId: campaign.id,
+      executionId: prepared.id,
+      attempt: prepared.attempt,
+      leadCount: approvedLeads.length,
+      resumed: Boolean(prepared.resumeState),
+    });
     const client = new Client({
       host: origin,
       auth: { bearer: sessionToken },
@@ -298,6 +314,32 @@ export async function cancelCampaignExecution({
     )
     .limit(1);
   if (!execution || !["queued", "running"].includes(execution.status)) {
+    return getCampaignExecution(campaignId, organizationId);
+  }
+  if (!execution.eveSessionId && execution.status === "queued") {
+    const now = new Date();
+    await database
+      .update(campaignExecutions)
+      .set({
+        status: "failed",
+        errorCode: "user_cancelled",
+        errorMessage: null,
+        completedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(campaignExecutions.id, execution.id),
+          eq(campaignExecutions.organizationId, organizationId),
+          eq(campaignExecutions.status, "queued"),
+        ),
+      );
+    await recordCampaignProgress(database, {
+      organizationId,
+      campaignId,
+      stage: execution.stage,
+      message: "Campaign preparation stopped before Eve began processing it.",
+    });
     return getCampaignExecution(campaignId, organizationId);
   }
   if (!execution.eveSessionId || !sessionToken) {

@@ -404,7 +404,7 @@ export async function resetPassword(input: ResetPasswordInput) {
   const now = new Date();
 
   await database.transaction(async (transaction) => {
-    await transaction
+    const consumed = await transaction
       .update(authChallenges)
       .set({ consumedAt: now })
       .where(
@@ -412,7 +412,15 @@ export async function resetPassword(input: ResetPasswordInput) {
           eq(authChallenges.id, record.challenge.id),
           isNull(authChallenges.consumedAt),
         ),
+      )
+      .returning({ id: authChallenges.id });
+
+    if (consumed.length !== 1) {
+      throw new AuthRequestError(
+        "This verification code was already used.",
+        409,
       );
+    }
 
     await transaction
       .update(users)

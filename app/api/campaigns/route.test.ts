@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hasTestDatabase, truncateAllTables } from "../../../lib/server/test-support/db";
 import { seedOrganization } from "../../../lib/server/test-support/seed";
 import type { ApiActor } from "../../../lib/server/api-actor";
+import { AuthRequestError } from "../../../lib/server/auth-errors";
 
 vi.mock("../../../lib/server/api-actor", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/server/api-actor")>();
@@ -10,6 +11,10 @@ vi.mock("../../../lib/server/api-actor", async (importOriginal) => {
 vi.mock("../../../lib/server/campaign-execution", () => ({
   startCampaignExecution: vi.fn().mockResolvedValue({ id: "execution-1", status: "queued" }),
 }));
+vi.mock("../../../lib/server/billing-entitlements", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../lib/server/billing-entitlements")>();
+  return { ...actual, assertCampaignCapacity: vi.fn().mockResolvedValue({ name: "Launch" }) };
+});
 
 process.env.AUTH_SECRET ??= "test-auth-secret-at-least-32-characters-long";
 
@@ -85,6 +90,24 @@ describe.skipIf(!hasTestDatabase)("campaigns API route", () => {
     const { POST } = await import("./route");
     const response = await POST(jsonRequest("http://localhost/api/campaigns", validCampaignInput));
     expect(response.status).toBe(400);
+  });
+
+  it("blocks a live campaign before creation when no paid entitlement is available", async () => {
+    const { getApiActor } = await import("../../../lib/server/api-actor");
+    const { assertCampaignCapacity } = await import("../../../lib/server/billing-entitlements");
+    const { organizationId, userId } = await seedOrganization();
+    vi.mocked(getApiActor).mockResolvedValue(actorFor(organizationId, userId));
+    vi.mocked(assertCampaignCapacity).mockRejectedValueOnce(
+      new AuthRequestError("An active VranceFlex plan is required.", 402),
+    );
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      jsonRequest("http://localhost/api/campaigns", validCampaignInput, {
+        "Idempotency-Key": "unpaid-key",
+      }),
+    );
+    expect(response.status).toBe(402);
   });
 
   it("returns the same campaign for a repeated Idempotency-Key", async () => {

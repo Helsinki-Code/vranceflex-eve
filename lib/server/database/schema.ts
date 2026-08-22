@@ -55,6 +55,21 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "canceled",
   "incomplete",
 ]);
+export const billingPlanEnum = pgEnum("billing_plan", [
+  "launch",
+  "growth",
+  "agency",
+  "enterprise",
+]);
+export const billingIntervalEnum = pgEnum("billing_interval", ["month", "year"]);
+export const prospectCreditSourceEnum = pgEnum("prospect_credit_source", [
+  "subscription",
+  "topup",
+]);
+export const prospectCreditReservationStatusEnum = pgEnum(
+  "prospect_credit_reservation_status",
+  ["reserved", "consumed", "released"],
+);
 export const channelProviderEnum = pgEnum("channel_provider", ["resend", "twilio"]);
 export const channelCredentialStatusEnum = pgEnum("channel_credential_status", [
   "connected",
@@ -540,11 +555,73 @@ export const organizationBilling = pgTable("organization_billing", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   planId: text("plan_id"),
+  planKey: billingPlanEnum("plan_key"),
+  billingInterval: billingIntervalEnum("billing_interval"),
   status: subscriptionStatusEnum("status").default("none").notNull(),
+  subscriptionStartedAt: timestamp("subscription_started_at", { withTimezone: true }),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const prospectCreditGrants = pgTable(
+  "prospect_credit_grants",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    source: prospectCreditSourceEnum("source").notNull(),
+    sourceKey: text("source_key").notNull(),
+    quantity: integer("quantity").notNull(),
+    remaining: integer("remaining").notNull(),
+    validFrom: timestamp("valid_from", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("prospect_credit_grants_source_unique").on(
+      table.organizationId,
+      table.sourceKey,
+    ),
+    index("prospect_credit_grants_available_idx").on(
+      table.organizationId,
+      table.expiresAt,
+    ),
+  ],
+);
+
+export const prospectCreditReservations = pgTable(
+  "prospect_credit_reservations",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    candidateId: uuid("candidate_id")
+      .notNull()
+      .references(() => campaignCandidates.id, { onDelete: "cascade" }),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => prospectCreditGrants.id, { onDelete: "restrict" }),
+    status: prospectCreditReservationStatusEnum("status").default("reserved").notNull(),
+    reservedAt: timestamp("reserved_at", { withTimezone: true }).defaultNow().notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("prospect_credit_reservations_candidate_unique").on(table.candidateId),
+    index("prospect_credit_reservations_org_status_idx").on(
+      table.organizationId,
+      table.status,
+    ),
+    index("prospect_credit_reservations_grant_idx").on(table.grantId),
+  ],
+);
 
 export const organizationSendingSettings = pgTable(
   "organization_sending_settings",
@@ -824,6 +901,7 @@ export const usageLedger = pgTable(
     kind: text("kind").notNull(),
     quantity: integer("quantity").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

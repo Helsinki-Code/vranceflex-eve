@@ -44,19 +44,32 @@ table ever disagree.
 | `AUTH_SECRET` | Yes | ≥32 chars. Signs session tokens and OTP hashes. Rotating it invalidates outstanding OTPs. |
 | `CREDENTIALS_ENCRYPTION_KEY` | Yes | 32-byte, base64url-encoded AES-256-GCM key. Encrypts each client workspace's connected Resend/Twilio credentials at rest (`lib/server/credential-crypto.ts`). **Never reuse `AUTH_SECRET`** — a different secret class, should rotate independently. |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Yes | **Platform account only** — signup/reset OTP delivery and team-invite email. Never used for a client's outreach. |
-| `CRON_SECRET` | Yes (prod) | Bearer token Vercel Cron sends to `/api/cron/delivery`. |
 | `APP_BASE_URL` | Yes for unsubscribe/billing links | Public base URL used to build outreach unsubscribe links, Stripe checkout redirects, and team-invite links. |
 | `NEXT_PUBLIC_LIVEAVATAR_EMBED_URL` | Optional | Safe `https://embed.liveavatar.com/v1/...` URL for the landing-page product guide. Create the embedding with the LiveAvatar API key outside the browser; never expose that key here. See [the setup guide](docs/liveavatar-sales-guide.md). |
 | `COMPANY_MAILING_ADDRESS` | Recommended | Physical address included in outreach email footers (CAN-SPAM). |
 | `PARALLEL_API_KEY` | Yes | Lead research/enrichment via Parallel, used by the `lead-researcher` subagent. |
 | `AI_GATEWAY_API_KEY` | Yes (or Vercel OIDC) | Model access for the eve agent. |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO` | Optional | Billing scaffolding — see below. Unrelated to outreach BYOK; this is the platform's own Stripe account for charging clients. |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_*` | Required for paid launch | VranceFlex subscription and prospect-credit top-up billing. The exact plan/top-up Price variables are listed in `.env.example`. Unrelated to outreach BYOK. |
 | `VRANCEFLEX_DEMO_MODE` | Optional | Forces the in-memory demo/auth-bypass mode even outside local dev. Never set `true` in a real deployment. |
 
 Each client workspace's own Resend and Twilio credentials are **not** environment
 variables — they're connected per-organization from `/settings/integrations`,
 validated against the provider's API on save, and stored encrypted in the
 `organization_channel_credentials` table (see `lib/server/channel-credentials.ts`).
+
+### Stripe launch checklist
+
+1. Create recurring monthly and annual Prices for Launch and Growth. Annual
+   Prices should equal ten monthly payments.
+2. Create one-time Prices for the 100, 500, and 2,000 prospect-credit top-ups,
+   then copy every Price ID into the matching `.env.example` variable.
+3. Enable subscription plan changes, cancellation, and payment-method updates
+   in the Stripe customer portal.
+4. Point a Stripe webhook at `/api/webhooks/stripe` and subscribe it to
+   `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+   and `customer.subscription.created|updated|deleted`.
+5. Apply database migrations before deploying the code so entitlement checks
+   never run against the pre-credit schema.
 
 ## Scripts
 
@@ -88,11 +101,11 @@ validated against the provider's API on save, and stored encrypted in the
 - **Scheduling and delivery**: `lib/server/scheduling-store.ts` converts an
   approved sequence into `delivery_jobs` — but only after confirming the
   workspace has connected the relevant channel (`lib/server/channel-credentials.ts`).
-  `lib/server/delivery-worker.ts` is the worker (driven by Vercel Cron via
-  `app/api/cron/delivery`) that claims jobs, enforces per-org daily send caps
-  and suppression, resolves that org's own connected credentials, and dispatches
-  through `lib/server/outreach-email.ts` (Resend) or `lib/server/outreach-sms.ts`
-  (Twilio).
+  Eve's native per-minute schedule in `agent/schedules/dynamic.ts` invokes
+  `lib/server/delivery-worker.ts`, which claims due jobs, enforces per-org daily
+  send caps and suppression, resolves that org's connected credentials, and
+  dispatches through `lib/server/outreach-email.ts` (Resend) or
+  `lib/server/outreach-sms.ts` (Twilio).
 - **Client-connected channels (BYOK)**: `lib/server/channel-credentials.ts`
   validates a client's Resend/Twilio credentials against the provider's API,
   encrypts them (`lib/server/credential-crypto.ts`), and stores one row per
@@ -119,8 +132,12 @@ validated against the provider's API on save, and stored encrypted in the
   drafted but scheduling is blocked with a clear error.
 - **Team invites**: production-ready — email invite, accept flow, role
   management, admin-gated in the UI and API.
-- **Billing**: scaffolding only. Checkout, the billing portal, and webhook
-  handling are fully wired against Stripe's API, but `STRIPE_PRICE_ID_PRO` is a
-  placeholder — replace it with a real Stripe Price ID (and set
-  `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`) before accepting real payments.
-  Until configured, the billing page shows "setup mode" and disables checkout.
+- **Billing and entitlements**: the Launch ($99/month) and Growth ($249/month)
+  plans use Stripe Checkout; existing subscribers change or cancel through the
+  Stripe billing portal. Agency ($699/month) and Enterprise (from $1,500/month)
+  launch sales-assisted. Successful Parallel verification consumes exactly one
+  prospect credit, failed verification returns its reservation, included
+  credits reset on the subscriber's monthly anniversary, and purchased top-ups
+  remain valid for 12 months. Live discovery, verification, Eve generation,
+  seats, active campaigns, and research-run fair use are enforced server-side.
+  Unpaid workspaces can view `/demo` but cannot invoke paid providers.

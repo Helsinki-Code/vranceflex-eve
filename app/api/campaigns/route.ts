@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { campaignCreateSchema } from "../../../lib/domain/campaign";
 import { getApiActor } from "../../../lib/server/api-actor";
 import { apiErrorResponse } from "../../../lib/server/api-response";
-import { createCampaign, listCampaigns } from "../../../lib/server/campaign-store";
+import {
+  createCampaign,
+  getCampaignByIdempotencyKey,
+  listCampaigns,
+} from "../../../lib/server/campaign-store";
 import { discoverCandidates } from "../../../lib/server/candidate-store";
+import { assertCampaignCapacity } from "../../../lib/server/billing-entitlements";
+import { assertSameOrigin } from "../../../lib/server/request-security";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +27,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
     const actor = await getApiActor();
     const idempotencyKey = request.headers.get("Idempotency-Key")?.trim();
 
@@ -29,9 +36,24 @@ export async function POST(request: Request) {
     }
 
     const input = campaignCreateSchema.parse(await request.json());
-    const campaign = await createCampaign(input, actor, idempotencyKey);
-    if (!campaign) {
+    const existing = await getCampaignByIdempotencyKey(actor, idempotencyKey);
+    if (existing) {
+      return NextResponse.json({ campaign: existing, discovery: null }, { status: 200 });
+    }
+    await assertCampaignCapacity({
+      organizationId: actor.organizationId,
+      requestedProspects: input.leadCount,
+    });
+    const result = await createCampaign(input, actor, idempotencyKey);
+    if (!result) {
       return NextResponse.json({ error: "Campaign could not be created." }, { status: 500 });
+    }
+    const { campaign, created } = result;
+
+    // A retried request with the same key returns the original resource and
+    // must not spend Parallel credits or insert duplicate candidates again.
+    if (!created) {
+      return NextResponse.json({ campaign, discovery: null }, { status: 200 });
     }
 
     try {

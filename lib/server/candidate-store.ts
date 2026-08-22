@@ -1,7 +1,16 @@
-import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Campaign } from "../domain/campaign";
 import type { ApiActor } from "./api-actor";
 import { AuthRequestError } from "./auth-errors";
+import {
+  completeDiscoveryRun,
+  consumeProspectCredit,
+  releaseDiscoveryRun,
+  releaseProspectCredits,
+  recordEnrichmentProviderUsage,
+  reserveDiscoveryRun,
+  reserveProspectCredits,
+} from "./billing-entitlements";
 import { getCampaign as getDomainCampaign } from "./campaign-store";
 import {
   createEnrichmentGroup,
@@ -26,6 +35,7 @@ const DISCOVERY_MULTIPLIER = 3;
 const MAX_DISCOVERY = 1_000;
 const REFRESH_THROTTLE_MS = 10_000;
 const RUN_PROBES_PER_REFRESH = 20;
+const ENRICHMENT_TIMEOUT_MS = 2 * 60 * 60 * 1_000;
 
 export type CandidateSummary = {
   id: string;
@@ -93,6 +103,11 @@ async function requireCampaign(actor: ApiActor, campaignId: string) {
 /** Fast synchronous people discovery via Parallel Entity Search (~1-3s). */
 export async function discoverCandidates(actor: ApiActor, campaign: Campaign) {
   const database = getDatabase();
+  const discoveryReservation = await reserveDiscoveryRun({
+    organizationId: actor.organizationId,
+    campaignId: campaign.id,
+    requestedProspects: campaign.leadCount,
+  });
   const matchLimit = Math.min(
     MAX_DISCOVERY,
     Math.max(25, campaign.leadCount * DISCOVERY_MULTIPLIER),
@@ -105,11 +120,17 @@ export async function discoverCandidates(actor: ApiActor, campaign: Campaign) {
     message: `Searching the public web for people matching your audience (up to ${matchLimit} candidates)…`,
   });
 
-  const result = await entitySearch({
-    entityType: "people",
-    objective: discoveryObjective(campaign),
-    matchLimit,
-  });
+  let result: Awaited<ReturnType<typeof entitySearch>>;
+  try {
+    result = await entitySearch({
+      entityType: "people",
+      objective: discoveryObjective(campaign),
+      matchLimit,
+    });
+  } catch (error) {
+    await releaseDiscoveryRun(discoveryReservation.id);
+    throw error;
+  }
 
   const now = new Date();
   const rows = result.entities
@@ -129,6 +150,7 @@ export async function discoverCandidates(actor: ApiActor, campaign: Campaign) {
   if (rows.length) {
     await database.insert(campaignCandidates).values(rows);
   }
+  await completeDiscoveryRun(discoveryReservation.id, rows.length);
 
   await recordCampaignProgress(database, {
     organizationId: actor.organizationId,
@@ -211,52 +233,137 @@ export async function startEnrichment(
     );
   }
 
-  const group = await createEnrichmentGroup(
-    selected.map((candidate) => ({
-      fullName: candidate.name,
-      context: [candidate.description, candidate.url]
-        .filter(Boolean)
-        .join(" — ")
-        .slice(0, 1_000),
-    })),
-  );
-
   const now = new Date();
-  await database.transaction(async (transaction) => {
-    for (const [index, candidate] of selected.entries()) {
-      await transaction
+  await reserveProspectCredits({
+    organizationId: actor.organizationId,
+    campaignId,
+    candidateIds: selected.map((candidate) => candidate.id),
+  });
+  const claimedCandidates = await database
+    .update(campaignCandidates)
+    .set({ status: "enriching", parallelRunId: null, updatedAt: now })
+    .where(
+      and(
+        eq(campaignCandidates.organizationId, actor.organizationId),
+        eq(campaignCandidates.campaignId, campaignId),
+        inArray(campaignCandidates.id, selected.map((candidate) => candidate.id)),
+        eq(campaignCandidates.status, "discovered"),
+      ),
+    )
+    .returning({ id: campaignCandidates.id });
+  if (claimedCandidates.length !== selected.length) {
+    await releaseProspectCredits(
+      actor.organizationId,
+      selected.map((candidate) => candidate.id),
+    );
+    if (claimedCandidates.length) {
+      await database
         .update(campaignCandidates)
-        .set({
-          status: "enriching",
-          parallelRunId: group.runIds[index],
-          updatedAt: now,
-        })
-        .where(eq(campaignCandidates.id, candidate.id));
+        .set({ status: "discovered", updatedAt: new Date() })
+        .where(
+          and(
+            inArray(
+              campaignCandidates.id,
+              claimedCandidates.map((candidate) => candidate.id),
+            ),
+            eq(campaignCandidates.status, "enriching"),
+            sql`${campaignCandidates.parallelRunId} is null`,
+          ),
+        );
     }
-    await transaction
-      .insert(enrichmentGroups)
-      .values({
-        campaignId,
-        organizationId: actor.organizationId,
-        taskgroupId: group.taskgroupId,
-        active: true,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: enrichmentGroups.campaignId,
-        set: {
+    throw new AuthRequestError(
+      "The selected prospects changed while verification was starting. Your reserved credits were returned; review the list and try again.",
+      409,
+    );
+  }
+
+  let group: Awaited<ReturnType<typeof createEnrichmentGroup>>;
+  try {
+    group = await createEnrichmentGroup(
+      selected.map((candidate) => ({
+        fullName: candidate.name,
+        context: [candidate.description, candidate.url]
+          .filter(Boolean)
+          .join(" — ")
+          .slice(0, 1_000),
+      })),
+    );
+  } catch (error) {
+    await releaseProspectCredits(
+      actor.organizationId,
+      selected.map((candidate) => candidate.id),
+    );
+    await database
+      .update(campaignCandidates)
+      .set({ status: "discovered", updatedAt: new Date() })
+      .where(
+        and(
+          inArray(campaignCandidates.id, selected.map((candidate) => candidate.id)),
+          eq(campaignCandidates.status, "enriching"),
+          sql`${campaignCandidates.parallelRunId} is null`,
+        ),
+      );
+    throw error;
+  }
+
+  try {
+    await recordEnrichmentProviderUsage({
+      organizationId: actor.organizationId,
+      campaignId,
+      taskgroupId: group.taskgroupId,
+      runs: selected.length,
+    });
+    await database.transaction(async (transaction) => {
+      for (const [index, candidate] of selected.entries()) {
+        await transaction
+          .update(campaignCandidates)
+          .set({
+            status: "enriching",
+            parallelRunId: group.runIds[index],
+            updatedAt: now,
+          })
+          .where(eq(campaignCandidates.id, candidate.id));
+      }
+      await transaction
+        .insert(enrichmentGroups)
+        .values({
+          campaignId,
+          organizationId: actor.organizationId,
           taskgroupId: group.taskgroupId,
           active: true,
-          lastPolledAt: null,
+          createdAt: now,
           updatedAt: now,
-        },
-      });
-    await transaction
-      .update(campaigns)
-      .set({ status: "enriching", updatedAt: now })
-      .where(eq(campaigns.id, campaignId));
-  });
+        })
+        .onConflictDoUpdate({
+          target: enrichmentGroups.campaignId,
+          set: {
+            taskgroupId: group.taskgroupId,
+            active: true,
+            lastPolledAt: null,
+            updatedAt: now,
+          },
+        });
+      await transaction
+        .update(campaigns)
+        .set({ status: "enriching", updatedAt: now })
+        .where(eq(campaigns.id, campaignId));
+    });
+  } catch (error) {
+    await releaseProspectCredits(
+      actor.organizationId,
+      selected.map((candidate) => candidate.id),
+    );
+    await database
+      .update(campaignCandidates)
+      .set({ status: "discovered", parallelRunId: null, updatedAt: new Date() })
+      .where(
+        and(
+          inArray(campaignCandidates.id, selected.map((candidate) => candidate.id)),
+          eq(campaignCandidates.status, "enriching"),
+        ),
+      );
+    throw error;
+  }
 
   await recordCampaignProgress(database, {
     organizationId: actor.organizationId,
@@ -333,16 +440,41 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
         eq(campaignCandidates.status, "enriching"),
       ),
     )
+    .orderBy(asc(campaignCandidates.updatedAt))
     .limit(RUN_PROBES_PER_REFRESH);
 
   let newlyVerified = 0;
   let newlyFailed = 0;
 
   for (const candidate of pending) {
-    if (!candidate.parallelRunId) continue;
+    if (!candidate.parallelRunId) {
+      const timedOut = now.getTime() - candidate.updatedAt.getTime() >= ENRICHMENT_TIMEOUT_MS;
+      if (timedOut) {
+        await releaseProspectCredits(actor.organizationId, [candidate.id]);
+        await database
+          .update(campaignCandidates)
+          .set({
+            status: "failed",
+            errorMessage: "Verification could not be submitted to the provider and the reserved credit was returned.",
+            updatedAt: new Date(),
+          })
+          .where(eq(campaignCandidates.id, candidate.id));
+        newlyFailed += 1;
+      }
+      continue;
+    }
     try {
       const status = await getEnrichmentRunStatus(candidate.parallelRunId);
-      if (["queued", "running", "processing"].includes(status.status)) continue;
+      if (["queued", "running", "processing"].includes(status.status)) {
+        // Rotate in-flight runs to the back of the polling queue so one slow
+        // batch cannot starve later completed runs when a campaign has more
+        // than RUN_PROBES_PER_REFRESH candidates.
+        await database
+          .update(campaignCandidates)
+          .set({ updatedAt: new Date() })
+          .where(eq(campaignCandidates.id, candidate.id));
+        continue;
+      }
 
       if (status.status === "completed") {
         const result = await getEnrichmentRunResult(candidate.parallelRunId);
@@ -352,6 +484,15 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
         const phone = cleanField(output.contact_number, 50);
         const xHandle = cleanField(output.x_handle, 100);
         const verified = Boolean(email && linkedinUrl);
+        if (verified) {
+          await consumeProspectCredit({
+            organizationId: actor.organizationId,
+            campaignId,
+            candidateId: candidate.id,
+          });
+        } else {
+          await releaseProspectCredits(actor.organizationId, [candidate.id]);
+        }
         await database
           .update(campaignCandidates)
           .set({
@@ -371,6 +512,7 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
         if (verified) newlyVerified += 1;
         else newlyFailed += 1;
       } else {
+        await releaseProspectCredits(actor.organizationId, [candidate.id]);
         await database
           .update(campaignCandidates)
           .set({
@@ -382,7 +524,21 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
         newlyFailed += 1;
       }
     } catch {
-      // Leave the candidate enriching; the next refresh retries it.
+      const timedOut = now.getTime() - candidate.createdAt.getTime() >= ENRICHMENT_TIMEOUT_MS;
+      await database
+        .update(campaignCandidates)
+        .set({
+          status: timedOut ? "failed" : "enriching",
+          errorMessage: timedOut
+            ? "Verification timed out after repeated provider errors. Start a new verification attempt if this contact is still needed."
+            : candidate.errorMessage,
+          updatedAt: new Date(),
+        })
+        .where(eq(campaignCandidates.id, candidate.id));
+      if (timedOut) newlyFailed += 1;
+      if (timedOut) {
+        await releaseProspectCredits(actor.organizationId, [candidate.id]);
+      }
     }
   }
 

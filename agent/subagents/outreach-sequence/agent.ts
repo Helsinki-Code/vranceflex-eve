@@ -14,6 +14,7 @@ export default defineAgent({
   description:
     "Create personalized multi-channel outreach sequences from confirmed lead records, using only channels present in each lead's data.",
   model: "anthropic/claude-haiku-4.5",
+  modelContextWindowTokens: 200_000,
   outputSchema: z.array(
     z.object({
       lead_name: z.string().min(1),

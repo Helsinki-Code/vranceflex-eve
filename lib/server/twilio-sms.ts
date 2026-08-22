@@ -6,6 +6,7 @@ export class TwilioDeliveryError extends Error {
     message: string,
     readonly code?: number,
     readonly retryable = true,
+    readonly ambiguous = false,
   ) {
     super(message);
   }
@@ -34,15 +35,21 @@ const nonRetryableTwilioCodes = new Set([
 
 // Each connected organization has its own Twilio account, so clients are
 // cached per accountSid rather than a single global client.
-const clientCache = new Map<string, ReturnType<typeof Twilio>>();
+const clientCache = new Map<
+  string,
+  { authToken: string; client: ReturnType<typeof Twilio> }
+>();
 
 function getTwilioClient(credentials: TwilioCredentials) {
-  let client = clientCache.get(credentials.accountSid);
-  if (!client) {
-    client = Twilio(credentials.accountSid, credentials.authToken);
-    clientCache.set(credentials.accountSid, client);
+  let cached = clientCache.get(credentials.accountSid);
+  if (!cached || cached.authToken !== credentials.authToken) {
+    cached = {
+      authToken: credentials.authToken,
+      client: Twilio(credentials.accountSid, credentials.authToken),
+    };
+    clientCache.set(credentials.accountSid, cached);
   }
-  return client;
+  return cached.client;
 }
 
 export async function sendTwilioSms(
@@ -60,14 +67,9 @@ export async function sendTwilioSms(
       messagingServiceSid: credentials.messagingServiceSid,
     });
 
-    if (message.errorCode) {
-      throw new TwilioDeliveryError(
-        message.errorMessage ?? "Twilio reported a delivery error.",
-        message.errorCode,
-        !nonRetryableTwilioCodes.has(message.errorCode),
-      );
-    }
-
+    // A returned SID means Twilio created the message resource. Even if its
+    // initial status already contains a delivery error, retrying here would
+    // create a second SMS and violate the worker's exactly-once boundary.
     return {
       provider: "twilio" as const,
       providerMessageId: message.sid,
@@ -84,10 +86,13 @@ export async function sendTwilioSms(
         ? (error as { status: number }).status
         : undefined;
 
+    const retryable = Boolean(status === 429 || (code && !nonRetryableTwilioCodes.has(code)));
+    const ambiguous = !code && (status === undefined || status >= 500);
     throw new TwilioDeliveryError(
       error instanceof Error ? error.message : "Twilio could not accept the message.",
       code,
-      code ? !nonRetryableTwilioCodes.has(code) : status ? status >= 500 || status === 429 : true,
+      retryable,
+      ambiguous,
     );
   }
 }

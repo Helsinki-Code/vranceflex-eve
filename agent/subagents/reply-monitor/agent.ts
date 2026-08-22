@@ -5,6 +5,7 @@ export default defineAgent({
   description:
     "Classify a supplied email or SMS reply, assess sentiment and buying intent, recommend the next action, and draft a concise response. Does not poll inboxes.",
   model: "anthropic/claude-haiku-4.5",
+  modelContextWindowTokens: 200_000,
   outputSchema: z.object({
     lead_name: z.string(),
     company: z.string(),

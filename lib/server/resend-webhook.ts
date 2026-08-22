@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getDatabase } from "./database";
 import { getReceivedEmailContent } from "./resend-receiving";
 import { persistInboundEmailReply } from "./reply-store";
@@ -41,11 +41,23 @@ async function reconcileCampaignAndSequence(
 ) {
   const database = getDatabase();
   const now = new Date();
+  const [recurringSequenceJob] = await database
+    .select({ id: deliveryJobs.id })
+    .from(deliveryJobs)
+    .where(
+      and(
+        eq(deliveryJobs.sequenceId, sequenceId),
+        isNotNull(deliveryJobs.recurrence),
+        inArray(deliveryJobs.status, ["queued", "retry", "processing"]),
+      ),
+    )
+    .limit(1);
   const sequenceMessages = await database
     .select({ status: outreachMessages.status })
     .from(outreachMessages)
     .where(eq(outreachMessages.sequenceId, sequenceId));
   if (
+    !recurringSequenceJob &&
     sequenceMessages.length &&
     sequenceMessages.every(({ status }) =>
       ["sent", "delivered", "bounced", "failed", "cancelled"].includes(status),
@@ -77,6 +89,19 @@ async function reconcileCampaignAndSequence(
     ["scheduled", "active", "completed", "stopped"].includes(sequenceStatus),
   );
   if (!activeBatch.length) return;
+
+  const [recurringCampaignJob] = await database
+    .select({ id: deliveryJobs.id })
+    .from(deliveryJobs)
+    .where(
+      and(
+        eq(deliveryJobs.campaignId, campaignId),
+        isNotNull(deliveryJobs.recurrence),
+        inArray(deliveryJobs.status, ["queued", "retry", "processing"]),
+      ),
+    )
+    .limit(1);
+  if (recurringCampaignJob) return;
 
   const [campaign] = await database
     .select({ status: campaigns.status })

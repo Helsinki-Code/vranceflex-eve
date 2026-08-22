@@ -293,11 +293,13 @@ async function processClaimedJob(jobId: string) {
       sequenceStatus: outreachSequences.status,
       doNotContact: leads.doNotContact,
       leadStatus: leads.status,
+      schedulePaused: campaigns.schedulePaused,
     })
     .from(deliveryJobs)
     .innerJoin(outreachMessages, eq(deliveryJobs.messageId, outreachMessages.id))
     .innerJoin(outreachSequences, eq(deliveryJobs.sequenceId, outreachSequences.id))
     .innerJoin(leads, eq(deliveryJobs.leadId, leads.id))
+    .innerJoin(campaigns, eq(deliveryJobs.campaignId, campaigns.id))
     .where(eq(deliveryJobs.id, job.id))
     .limit(1);
   if (
@@ -309,6 +311,7 @@ async function processClaimedJob(jobId: string) {
         )
       : fresh.messageStatus === "scheduled") ||
     !["scheduled", "active"].includes(fresh.sequenceStatus) ||
+    fresh.schedulePaused ||
     fresh.doNotContact ||
     fresh.leadStatus === "suppressed"
   ) {
@@ -458,14 +461,35 @@ async function processClaimedJob(jobId: string) {
       await transaction
         .update(outreachMessages)
         .set({
-          status: nextRunAt ? "scheduled" : "sending",
+          status: nextRunAt ? "scheduled" : channel === "sms" ? "sent" : "sending",
           scheduledFor: nextRunAt ?? message.scheduledFor,
           providerMessageId: result.providerMessageId,
           attemptCount: job.attemptCount,
           lastError: null,
+          sentAt: channel === "sms" ? now : message.sentAt,
           updatedAt: now,
         })
         .where(eq(outreachMessages.id, message.id));
+      if (channel === "sms") {
+        await transaction
+          .update(outreachSequences)
+          .set({ status: "active", updatedAt: now })
+          .where(
+            and(
+              eq(outreachSequences.id, sequence.id),
+              eq(outreachSequences.status, "scheduled"),
+            ),
+          );
+        await transaction
+          .update(campaigns)
+          .set({ status: "sent", updatedAt: now })
+          .where(
+            and(
+              eq(campaigns.id, campaign.id),
+              eq(campaigns.status, "scheduled"),
+            ),
+          );
+      }
       await transaction
         .update(deliveryDispatches)
         .set({
@@ -487,8 +511,21 @@ async function processClaimedJob(jobId: string) {
     });
     return "accepted" as const;
   } catch (error) {
-    await releaseDailySendCapacity(channel, capacity.reservationKey);
+    const ambiguous =
+      error instanceof TwilioDeliveryError && error.ambiguous;
+    if (ambiguous) {
+      // Conservatively count an ambiguous Twilio request against the daily
+      // cap: the provider may have accepted it even though the response was
+      // lost, and automatic replay is intentionally blocked.
+      await database
+        .update(usageLedger)
+        .set({ kind: channelAcceptedKind(channel), occurredAt: new Date() })
+        .where(eq(usageLedger.idempotencyKey, capacity.reservationKey));
+    } else {
+      await releaseDailySendCapacity(channel, capacity.reservationKey);
+    }
     const terminal =
+      ambiguous ||
       error instanceof OutreachEmailPolicyError ||
       error instanceof OutreachSmsPolicyError ||
       (error instanceof ResendDeliveryError && !error.retryable) ||
@@ -499,8 +536,10 @@ async function processClaimedJob(jobId: string) {
       await transaction
         .update(deliveryDispatches)
         .set({
-          status: "failed",
-          lastError: errorMessage(error),
+          status: ambiguous ? "ambiguous" : "failed",
+          lastError: ambiguous
+            ? `Provider outcome is ambiguous; replay was blocked. ${errorMessage(error)}`
+            : errorMessage(error),
           completedAt: now,
           updatedAt: now,
         })
@@ -516,7 +555,9 @@ async function processClaimedJob(jobId: string) {
           status: terminal ? "failed" : "retry",
           availableAt: terminal ? job.availableAt : retryAt(job.attemptCount),
           lockedAt: null,
-          lastError: errorMessage(error),
+          lastError: ambiguous
+            ? "Twilio may have accepted this SMS; automatic replay was blocked to prevent a duplicate send."
+            : errorMessage(error),
           completedAt: terminal ? now : null,
           updatedAt: now,
         })

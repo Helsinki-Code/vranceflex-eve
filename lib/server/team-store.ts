@@ -8,6 +8,7 @@ import {
   hashSessionToken,
 } from "./auth-crypto";
 import { AuthRequestError } from "./auth-errors";
+import { assertSeatAvailable } from "./billing-entitlements";
 import { sendTeamInviteEmail } from "./team-invite-email";
 import { getDatabase } from "./database";
 import {
@@ -75,6 +76,7 @@ export async function listPendingInvites(actor: ApiActor) {
 
 export async function createInvite(actor: ApiActor, input: CreateInviteInput) {
   requireAdmin(actor);
+  await assertSeatAvailable(actor.organizationId);
   const database = getDatabase();
   const normalizedEmail = normalizeEmail(input.email);
   const now = new Date();

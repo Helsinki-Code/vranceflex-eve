@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, Check, Globe2, Lightbulb, LoaderCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CampaignCreateInput } from "../lib/domain/campaign";
 import {
   AceternityButton,
@@ -50,9 +50,13 @@ const stepNames = ["Product", "Audience", "Campaign"];
 export function CampaignWizard({
   initialMode = "website",
   initialValue = "",
+  creditBalance,
+  planName,
 }: {
   initialMode?: Mode;
   initialValue?: string;
+  creditBalance: number;
+  planName: string;
 }) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [step, setStep] = useState(0);
@@ -64,6 +68,7 @@ export function CampaignWizard({
   const [state, setState] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [campaignId, setCampaignId] = useState("");
+  const idempotencyKey = useRef<string | null>(null);
 
   const canContinue = useMemo(() => {
     if (step === 0) {
@@ -79,11 +84,21 @@ export function CampaignWizard({
       );
     }
     if (step === 1) return form.audience.trim().length >= 10 && form.geography.trim().length >= 2;
-    return form.channels.length > 0 && form.monthlyBudgetUsd >= 100;
-  }, [form, mode, step]);
+    return (
+      form.channels.length > 0 &&
+      form.monthlyBudgetUsd >= 100 &&
+      form.leadCount <= creditBalance
+    );
+  }, [creditBalance, form, mode, step]);
 
   function update<Key extends keyof FormState>(key: Key, value: FormState[Key]) {
+    idempotencyKey.current = null;
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function switchMode(nextMode: Mode) {
+    idempotencyKey.current = null;
+    setMode(nextMode);
   }
 
   function toggleChannel(channel: "email" | "sms") {
@@ -121,11 +136,12 @@ export function CampaignWizard({
     };
 
     try {
+      idempotencyKey.current ??= crypto.randomUUID();
       const response = await fetch("/api/campaigns", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
+          "Idempotency-Key": idempotencyKey.current,
         },
         body: JSON.stringify(payload),
       });
@@ -188,10 +204,10 @@ export function CampaignWizard({
             <p>Start with a live website or describe an idea that has not launched yet.</p>
           </div>
           <div className="source-choice">
-            <AceternityButton className={mode === "website" ? "active" : ""} onClick={() => setMode("website")} type="button">
+            <AceternityButton className={mode === "website" ? "active" : ""} onClick={() => switchMode("website")} type="button">
               <Globe2 size={19} /><span><strong>Website</strong><small>We analyse your existing pages.</small></span>
             </AceternityButton>
-            <AceternityButton className={mode === "idea" ? "active" : ""} onClick={() => setMode("idea")} type="button">
+            <AceternityButton className={mode === "idea" ? "active" : ""} onClick={() => switchMode("idea")} type="button">
               <Lightbulb size={19} /><span><strong>Product idea</strong><small>No website or launch required.</small></span>
             </AceternityButton>
           </div>
@@ -238,15 +254,35 @@ export function CampaignWizard({
             <label>Verified lead target</label>
             <div className="option-row">
               {[10, 25, 50, 100, 250, 500].map((count) => (
-                <AceternityButton className={form.leadCount === count ? "active" : ""} onClick={() => update("leadCount", count as FormState["leadCount"])} type="button" key={count}>{count}</AceternityButton>
+                <AceternityButton
+                  className={form.leadCount === count ? "active" : ""}
+                  disabled={count > creditBalance}
+                  onClick={() => update("leadCount", count as FormState["leadCount"])}
+                  title={count > creditBalance ? "Not enough prospect credits" : undefined}
+                  type="button"
+                  key={count}
+                >
+                  {count}
+                </AceternityButton>
               ))}
             </div>
             <p className="option-row-note">
               We&apos;ll find up to {Math.min(1_000, form.leadCount * 3)} candidates instantly, then you choose who to verify.
             </p>
+            <div className="wizard-credit-meter" role="status">
+              <div>
+                <strong>{creditBalance.toLocaleString()} credits available</strong>
+                <span>{planName} plan · this campaign can consume up to {form.leadCount} after successful verification</span>
+              </div>
+              <a href="/settings/billing">Add credits</a>
+            </div>
           </div>
           <div className="field-grid two">
-            <label>Monthly campaign budget (USD)<Input min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} /></label>
+            <label>
+              Monthly outreach budget (USD)
+              <Input min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} />
+              <small className="field-help">Planning only—this never changes your VranceFlex subscription charge.</small>
+            </label>
             <div className="choice-section">
               <label>Channels to prepare</label>
               <div className="channel-row">

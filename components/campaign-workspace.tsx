@@ -59,6 +59,11 @@ type WorkspacePayload = {
   sequences: OutreachWorkspaceSequence[];
   progress?: CampaignProgressEvent[];
   candidates?: CandidateSummary[];
+  billing?: {
+    active: boolean;
+    plan: { name: string } | null;
+    credits: { included: number; topUp: number; available: number };
+  };
   error?: string;
 };
 
@@ -197,12 +202,14 @@ function ExecutionProgressPanel({
 
 function CandidateWorkspacePanel({
   candidates,
+  availableCredits,
   busyAction,
   onVerify,
   onApprove,
   onRediscover,
 }: {
   candidates: CandidateSummary[];
+  availableCredits: number;
   busyAction: string;
   onVerify: (candidateIds: string[]) => void;
   onApprove: (candidateIds: string[]) => void;
@@ -246,6 +253,9 @@ function CandidateWorkspacePanel({
             <div>
               <strong>{discovered.length} people found — choose who to verify</strong>
               <p>We check email, phone and LinkedIn for the people you select. Nothing is contacted yet.</p>
+              <span className="candidate-credit-balance">
+                {availableCredits.toLocaleString()} prospect credits available · failed verifications return their reservation
+              </span>
             </div>
             <div className="candidate-stage-actions">
               <AceternityButton
@@ -261,18 +271,24 @@ function CandidateWorkspacePanel({
                 className="button-secondary compact"
                 onClick={() =>
                   setSelectedDiscovered(
-                    selectedDiscovered.length === discovered.length
+                    selectedDiscovered.length === Math.min(discovered.length, availableCredits)
                       ? []
-                      : discovered.map((candidate) => candidate.id),
+                      : discovered
+                          .slice(0, availableCredits)
+                          .map((candidate) => candidate.id),
                   )
                 }
                 type="button"
               >
-                {selectedDiscovered.length === discovered.length ? "Clear all" : "Select all"}
+                {selectedDiscovered.length === Math.min(discovered.length, availableCredits) ? "Clear all" : "Select available"}
               </AceternityButton>
               <AceternityButton
                 className="button-primary compact"
-                disabled={!selectedDiscovered.length || busyAction === "verify"}
+                disabled={
+                  !selectedDiscovered.length ||
+                  selectedDiscovered.length > availableCredits ||
+                  busyAction === "verify"
+                }
                 onClick={() => onVerify(selectedDiscovered)}
                 type="button"
               >
@@ -449,6 +465,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
     try {
       const response = await fetch(`/api/campaigns/${campaignId}`, {
         cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
       });
       const next = await readJson<WorkspacePayload>(response);
       setPayload(next);
@@ -475,7 +492,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
           ? loadError.message
           : "Campaign workspace could not be loaded.",
       );
-      setState("error");
+      if (!quiet) setState("error");
     }
   }, [campaignId]);
 
@@ -503,11 +520,29 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
 
   useEffect(() => {
     if (!hasEnrichingCandidates) return;
-    const timer = window.setInterval(() => {
-      void fetch(`/api/campaigns/${campaignId}/candidates/refresh`, { method: "POST" })
-        .catch(() => undefined)
-        .finally(() => void load(true));
-    }, 5_000);
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const response = await fetch(
+          `/api/campaigns/${campaignId}/candidates/refresh`,
+          { method: "POST" },
+        );
+        await readJson(response);
+        await load(true);
+      } catch (refreshError) {
+        await load(true);
+        setError(
+          refreshError instanceof Error
+            ? `Contact verification could not be refreshed: ${refreshError.message}`
+            : "Contact verification could not be refreshed.",
+        );
+      } finally {
+        refreshing = false;
+      }
+    };
+    const timer = window.setInterval(() => void refresh(), 5_000);
     return () => window.clearInterval(timer);
   }, [campaignId, hasEnrichingCandidates, load]);
 
@@ -782,6 +817,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
   const failed = execution?.status === "failed" && !cancelled;
   const showCandidateWorkspace = !execution && candidates.length > 0;
   const readyForEve = !execution && approvedLeadCount > 0;
+  const availableCredits = payload.billing?.credits.available ?? 0;
 
   return (
     <div className="campaign-workspace">
@@ -800,10 +836,19 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
         </div>
       </section>
 
+      {payload.billing ? (
+        <section className="campaign-credit-strip" aria-label="Workspace prospect credit balance">
+          <span>{payload.billing.plan?.name ?? "No active plan"}</span>
+          <strong>{availableCredits.toLocaleString()} prospect credits available</strong>
+          <a href="/settings/billing">Manage plan & credits</a>
+        </section>
+      ) : null}
+
       {error && <div className="form-error" role="alert">{error}</div>}
 
       {showCandidateWorkspace && (
         <CandidateWorkspacePanel
+          availableCredits={availableCredits}
           busyAction={busyAction}
           candidates={candidates}
           onApprove={(ids) => void approveLeads(ids)}

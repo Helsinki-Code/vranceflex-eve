@@ -5,6 +5,7 @@ export default defineAgent({
   description:
     "Research each already-verified lead's company website and any publicly indexed information to surface real, citable personalization hooks for outreach — never contact discovery or invented details.",
   model: "anthropic/claude-sonnet-4.6",
+  modelContextWindowTokens: 1_000_000,
   reasoning: "medium",
   limits: {
     maxOutputTokensPerSession: 60_000,

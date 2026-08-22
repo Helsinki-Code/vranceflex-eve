@@ -311,6 +311,7 @@ export async function listCampaignSchedules(
     .where(
       and(
         eq(campaigns.organizationId, actor.organizationId),
+        inArray(deliveryJobs.status, ["queued", "retry", "processing"]),
         ...(input.campaignId ? [eq(campaigns.id, input.campaignId)] : []),
       ),
     )

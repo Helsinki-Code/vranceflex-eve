@@ -118,6 +118,28 @@ export async function getCampaign(id: string, actor: ApiActor) {
   return mapCampaign(row, approvals);
 }
 
+export async function getCampaignByIdempotencyKey(
+  actor: ApiActor,
+  idempotencyKey: string,
+) {
+  if (requirePersistenceMode() === "memory") {
+    const id = memoryState().idempotency.get(`${actor.organizationId}:${idempotencyKey}`);
+    return id ? memoryState().campaigns.get(id) ?? null : null;
+  }
+  await ensureActorRecords(actor);
+  const [row] = await getDatabase()
+    .select()
+    .from(campaigns)
+    .where(
+      and(
+        eq(campaigns.organizationId, actor.organizationId),
+        eq(campaigns.idempotencyKey, idempotencyKey),
+      ),
+    )
+    .limit(1);
+  return row ? mapCampaign(row) : null;
+}
+
 export async function createCampaign(
   input: CampaignCreateInput,
   actor: ApiActor,
@@ -127,7 +149,10 @@ export async function createCampaign(
     const store = memoryState();
     const scopedKey = `${actor.organizationId}:${idempotencyKey}`;
     const existingId = store.idempotency.get(scopedKey);
-    if (existingId) return store.campaigns.get(existingId) ?? null;
+    if (existingId) {
+      const campaign = store.campaigns.get(existingId) ?? null;
+      return campaign ? { campaign, created: false as const } : null;
+    }
 
     const now = new Date().toISOString();
     const campaign: Campaign = {
@@ -145,7 +170,7 @@ export async function createCampaign(
     };
     store.campaigns.set(campaign.id, campaign);
     store.idempotency.set(scopedKey, campaign.id);
-    return campaign;
+    return { campaign, created: true as const };
   }
 
   await ensureActorRecords(actor);
@@ -193,7 +218,8 @@ export async function createCampaign(
 
     if (!persisted) throw new Error("Campaign could not be persisted.");
 
-    if (persisted.id === campaignId) {
+    const created = persisted.id === campaignId;
+    if (created) {
       await transaction.insert(auditEvents).values({
         id: crypto.randomUUID(),
         organizationId: actor.organizationId,
@@ -206,6 +232,6 @@ export async function createCampaign(
       });
     }
 
-    return mapCampaign(persisted);
+    return { campaign: mapCampaign(persisted), created };
   });
 }

@@ -1,14 +1,10 @@
 import { leadQuerySchema } from "../../../../lib/domain/lead";
 import { getApiActor } from "../../../../lib/server/api-actor";
 import { apiErrorResponse } from "../../../../lib/server/api-response";
+import { csvCell } from "../../../../lib/server/csv";
 import { listLeadsForExport } from "../../../../lib/server/lead-store";
 
 export const dynamic = "force-dynamic";
-
-function csvCell(value: string | number | boolean | null | undefined) {
-  const text = value === null || value === undefined ? "" : String(value);
-  return `"${text.replaceAll('"', '""')}"`;
-}
 
 export async function GET(request: Request) {
   try {

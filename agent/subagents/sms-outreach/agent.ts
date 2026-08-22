@@ -15,6 +15,7 @@ export default defineAgent({
   description:
     "Write a personalized three-step B2B SMS outreach sequence with every message limited to 160 characters. Generates copy only; never sends SMS.",
   model: "anthropic/claude-haiku-4.5",
+  modelContextWindowTokens: 200_000,
   outputSchema: z.array(
     z.object({
       lead_name: z.string().min(1),

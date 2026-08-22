@@ -10,6 +10,7 @@ import {
   listCampaignProgress,
 } from "../../../../lib/server/pipeline-store";
 import { listCampaignSequences } from "../../../../lib/server/outreach-store";
+import { getBillingOverview } from "../../../../lib/server/billing-entitlements";
 
 type RouteContext = {
   params: Promise<{ campaignId: string }>;
@@ -33,15 +34,16 @@ export async function GET(request: Request, context: RouteContext) {
       sessionToken: await currentSessionToken(),
     });
 
-    const [execution, sequences, progress, candidates] = await Promise.all([
+    const [execution, sequences, progress, candidates, billing] = await Promise.all([
       getCampaignExecution(campaignId, actor.organizationId),
       listCampaignSequences(actor, campaignId),
       listCampaignProgress(campaignId, actor.organizationId),
       listCandidates(actor, campaignId),
+      getBillingOverview(actor.organizationId),
     ]);
 
     return NextResponse.json(
-      { campaign, execution, sequences, progress, candidates },
+      { campaign, execution, sequences, progress, candidates, billing },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

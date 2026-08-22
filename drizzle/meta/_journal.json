@@ -99,6 +99,13 @@
       "when": 1785160345906,
       "tag": "0013_right_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787372015833,
+      "tag": "0014_loving_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

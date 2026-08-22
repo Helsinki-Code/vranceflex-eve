@@ -78,7 +78,13 @@ export function SignInForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
         email: form.get("email"),
         password: form.get("password"),
       });
-      router.push(nextPath.startsWith("/") ? nextPath : "/dashboard");
+      const safeNextPath =
+        nextPath.startsWith("/") &&
+        !nextPath.startsWith("//") &&
+        !nextPath.startsWith("/\\")
+          ? nextPath
+          : "/dashboard";
+      router.push(safeNextPath);
       router.refresh();
     } catch (requestError) {
       setError(

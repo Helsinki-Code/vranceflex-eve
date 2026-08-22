@@ -43,6 +43,22 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       required: true,
     },
     {
+      id: "billing",
+      name: "Stripe billing",
+      description: "Paid workspace subscriptions and verified-prospect credit top-ups",
+      configured:
+        configured("STRIPE_SECRET_KEY") &&
+        configured("STRIPE_WEBHOOK_SECRET") &&
+        configured("STRIPE_PRICE_ID_LAUNCH_MONTHLY") &&
+        configured("STRIPE_PRICE_ID_LAUNCH_YEARLY") &&
+        (configured("STRIPE_PRICE_ID_GROWTH_MONTHLY") || configured("STRIPE_PRICE_ID_PRO")) &&
+        configured("STRIPE_PRICE_ID_GROWTH_YEARLY") &&
+        configured("STRIPE_PRICE_ID_TOPUP_100") &&
+        configured("STRIPE_PRICE_ID_TOPUP_500") &&
+        configured("STRIPE_PRICE_ID_TOPUP_2000"),
+      required: true,
+    },
+    {
       id: "storage",
       name: "File storage",
       description: "CSV imports, exports and generated campaign reports",
