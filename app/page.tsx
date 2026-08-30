@@ -1,157 +1,347 @@
-import { ArrowRight, Check, Search, ShieldCheck, Sparkles, Target, Workflow } from "lucide-react";
-import { AgentActivityStack } from "../components/agent-activity-stack";
-import { ProductInputSwitcher } from "../components/product-input-switcher";
-import { AppBackdrop, SurfaceCard } from "../components/design-system";
-import { BentoGrid } from "../components/ui/bento-grid";
-import { LiveAvatarSalesGuide } from "../components/live-avatar-sales-guide";
-import { PublicNav } from "../components/public-nav";
-import { Button } from "../components/ui/button";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { BrandLockup } from "../components/brand/vranceflex-logo";
+import {
+  ArrowRight,
+  CheckCircle2,
+  KeyRound,
+  Lock,
+  Mail,
+  MessagesSquare,
+  Radio,
+  Search,
+  ShieldCheck,
+  Sun,
+  Users,
+} from "lucide-react";
 
-const agents = [
-  ["01", "Lead researcher", "Maps your market and verifies every reachable decision-maker."],
-  ["02", "Sequence planner", "Builds the right channel mix and timing for each lead."],
-  ["03", "Email writer", "Creates a five-touch sequence with human, role-aware copy."],
-  ["04", "SMS writer", "Crafts concise follow-ups that stay inside every character limit."],
-  ["05", "Reply analyst", "Reads intent, spots opportunity and recommends the next move."],
-  ["06", "Orchestrator", "Keeps every specialist aligned, honest and campaign-ready."],
+export const metadata: Metadata = {
+  title: "VranceFlex — Agent-led B2B outreach, approved by you before it sends",
+  description:
+    "Give VranceFlex a product and it researches your market, builds ideal-customer profiles, finds and verifies real leads, and drafts a multi-channel outreach sequence for each one. Nothing sends until you approve it — through your own Resend and Twilio accounts.",
+};
+
+const agents: Array<{
+  icon: typeof Search;
+  title: string;
+  description: string;
+}> = [
+  {
+    icon: Search,
+    title: "Market & ICP research",
+    description:
+      "Reads what you're selling and who you're selling it to, then builds evidence-backed ideal-customer profiles from the leads it actually finds — not a generic persona template.",
+  },
+  {
+    icon: Users,
+    title: "Lead discovery & verification",
+    description:
+      "Finds real people and companies matching your ICP, with confirmed names, roles, and contact details — checked before you ever see them, not after you've paid to email them.",
+  },
+  {
+    icon: Mail,
+    title: "Sequence & channel copy",
+    description:
+      "Drafts a multi-step email and SMS sequence personalized per lead, using only the channels you've actually verified for that person.",
+  },
+  {
+    icon: MessagesSquare,
+    title: "Reply monitor",
+    description:
+      "Classifies incoming replies — interested, objection, out of office, unsubscribe — and flags anything that needs a human, fast.",
+  },
 ];
 
-const outcomes = [
-  ["Verified", "Contact data backed by live research and source confidence."],
-  ["Personal", "Messaging shaped around role, company and real buying signals."],
-  ["Controlled", "Nothing is labeled sent until a real provider confirms it."],
+const workflow: Array<{ title: string; description: string }> = [
+  {
+    title: "Tell it what you sell",
+    description:
+      "A product URL or a short description. That's the whole brief.",
+  },
+  {
+    title: "It researches and verifies",
+    description:
+      "Market context, ideal-customer profiles, and a list of real, verified leads — not a scraped guess.",
+  },
+  {
+    title: "It drafts the sequence",
+    description:
+      "A personalized multi-step email and SMS sequence for every lead, ready for review.",
+  },
+  {
+    title: "You approve, then it sends",
+    description:
+      "Nothing goes out until someone on your team says go — through your own Resend and Twilio accounts.",
+  },
 ];
 
-export default function HomePage() {
-  const liveAvatarEmbedUrl = process.env.NEXT_PUBLIC_LIVEAVATAR_EMBED_URL;
+const trustPoints: Array<{
+  icon: typeof KeyRound;
+  title: string;
+  description: string;
+}> = [
+  {
+    icon: KeyRound,
+    title: "Bring your own Resend & Twilio",
+    description:
+      "Connected per workspace from Settings, validated against the provider on save, and encrypted at rest. No shared sending pool, ever.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Explicit approval required",
+    description:
+      "Every sequence sits in a queue until someone with permission approves it. There's no autopilot setting.",
+  },
+  {
+    icon: Lock,
+    title: "Tenant-isolated by design",
+    description:
+      "Every read and write is scoped to your organization's verified session — never a form field, a prompt, or a URL.",
+  },
+  {
+    icon: CheckCircle2,
+    title: "Real delivery only",
+    description:
+      "The agent never claims a message sent unless a real provider confirmed it. If it isn't sent, it says so.",
+  },
+];
 
+export default function LandingPage() {
   return (
-    <main className="marketing-page landing-page">
-      <AppBackdrop />
-      <PublicNav />
+    <div className="marketing-page">
+      <div aria-hidden="true" className="app-backdrop" />
 
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={14} /> The agentic GTM workforce</div>
-          <h1>Turn an idea into a market worth pursuing.</h1>
-          <p className="hero-lede">
-            Start with a website or simply explain the product in your head. VranceFlex coordinates six
-            specialist agents to shape the market, find verified buyers and prepare outreach that feels
-            researched—not automated.
-          </p>
-          <ProductInputSwitcher />
-          <LiveAvatarSalesGuide embedUrl={liveAvatarEmbedUrl} />
-          <div className="hero-proof">
-            <span><Check size={15} /> Source-backed research</span>
-            <span><Check size={15} /> Human approval built in</span>
-            <span><Check size={15} /> No stale lead lists</span>
+      <header>
+        <nav className="nav-shell">
+          <Link className="brand" href="/">
+            <img alt="" aria-hidden="true" className="vf-brand-lockup" src="/brand/wordmark.svg" />
+          </Link>
+
+          <div className="nav-links">
+            <a href="#product">Product</a>
+            <a href="#workflow">Workflow</a>
+            <a href="#trust">Trust</a>
           </div>
-        </div>
 
-        <div className="hero-console-wrap" aria-label="Example VranceFlex campaign workflow">
-          <SurfaceCard className="hero-console">
-            <div className="console-head">
+          <div className="nav-actions">
+            {/* TODO: replace with your real theme toggle component (next-themes) */}
+            <button aria-label="Toggle theme" className="theme-toggle" type="button">
+              <Sun className="theme-toggle-icon" />
+            </button>
+            <Link href="/login">Sign in</Link>
+            <Link className="nav-cta" href="/signup">
+              Start a campaign <ArrowRight size={15} />
+            </Link>
+          </div>
+
+          <div className="nav-mobile-actions">
+            <button aria-label="Toggle theme" className="theme-toggle" type="button">
+              <Sun className="theme-toggle-icon" />
+            </button>
+            <Link className="nav-cta" href="/signup">
+              Start
+            </Link>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        {/* ================= Hero ================= */}
+        <section className="hero" id="product">
+          <div className="hero-copy">
+            <span className="eyebrow">Agent-led B2B outreach</span>
+
+            <h1>It does the outreach work. You keep the send button.</h1>
+
+            <p className="hero-lede">
+              VranceFlex researches your market, builds verified buyer lists, and drafts a
+              multi-channel sequence for each one — email through your own Resend account, SMS
+              through your own Twilio account. Nothing goes out until you approve it.
+            </p>
+
+            <div className="hero-actions">
+              <Link className="button-primary" href="/signup">
+                Start a campaign <ArrowRight size={16} />
+              </Link>
+              <a className="button-secondary" href="#workflow">
+                See how it works
+              </a>
+            </div>
+
+            <div className="hero-proof">
+              <span>
+                <ShieldCheck size={14} /> Bring your own Resend &amp; Twilio
+              </span>
+              <span>
+                <CheckCircle2 size={14} /> Every send needs your approval
+              </span>
+              <span>
+                <Lock size={14} /> Isolated per workspace
+              </span>
+            </div>
+          </div>
+
+          <div className="hero-console-wrap">
+            <div aria-hidden="true" className="console-glow" />
+            <div className="hero-console">
+              <div className="console-head">
+                <div>
+                  <span className="console-kicker">Live pipeline</span>
+                  <strong>Nimbus CRM outreach</strong>
+                </div>
+                <span className="live-pill">
+                  <Radio size={12} /> Running
+                </span>
+              </div>
+
+              <ul className="console-log">
+                <li className="activity-success">
+                  <CheckCircle2 size={14} /> Researched market &amp; 3 competitors
+                </li>
+                <li className="activity-success">
+                  <CheckCircle2 size={14} /> Built 2 ideal customer profiles
+                </li>
+                <li className="activity-success">
+                  <CheckCircle2 size={14} /> Found &amp; verified 41 leads
+                </li>
+                <li className="activity-running">
+                  <Mail size={14} /> Drafting 5-step email sequence
+                </li>
+                <li className="activity-waiting">
+                  <Lock size={14} /> Waiting for your approval
+                </li>
+              </ul>
+
+              <div className="console-foot">
+                <span>Sends through your Resend</span>
+                <span>Nothing sent yet</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= Signal strip ================= */}
+        <section className="signal-strip">
+          <article>
+            <strong>Bring your own keys</strong>
+            <p>Email and SMS send through your Resend and Twilio accounts. No shared sending pool.</p>
+          </article>
+          <article>
+            <strong>Human approval, always</strong>
+            <p>Every sequence sits in a queue until someone on your team approves it.</p>
+          </article>
+          <article>
+            <strong>Verified, not guessed</strong>
+            <p>Leads are checked before they reach you, not after you've already paid to email them.</p>
+          </article>
+          <article>
+            <strong>Real infrastructure</strong>
+            <p>Postgres, encrypted credentials, audited events — not a spreadsheet with a chatbot on top.</p>
+          </article>
+        </section>
+
+        {/* ================= Agents ================= */}
+        <section className="agents-section">
+          <div className="section-shell">
+            <div className="section-heading">
               <div>
-                <span className="console-kicker">EXAMPLE CAMPAIGN</span>
-                <strong>Northstar / Europe</strong>
+                <span className="section-label">The agents doing the work</span>
+                <h2>Four specialists. One pipeline.</h2>
               </div>
-              <span className="live-pill"><i /> Example</span>
+              <p>
+                Each stage of a campaign is handled by a purpose-built agent — not one model
+                asked to do everything at once.
+              </p>
             </div>
-            <div className="console-stats">
-              <div><span>Target</span><strong>25 leads</strong></div>
-              <div><span>Confidence</span><strong>High</strong></div>
-              <div><span>Stage</span><strong>Enriching</strong></div>
+
+            <div className="agent-grid">
+              {agents.map(({ icon: Icon, title, description }) => (
+                <article className="agent-card" key={title}>
+                  <div className="agent-card-top">
+                    <Icon size={26} style={{ color: "var(--primary)" }} />
+                  </div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </article>
+              ))}
             </div>
-            <div className="stack-label"><span>Agent activity</span><span>illustrative example, hover to inspect</span></div>
-            <AgentActivityStack />
-            <div className="console-foot">
-              <span><ShieldCheck size={15} /> Approval required before outreach</span>
-              <span>06 agents online</span>
-            </div>
-          </SurfaceCard>
-        </div>
-      </section>
-
-      <section className="signal-strip" aria-label="Product outcomes">
-        {outcomes.map(([title, text]) => (
-          <SurfaceCard as="article" className="signal-card" key={title}>
-            <span>{title}</span>
-            <p>{text}</p>
-          </SurfaceCard>
-        ))}
-      </section>
-
-      <section className="section-shell agents-section" id="agents">
-        <div className="section-heading">
-          <span className="section-label">THE TEAM</span>
-          <h2>Six sharp specialists.<br />One revenue motion.</h2>
-          <p>Each agent owns one job, receives only the context it needs and hands clean work to the next specialist.</p>
-        </div>
-        <BentoGrid className="agent-grid">
-          {agents.map(([number, title, description], index) => (
-            <SurfaceCard as="article" className="agent-card" key={number}>
-              <div className="agent-card-top">
-                <span>{number}</span>
-                {index === 0 ? <Search size={18} /> : index === 5 ? <Workflow size={18} /> : <Target size={18} />}
-              </div>
-              <h3>{title}</h3>
-              <p>{description}</p>
-            </SurfaceCard>
-          ))}
-        </BentoGrid>
-      </section>
-
-      <section className="workflow-section" id="workflow">
-        <div className="workflow-intro">
-          <span className="section-label light">THE WORKFLOW</span>
-          <h2>From signal to a campaign your team can trust.</h2>
-          <p>The system moves deliberately. Every step makes the next one more relevant—and nothing goes out without the right approval.</p>
-        </div>
-        <div className="workflow-steps">
-          {[
-            ["01", "Understand", "We study the offer, market and strongest buying signals."],
-            ["02", "Discover", "Live research finds the right companies and people."],
-            ["03", "Prepare", "Every channel gets context-rich, lead-specific messaging."],
-            ["04", "Review", "You inspect, approve and keep full control of the campaign."],
-          ].map(([number, title, text]) => (
-            <SurfaceCard as="article" className="workflow-step-card" key={number}>
-              <span>{number}</span>
-              <h3>{title}</h3>
-              <p>{text}</p>
-            </SurfaceCard>
-          ))}
-        </div>
-      </section>
-
-      <section className="trust-section section-shell" id="trust">
-        <SurfaceCard className="trust-card">
-          <div className="trust-copy">
-            <span className="section-label">BUILT FOR TRUST</span>
-            <h2>Automation without the black box.</h2>
-            <p>VranceFlex keeps research evidence, campaign state and human decisions visible from the first lead to the final reply.</p>
           </div>
-          <ul>
-            <li><ShieldCheck size={20} /><div><strong>Proof over promises</strong><span>Lead data carries sources and confidence.</span></div></li>
-            <li><Check size={20} /><div><strong>Approval before action</strong><span>Generated, approved and sent are always distinct.</span></div></li>
-            <li><Target size={20} /><div><strong>Respect every signal</strong><span>Replies and unsubscribe requests stop future outreach.</span></div></li>
-          </ul>
-        </SurfaceCard>
-      </section>
+        </section>
 
-      <section className="final-cta" id="start">
-        <span className="section-label light">EARLY ACCESS</span>
-        <h2>Your next campaign should begin with context.</h2>
-        <p>Bring a URL—or the product idea you have not launched yet. VranceFlex will build the research, people and message strategy around it.</p>
-        <Button asChild size="lg"><Link href="/campaigns/new">Build your campaign <ArrowRight size={18} /></Link></Button>
-      </section>
+        {/* ================= Workflow ================= */}
+        <section className="workflow-section" id="workflow">
+          <div className="section-shell">
+            <div className="workflow-intro">
+              <div>
+                <span className="section-label">How a campaign runs</span>
+                <h2>Four steps. One approval gate.</h2>
+              </div>
+              <p>
+                The agent does everything up to the last step. That one is always yours.
+              </p>
+            </div>
+
+            <div className="workflow-steps">
+              {workflow.map(({ title, description }, index) => (
+                <article key={title}>
+                  <span className="step-index">{String(index + 1).padStart(2, "0")}</span>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ================= Trust ================= */}
+        <section id="trust">
+          <div className="section-shell">
+            <div className="trust-card">
+              <div className="trust-copy">
+                <span className="section-label">Why teams trust it with real outreach</span>
+                <h2>Nothing sends without a human in the loop.</h2>
+                <p>
+                  VranceFlex is strict about two things: outreach only ever goes out through a
+                  workspace's own connected provider, and nothing goes out without an explicit
+                  approval. There's no platform fallback and no autopilot toggle to find.
+                </p>
+              </div>
+
+              <ul>
+                {trustPoints.map(({ icon: Icon, title, description }) => (
+                  <li key={title}>
+                    <Icon size={20} />
+                    <div>
+                      <strong>{title}</strong>
+                      <span>{description}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= Final CTA ================= */}
+        <section className="final-cta">
+          <span className="section-label">Start a campaign</span>
+          <h2>Give it a product. See what it finds.</h2>
+          <p>
+            No shared sending account, no autopilot. Just verified research and drafted
+            outreach, waiting for your yes.
+          </p>
+          <Link className="button-light" href="/signup">
+            Start a campaign <ArrowRight size={16} />
+          </Link>
+        </section>
+      </main>
 
       <footer>
-        <Link className="brand footer-brand" href="/#top" aria-label="VranceFlex home"><BrandLockup /></Link>
-        <p>Agent-led prospecting, with people in control.</p>
-        <span>© 2026 VranceFlex</span>
+        <span className="footer-brand">VranceFlex</span>
+        <p>© {new Date().getFullYear()} VranceFlex. All rights reserved.</p>
+        <span>
+          <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+        </span>
       </footer>
-    </main>
+    </div>
   );
 }
