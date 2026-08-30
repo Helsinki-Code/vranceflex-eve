@@ -1,400 +1,503 @@
-/* ==========================================================================
-   brand.css
-   The brand mark (logo lockup) across contexts, and every loading state:
-   the full-screen boot/startup sequence, the lighter in-app route loader,
-   and the small inline loader used inside panels.
-   Depends on the tokens defined in marketing.css.
+/* VranceFlex motion identity --------------------------------------------- */
 
-   Fix applied in this pass:
-   - This ~370-line loading sequence used to exist TWICE — byte-identical
-     — once here and once duplicated into campaign.css. That duplicate
-     copy is gone. This is now the one and only source of it; campaign.css
-     no longer defines any .vf-startup-* / .vf-loader-* / .vf-route-loader
-     rules at all. Anything using the boot loader on any page references
-     this file.
-   - The boot screen is intentionally always-dark regardless of the
-     light/dark toggle (it's a splash screen, not themed content), but it
-     no longer hardcodes that as raw hex scattered through 15+ rules —
-     the two colors it needs are declared once, right below, as
-     --boot-bg / --boot-fg. Change the splash palette in exactly one
-     place.
-   - .vf-startup-overlay's z-index is var(--z-boot) — the top of the
-     stacking scale defined in marketing.css, on purpose: this is the
-     only thing that should ever render above everything else.
-   ========================================================================== */
+.vf-brand-lockup,
+.vf-brand-wordmark,
+.vf-loader-mark {
+  display: block;
+  height: auto;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
 
-   :root {
-    --boot-bg: #080b12;
-    --boot-fg: #f2f6fc;
-    --boot-muted: #94a3b8;
-    --boot-accent: #22d3ee;
+.vf-brand-lockup {
+  width: 154px;
+}
+
+.vf-brand-wordmark {
+  width: 228px;
+}
+
+.vf-logo-word-primary {
+  fill: currentColor;
+}
+
+.vf-logo-word-flex {
+  fill: #2563eb;
+}
+
+.dark .vf-logo-word-flex {
+  fill: #3b82f6;
+}
+
+.brand {
+  display: inline-flex;
+  width: fit-content;
+  min-width: 0;
+  align-items: center;
+  line-height: 1;
+}
+
+.brand .vf-brand-lockup {
+  flex: none;
+}
+
+.app-sidebar .brand,
+.auth-brand {
+  color: #f2f6fc;
+}
+
+.app-sidebar .vf-brand-lockup {
+  width: 158px;
+}
+
+.auth-brand .vf-brand-lockup {
+  width: 178px;
+}
+
+.footer-brand .vf-brand-lockup {
+  width: 146px;
+}
+
+/* Shared intelligent-vessel animation. */
+.vf-loader-mark {
+  width: 100%;
+}
+
+.vf-loader-shell {
+  stroke: #263447;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.vf-loader-shell-rim {
+  fill: none;
+  stroke: #3b82f6;
+  stroke-opacity: 0.34;
+  stroke-width: 1.35;
+  vector-effect: non-scaling-stroke;
+}
+
+.vf-loader-fluid {
+  animation: vf-loader-fill 2.45s cubic-bezier(0.62, 0, 0.22, 1) infinite;
+  transform: translateY(272px);
+}
+
+.vf-loader-wave {
+  opacity: 0.75;
+}
+
+.vf-loader-wave-back {
+  animation: vf-loader-wave-back 2.45s linear infinite;
+}
+
+.vf-loader-wave-front {
+  animation: vf-loader-wave-front 2.45s linear infinite;
+}
+
+.vf-loader-stream {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 360;
+  stroke-dashoffset: 360;
+}
+
+.vf-loader-stream-left {
+  animation: vf-loader-stream-left 2.45s cubic-bezier(0.5, 0, 0.22, 1) infinite;
+  stroke: #22d3ee;
+  stroke-width: 17;
+}
+
+.vf-loader-stream-right {
+  animation: vf-loader-stream-right 2.45s cubic-bezier(0.5, 0, 0.22, 1) infinite;
+  stroke: #3b82f6;
+  stroke-width: 12;
+}
+
+.vf-loader-orbit {
+  animation: vf-loader-orbit 2.45s ease-in-out infinite;
+  fill: none;
+  stroke: #22d3ee;
+  stroke-dasharray: 15 32;
+  stroke-linecap: round;
+  stroke-width: 2.5;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.vf-loader-core {
+  animation: vf-loader-core 2.45s ease-in-out infinite;
+  fill: #22d3ee;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.vf-loader-neural {
+  animation: vf-loader-neural 2.45s ease-in-out infinite;
+  fill: none;
+  stroke: #22d3ee;
+  stroke-dasharray: 2 98;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  stroke-width: 2.2;
+}
+
+@keyframes vf-loader-fill {
+  0%, 18% { opacity: 0; transform: translateY(272px); }
+  22% { opacity: 1; transform: translateY(254px); }
+  38% { transform: translateY(198px); }
+  60% { transform: translateY(92px); }
+  76%, 94% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(272px); }
+}
+
+@keyframes vf-loader-wave-back {
+  0%, 100% { transform: translateX(-34px); }
+  50% { transform: translateX(18px); }
+}
+
+@keyframes vf-loader-wave-front {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-42px); }
+}
+
+@keyframes vf-loader-stream-left {
+  0%, 7% { opacity: 0; stroke-dashoffset: 360; }
+  11% { opacity: 0.2; }
+  29%, 42% { opacity: 0.94; stroke-dashoffset: 0; }
+  55%, 100% { opacity: 0; stroke-dashoffset: -42; }
+}
+
+@keyframes vf-loader-stream-right {
+  0%, 17% { opacity: 0; stroke-dashoffset: 360; }
+  22% { opacity: 0.2; }
+  38%, 49% { opacity: 0.9; stroke-dashoffset: 0; }
+  60%, 100% { opacity: 0; stroke-dashoffset: -34; }
+}
+
+@keyframes vf-loader-orbit {
+  0%, 28% { opacity: 0; transform: rotate(-70deg) scale(0.4); }
+  38% { opacity: 0.8; }
+  56% { opacity: 0; transform: rotate(290deg) scale(1); }
+  100% { opacity: 0; transform: rotate(290deg) scale(1); }
+}
+
+@keyframes vf-loader-core {
+  0%, 30% { opacity: 0; transform: scale(0.2); }
+  43% { opacity: 1; transform: scale(1.2); }
+  58% { opacity: 0.15; transform: scale(0.5); }
+  100% { opacity: 0; transform: scale(0.2); }
+}
+
+@keyframes vf-loader-neural {
+  0%, 67% { opacity: 0; stroke-dashoffset: 0; }
+  73% { opacity: 1; }
+  91% { opacity: 0.9; stroke-dashoffset: -100; }
+  97%, 100% { opacity: 0; stroke-dashoffset: -112; }
+}
+
+/* Cinematic hard-load / refresh sequence. */
+.vf-startup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  min-width: 320px;
+  place-items: center;
+  overflow: hidden;
+  background: #080b12;
+  color: #f2f6fc;
+  cursor: wait;
+  isolation: isolate;
+}
+
+.vf-startup-overlay[data-phase="leaving"] {
+  animation: vf-startup-leave 420ms cubic-bezier(0.76, 0, 0.24, 1) forwards;
+  pointer-events: none;
+}
+
+.vf-startup-field,
+.vf-startup-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.vf-startup-field {
+  opacity: 0.2;
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.12) 1px, transparent 1px);
+  background-position: center;
+  background-size: 54px 54px;
+  mask-image: radial-gradient(circle at center, black, transparent 70%);
+}
+
+.vf-startup-aurora {
+  animation: vf-startup-aurora 2.7s ease-in-out both;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(34, 211, 238, 0.13), transparent 22%),
+    radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.18), transparent 42%);
+  filter: blur(10px);
+}
+
+.vf-startup-sequence {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(520px, calc(100vw - 40px));
+  place-items: center;
+  text-align: center;
+}
+
+.vf-startup-mark-wrap {
+  position: relative;
+  width: clamp(142px, 19vw, 190px);
+}
+
+.vf-startup-overlay .vf-loader-fluid,
+.vf-startup-overlay .vf-loader-stream,
+.vf-startup-overlay .vf-loader-wave,
+.vf-startup-overlay .vf-loader-orbit,
+.vf-startup-overlay .vf-loader-core,
+.vf-startup-overlay .vf-loader-neural {
+  animation-duration: 2.7s;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+
+.vf-startup-ring {
+  position: absolute;
+  inset: 46% 45%;
+  z-index: -1;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 999px;
+  animation: vf-startup-ring 2.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.vf-startup-wordmark {
+  width: min(290px, 72vw);
+  margin-top: -10px;
+  animation: vf-startup-wordmark 2.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.vf-startup-manifesto {
+  margin: 13px 0 0;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 560;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  animation: vf-startup-copy 2.7s ease both;
+}
+
+.vf-startup-status {
+  position: relative;
+  width: 100%;
+  height: 18px;
+  margin-top: 42px;
+  color: #94a3b8;
+  font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.vf-startup-status span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.vf-startup-status span:nth-child(1) { animation: vf-startup-status-one 2.7s ease both; }
+.vf-startup-status span:nth-child(2) { animation: vf-startup-status-two 2.7s ease both; }
+.vf-startup-status span:nth-child(3) { animation: vf-startup-status-three 2.7s ease both; }
+
+.vf-startup-progress {
+  width: min(310px, 68vw);
+  height: 1px;
+  margin-top: 14px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.vf-startup-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #22d3ee);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.55);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: vf-startup-progress 2.7s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes vf-startup-ring {
+  0%, 31% { opacity: 0; transform: scale(0.2); }
+  45% { opacity: 0.72; }
+  78%, 100% { opacity: 0; transform: scale(17); }
+}
+
+@keyframes vf-startup-aurora {
+  0% { opacity: 0.18; transform: scale(0.8); }
+  60% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0.62; transform: scale(1); }
+}
+
+@keyframes vf-startup-wordmark {
+  0%, 56% { opacity: 0; transform: translateY(7px); }
+  72%, 100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vf-startup-copy {
+  0%, 67% { opacity: 0; transform: translateY(4px); }
+  82%, 100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vf-startup-status-one {
+  0%, 5% { opacity: 0; transform: translateY(3px); }
+  11%, 28% { opacity: 1; transform: translateY(0); }
+  35%, 100% { opacity: 0; transform: translateY(-3px); }
+}
+
+@keyframes vf-startup-status-two {
+  0%, 31% { opacity: 0; transform: translateY(3px); }
+  39%, 62% { opacity: 1; transform: translateY(0); }
+  69%, 100% { opacity: 0; transform: translateY(-3px); }
+}
+
+@keyframes vf-startup-status-three {
+  0%, 65% { opacity: 0; transform: translateY(3px); }
+  74%, 100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vf-startup-progress {
+  0% { transform: scaleX(0); }
+  18% { transform: scaleX(0.12); }
+  48% { transform: scaleX(0.46); }
+  76% { transform: scaleX(0.82); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes vf-startup-leave {
+  0% { opacity: 1; filter: blur(0); transform: scale(1); }
+  100% { opacity: 0; filter: blur(5px); transform: scale(1.025); visibility: hidden; }
+}
+
+/* Route and inline loading states. */
+.vf-route-loader {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  align-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--primary) 10%, transparent), transparent 30%),
+    var(--background);
+  color: var(--foreground);
+}
+
+.vf-route-loader-mark {
+  width: 112px;
+}
+
+.vf-route-loader-wordmark {
+  width: 190px;
+  margin-top: 4px;
+}
+
+.vf-route-loader > p {
+  margin: 18px 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.vf-route-loader-signal {
+  width: 150px;
+  height: 1px;
+  margin-top: 16px;
+  overflow: hidden;
+  background: linear-gradient(90deg, transparent, var(--primary), #22d3ee, transparent);
+  animation: vf-route-signal 1.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.vf-inline-loader {
+  display: flex;
+  width: 100%;
+  min-height: 210px;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 28px;
+  color: var(--foreground);
+}
+
+.vf-inline-loader .vf-loader-mark {
+  width: 82px;
+  flex: none;
+}
+
+.vf-inline-loader > div {
+  display: grid;
+  gap: 5px;
+}
+
+.vf-inline-loader strong {
+  font-size: 1rem;
+}
+
+.vf-inline-loader span {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+}
+
+@keyframes vf-route-signal {
+  0%, 100% { opacity: 0.25; transform: scaleX(0.35); }
+  50% { opacity: 1; transform: scaleX(1); }
+}
+
+@media (max-width: 720px) {
+  .brand .vf-brand-lockup { width: 138px; }
+  .app-sidebar .vf-brand-lockup { width: 150px; }
+  .auth-brand .vf-brand-lockup { width: 156px; }
+  .vf-startup-mark-wrap { width: 144px; }
+  .vf-startup-wordmark { width: min(254px, 72vw); }
+  .vf-inline-loader { flex-direction: column; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vf-loader-fluid {
+    animation: none !important;
+    opacity: 1;
+    transform: translateY(0);
   }
-  
-  /* ==========================================================================
-     Brand lockup (logo) sizing across contexts
-     ========================================================================== */
-  
-  .brand .vf-brand-lockup {
-    width: 8.625rem;
+
+  .vf-loader-wave,
+  .vf-loader-stream,
+  .vf-loader-orbit,
+  .vf-loader-core,
+  .vf-loader-neural,
+  .vf-startup-ring,
+  .vf-startup-status span:not(:last-child) {
+    display: none;
   }
-  
-  .app-sidebar .vf-brand-lockup {
-    width: 9.375rem;
-  }
-  
-  .auth-brand .vf-brand-lockup {
-    width: 9.75rem;
-  }
-  
-  /* ==========================================================================
-     Full-screen boot / hard-refresh loading sequence
-     ========================================================================== */
-  
-  .vf-startup-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-boot);
-    display: grid;
-    min-width: 320px;
-    place-items: center;
-    overflow: hidden;
-    background: var(--boot-bg);
-    color: var(--boot-fg);
-    cursor: wait;
-    isolation: isolate;
-  }
-  
-  .vf-startup-overlay[data-phase="leaving"] {
-    animation: vf-startup-leave 420ms cubic-bezier(0.76, 0, 0.24, 1) forwards;
-    pointer-events: none;
-  }
-  
-  .vf-startup-field,
-  .vf-startup-aurora {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  
-  .vf-startup-field {
-    opacity: 0.2;
-    background-image:
-      linear-gradient(rgba(59, 130, 246, 0.12) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(59, 130, 246, 0.12) 1px, transparent 1px);
-    background-position: center;
-    background-size: 3.375rem 3.375rem;
-    mask-image: radial-gradient(circle at center, black, transparent 70%);
-  }
-  
-  .vf-startup-aurora {
-    animation: vf-startup-aurora 2.7s ease-in-out both;
-    background:
-      radial-gradient(circle at 50% 46%, rgba(34, 211, 238, 0.13), transparent 22%),
-      radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.18), transparent 42%);
-    filter: blur(10px);
-  }
-  
-  .vf-startup-sequence {
-    position: relative;
-    z-index: var(--z-raised);
-    display: grid;
-    width: min(32.5rem, calc(100vw - 2.5rem));
-    place-items: center;
-    text-align: center;
-  }
-  
-  .vf-startup-mark-wrap {
-    position: relative;
-    width: clamp(8.875rem, 19vw, 11.875rem);
-  }
-  
-  .vf-startup-ring {
-    position: absolute;
-    inset: 46% 45%;
-    z-index: var(--z-recessed);
-    border: 1px solid rgba(34, 211, 238, 0.34);
-    border-radius: 999px;
-    animation: vf-startup-ring 2.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  
-  .vf-startup-wordmark {
-    width: min(18.125rem, 72vw);
-    margin-top: -0.625rem;
-    animation: vf-startup-wordmark 2.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  
-  .vf-startup-manifesto {
-    margin: var(--space-3) 0 0;
-    color: var(--boot-muted);
-    font-size: 0.7rem;
-    font-weight: 560;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    animation: vf-startup-copy 2.7s ease both;
-  }
-  
-  .vf-startup-status {
-    position: relative;
-    width: 100%;
-    height: 1.125rem;
-    margin-top: var(--space-10);
-    color: var(--boot-muted);
-    font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  
-  .vf-startup-status span {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-  }
-  
-  .vf-startup-status span:nth-child(1) {
-    animation: vf-startup-status-one 2.7s ease both;
-  }
-  
-  .vf-startup-status span:nth-child(2) {
-    animation: vf-startup-status-two 2.7s ease both;
-  }
-  
-  .vf-startup-status span:nth-child(3) {
-    animation: vf-startup-status-three 2.7s ease both;
-  }
-  
-  .vf-startup-progress {
-    width: min(19.375rem, 68vw);
-    height: 1px;
-    margin-top: var(--space-3);
-    overflow: hidden;
-    background: rgba(148, 163, 184, 0.18);
-  }
-  
-  .vf-startup-progress span {
-    display: block;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, var(--primary), var(--boot-accent));
-    box-shadow: 0 0 14px rgba(34, 211, 238, 0.55);
-    transform: scaleX(0);
-    transform-origin: left;
-    animation: vf-startup-progress-fill 2.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  
-  /* ---- Icon loader variants (the animated SVG mark) ---- */
-  
-  .vf-startup-overlay .vf-loader-fluid,
-  .vf-startup-overlay .vf-loader-stream,
-  .vf-startup-overlay .vf-loader-wave,
-  .vf-startup-overlay .vf-loader-orbit,
-  .vf-startup-overlay .vf-loader-core,
-  .vf-startup-overlay .vf-loader-neural {
-    animation-duration: 2.7s;
-    animation-iteration-count: 1;
-    animation-fill-mode: both;
-  }
-  
-  .vf-loader-mark {
-    width: 4.75rem;
-  }
-  
-  .vf-loader-neural {
-    animation: vf-loader-neural 2.45s ease-in-out infinite;
-  }
-  
-  /* ==========================================================================
-     Route loader — lighter transition state between authenticated pages,
-     themed (unlike the boot screen, this respects light/dark mode)
-     ========================================================================== */
-  
-  .vf-route-loader {
-    display: grid;
-    min-height: 100dvh;
-    place-items: center;
-    align-content: center;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at center, color-mix(in srgb, var(--primary) 10%, transparent), transparent 30%),
-      var(--background);
-    color: var(--foreground);
-  }
-  
-  .vf-route-loader-mark {
-    width: 7rem;
-  }
-  
-  .vf-route-loader-wordmark {
-    width: 11.875rem;
-    margin-top: 0.25rem;
-  }
-  
-  .vf-route-loader > p {
-    margin: var(--space-4) 0 0;
-    color: var(--muted-foreground);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-  }
-  
+
+  .vf-startup-aurora,
+  .vf-startup-wordmark,
+  .vf-startup-copy,
+  .vf-startup-status span:last-child,
+  .vf-startup-progress span,
   .vf-route-loader-signal {
-    width: 9.375rem;
-    height: 1px;
-    margin-top: var(--space-4);
-    overflow: hidden;
-    background: linear-gradient(90deg, transparent, var(--primary), var(--boot-accent), transparent);
-    animation: vf-route-signal 1.5s ease-in-out infinite;
-    transform-origin: center;
+    animation: none !important;
+    opacity: 1;
+    transform: none;
   }
-  
-  /* ==========================================================================
-     Inline loader — small loading state embedded inside a panel/card
-     ========================================================================== */
-  
-  .vf-inline-loader {
-    display: flex;
-    width: 100%;
-    min-height: 13.125rem;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-6);
-    padding: var(--space-7);
-    color: var(--foreground);
+
+  .vf-startup-overlay[data-phase="leaving"] {
+    opacity: 0;
+    transition: opacity 80ms linear;
   }
-  
-  .vf-inline-loader .vf-loader-mark {
-    width: 5.125rem;
-    flex: none;
-  }
-  
-  .vf-inline-loader > div {
-    display: grid;
-    gap: var(--space-1);
-  }
-  
-  .vf-inline-loader strong {
-    font-size: 1rem;
-  }
-  
-  .vf-inline-loader span {
-    color: var(--muted-foreground);
-    font-size: 0.78rem;
-  }
-  
-  /* ==========================================================================
-     Keyframes
-     ========================================================================== */
-  
-  @keyframes vf-loader-neural {
-    0%, 67% { opacity: 0; stroke-dashoffset: 0; }
-    73% { opacity: 1; }
-    91% { opacity: 0.9; stroke-dashoffset: -100; }
-    97%, 100% { opacity: 0; stroke-dashoffset: -112; }
-  }
-  
-  @keyframes vf-startup-leave {
-    0% { opacity: 1; }
-    100% { opacity: 0; visibility: hidden; }
-  }
-  
-  @keyframes vf-startup-aurora {
-    0% { opacity: 0; transform: scale(0.9); }
-    40% { opacity: 1; }
-    100% { opacity: 0.85; transform: scale(1); }
-  }
-  
-  @keyframes vf-startup-ring {
-    0% { opacity: 0; transform: scale(0.6); }
-    45% { opacity: 1; }
-    100% { opacity: 0; transform: scale(1.6); }
-  }
-  
-  @keyframes vf-startup-wordmark {
-    0% { opacity: 0; transform: translateY(8px); }
-    35% { opacity: 1; transform: translateY(0); }
-    90% { opacity: 1; }
-    100% { opacity: 0; }
-  }
-  
-  @keyframes vf-startup-copy {
-    0% { opacity: 0; }
-    45% { opacity: 1; }
-    88% { opacity: 1; }
-    100% { opacity: 0; }
-  }
-  
-  @keyframes vf-startup-status-one {
-    0%, 4% { opacity: 0; }
-    8%, 30% { opacity: 1; }
-    36%, 100% { opacity: 0; }
-  }
-  
-  @keyframes vf-startup-status-two {
-    0%, 34% { opacity: 0; }
-    38%, 60% { opacity: 1; }
-    66%, 100% { opacity: 0; }
-  }
-  
-  @keyframes vf-startup-status-three {
-    0%, 64% { opacity: 0; }
-    68%, 90% { opacity: 1; }
-    96%, 100% { opacity: 0; }
-  }
-  
-  @keyframes vf-startup-progress-fill {
-    0% { transform: scaleX(0); }
-    92% { transform: scaleX(1); }
-    100% { transform: scaleX(1); }
-  }
-  
-  @keyframes vf-route-signal {
-    0%, 100% { opacity: 0.25; transform: scaleX(0.35); }
-    50% { opacity: 1; transform: scaleX(1); }
-  }
-  
-  /* ==========================================================================
-     Responsive
-     ========================================================================== */
-  
-  @media (max-width: 720px) {
-    .brand .vf-brand-lockup { width: 8.625rem; }
-    .app-sidebar .vf-brand-lockup { width: 9.375rem; }
-    .auth-brand .vf-brand-lockup { width: 9.75rem; }
-    .vf-startup-mark-wrap { width: 9rem; }
-    .vf-startup-wordmark { width: min(15.875rem, 72vw); }
-    .vf-inline-loader { flex-direction: column; text-align: center; }
-  }
-  
-  @media (prefers-reduced-motion: reduce) {
-    .vf-loader-fluid {
-      animation: none !important;
-      opacity: 1;
-      transform: translateY(0);
-    }
-  
-    .vf-loader-wave,
-    .vf-loader-stream,
-    .vf-loader-orbit,
-    .vf-loader-core,
-    .vf-loader-neural,
-    .vf-startup-ring,
-    .vf-startup-status span:not(:last-child) {
-      display: none;
-    }
-  
-    .vf-startup-aurora,
-    .vf-startup-wordmark,
-    .vf-startup-copy,
-    .vf-startup-status span:last-child,
-    .vf-startup-progress span,
-    .vf-route-loader-signal {
-      animation: none !important;
-      opacity: 1;
-      transform: none;
-    }
-  
-    .vf-startup-overlay[data-phase="leaving"] {
-      opacity: 0;
-      transition: opacity 80ms linear;
-    }
-  }
+}
