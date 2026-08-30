@@ -17,6 +17,7 @@ import {
 import { LiveAvatarSalesGuide } from "../../components/live-avatar-sales-guide";
 import { ThemeToggle } from "../../components/motion/theme-toggle";
 import Link from "next/link";
+import { BrandLockup } from "../../components/brand/vranceflex-logo";
 
 const sampleLeads = [
   ["Maya Chen", "VP Revenue Operations", "Northstar Cloud", "Verified"],
@@ -34,7 +35,7 @@ export default function DemoPage() {
     <main className="marketing-page demo-page">
       <AppBackdrop subtle />
       <nav className="nav-shell" aria-label="Demo navigation">
-        <Link className="brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></Link>
+        <Link className="brand" href="/" aria-label="VranceFlex home"><BrandLockup /></Link>
         <Link className="settings-back" href="/"><ArrowLeft size={15} /> Back to product</Link>
         <ThemeToggle variant="rectangle" start="bottom-up" className="theme-toggle" iconClassName="theme-toggle-icon" />
       </nav>

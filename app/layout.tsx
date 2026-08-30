@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { ThemeProvider } from "../components/theme-provider";
+import { StartupLoader } from "../components/brand/startup-loader";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +21,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("font-sans", GeistSans.variable, GeistMono.variable)}
     >
-      <body><ThemeProvider>{children}</ThemeProvider></body>
+      <body>
+        <ThemeProvider>
+          <StartupLoader />
+          <noscript><style>{`.vf-startup-overlay{display:none!important}`}</style></noscript>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

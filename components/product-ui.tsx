@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+import { InlineLoader } from "@/components/brand/startup-loader";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -18,7 +18,7 @@ export function StatusBadge({ children, tone = "neutral", className }: { childre
 }
 
 export function AsyncState({ state, title, description, action, className }: { state: "loading" | "empty" | "error" | "offline" | "permission" | "credits"; title?: string; description?: string; action?: ReactNode; className?: string }) {
-  if (state === "loading") return <Card className={cn("async-state", className)} aria-busy="true" aria-label={title ?? "Loading"}><CardContent className="space-y-4 p-6"><Skeleton className="h-6 w-44" /><Skeleton className="h-4 w-full max-w-lg" /><Skeleton className="h-24 w-full" /></CardContent></Card>;
+  if (state === "loading") return <Card className={cn("async-state", className)}><CardContent className="p-0"><InlineLoader label={title ?? "Loading"} /></CardContent></Card>;
   const Icon = state === "error" || state === "offline" ? AlertCircle : state === "permission" || state === "credits" ? LockKeyhole : CircleDashed;
   const defaults = { empty: ["Nothing here yet", "Create your first item to get started."], error: ["Something went wrong", "Retry the request or return later."], offline: ["You are offline", "Reconnect to continue."], permission: ["Access required", "You do not have permission to view this workspace."], credits: ["More credits required", "Increase your verified-prospect balance before continuing."] } as const;
   const copy = defaults[state];

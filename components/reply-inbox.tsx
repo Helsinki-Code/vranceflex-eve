@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReplyIntent, ReplyStatus } from "../lib/domain/pipeline";
 import { ActionButton, SurfaceCard } from "./design-system";
+import { InlineLoader } from "./brand/startup-loader";
 
 type ReplyRow = {
   reply: {
@@ -110,13 +111,7 @@ export function ReplyInbox() {
   }
 
   if (state === "loading") {
-    return (
-      <div className="dashboard-state">
-        <LoaderCircle className="spin" />
-        <h2>Loading reply inbox</h2>
-        <p>Reading verified inbound email and SMS activity…</p>
-      </div>
-    );
+    return <InlineLoader label="Loading reply inbox" />;
   }
   if (state === "error") {
     return (

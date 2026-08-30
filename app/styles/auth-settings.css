@@ -25,11 +25,6 @@
   color: white;
 }
 
-.auth-brand .brand-mark {
-  background: var(--primary);
-  color: var(--foreground);
-}
-
 .auth-story > div {
   max-width: 570px;
   padding: 75px 0;
@@ -1451,4 +1446,3 @@
     grid-template-columns: 1fr;
   }
 }
-

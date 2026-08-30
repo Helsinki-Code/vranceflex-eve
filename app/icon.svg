@@ -1,14 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <rect x="0" y="0" width="32" height="32" rx="9" ry="9" fill="#0d1e18" />
-  <path d="M32 32 L32 23 L23 32 Z" fill="#0d1e18" opacity="0" />
-  <text
-    x="16"
-    y="21.5"
-    text-anchor="middle"
-    font-family="Helvetica, Arial, sans-serif"
-    font-size="13"
-    font-weight="800"
-    letter-spacing="-0.5"
-    fill="#c9ff72"
-  >VF</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360">
+  <defs>
+    <linearGradient id="vf-icon-liquid" x1="62" y1="45" x2="278" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6" />
+      <stop offset="0.7" stop-color="#2563EB" />
+      <stop offset="1" stop-color="#22D3EE" />
+    </linearGradient>
+  </defs>
+  <rect width="360" height="360" rx="82" fill="#080B12" />
+  <path
+    d="M 48 42 L 112 42 L 180 247 L 248 42 L 312 42 L 217 307 C 210 327 197 336 180 336 C 163 336 150 327 143 307 Z"
+    fill="url(#vf-icon-liquid)"
+  />
+  <path
+    d="M 107 53 L 174 256 Q 180 272 186 256 L 253 53"
+    fill="none"
+    stroke="#F2F6FC"
+    stroke-linecap="round"
+    stroke-opacity="0.22"
+    stroke-width="2"
+  />
 </svg>

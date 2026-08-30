@@ -3,6 +3,7 @@ import { ActionLink, SurfaceCard } from "../../../components/design-system";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 import { getBillingOverview } from "../../../lib/server/billing-entitlements";
 import Link from "next/link";
+import { BrandLockup } from "../../../components/brand/vranceflex-logo";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export const metadata = { title: "New campaign · VranceFlex" };
@@ -19,7 +20,7 @@ export default async function NewCampaignPage({ searchParams }: { searchParams: 
   return (
     <main className="wizard-page">
       <nav className="wizard-nav">
-        <Link className="brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></Link>
+        <Link className="brand" href="/" aria-label="VranceFlex home"><BrandLockup /></Link>
         <span>New campaign</span>
         <Link href="/dashboard">Exit to dashboard</Link>
       </nav>

@@ -26,8 +26,8 @@ iframe {
 }
 
 .nav-shell {
-  position: sticky;
-  top: 0;
+  position: relative;
+  top: auto;
   z-index: 40;
   width: min(100% - 32px, 1240px);
   min-height: 72px;
@@ -40,9 +40,16 @@ iframe {
   backdrop-filter: blur(14px);
 }
 
-.brand-mark {
-  color: white;
-  background: linear-gradient(135deg, var(--primary), #0891b2);
+.section-shell {
+  width: min(calc(100% - 32px), 1240px);
+  max-width: 1240px;
+  margin-inline: auto;
+}
+
+#agents,
+#workflow,
+#trust {
+  scroll-margin-top: 24px;
 }
 
 .nav-mobile-actions,
@@ -69,10 +76,11 @@ iframe {
 }
 
 .hero h1 {
-  max-width: 12ch;
-  font-size: clamp(3.1rem, 6.2vw, 6rem);
-  line-height: 0.96;
-  overflow-wrap: anywhere;
+  max-width: 11ch;
+  font-size: clamp(3.1rem, 5.4vw, 5.25rem);
+  line-height: 0.98;
+  overflow-wrap: normal;
+  text-wrap: balance;
 }
 
 .hero-lede {
@@ -100,9 +108,21 @@ iframe {
 .trust-copy h2,
 .final-cta h2,
 .pricing-hero h1 {
-  font-size: clamp(2.25rem, 5vw, 4.6rem);
-  line-height: 1;
-  overflow-wrap: anywhere;
+  font-size: clamp(2.25rem, 4.2vw, 4rem);
+  line-height: 1.04;
+  overflow-wrap: normal;
+  text-wrap: balance;
+}
+
+.section-heading p,
+.workflow-intro p,
+.trust-copy p,
+.final-cta p {
+  max-width: 56ch;
+}
+
+.section-heading p {
+  justify-self: end;
 }
 
 .public-pricing-grid {
@@ -713,6 +733,7 @@ iframe {
   color: var(--foreground);
   font: inherit;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 

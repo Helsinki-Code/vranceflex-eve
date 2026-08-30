@@ -11,6 +11,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "./motion/theme-toggle";
+import { BrandLockup } from "./brand/vranceflex-logo";
 
 const links = [
   { label: "Campaigns", href: "/dashboard", icon: BarChart3 },
@@ -43,7 +44,7 @@ export function AppChrome({ children, title, eyebrow, account }: { children: Rea
   return <TooltipProvider delayDuration={300}>
     <div className="product-app">
       <aside className="app-sidebar">
-        <Link className="brand" href="/" aria-label="VranceFlex home"><span className="brand-mark">VF</span><span>VranceFlex</span></Link>
+        <Link className="brand" href="/" aria-label="VranceFlex home"><BrandLockup /></Link>
         <div className="workspace-switcher"><span className="workspace-avatar">V</span><span><strong>VranceFlex</strong><small>Workspace</small></span></div>
         <button className="app-command-trigger" onClick={() => setCommandOpen(true)} type="button"><Search /><span>Search</span><kbd>⌘K</kbd></button>
         <NavLinks />

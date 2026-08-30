@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ThemeToggle } from "./motion/theme-toggle";
 import { AppBackdrop } from "./design-system";
+import { BrandLockup } from "./brand/vranceflex-logo";
 
 export function AuthSurface({
   children,
@@ -18,7 +19,7 @@ export function AuthSurface({
   return (
     <main className="auth-page">
       <aside className="auth-story">
-        <Link className="brand auth-brand" href="/"><span className="brand-mark">VF</span><span>VranceFlex</span></Link>
+        <Link className="brand auth-brand" href="/" aria-label="VranceFlex home"><BrandLockup /></Link>
         <div>
           <p className="section-label light"><Sparkles size={13} /> {eyebrow}</p>
           <h1>{title}</h1>

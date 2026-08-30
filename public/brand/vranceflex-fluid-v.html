@@ -1,0 +1,996 @@
+<!--
+  VranceFlex motion identity — "The Intelligent Vessel"
+
+  Two asymmetric energy currents are pulled through an architectural V into a
+  gravitational vertex. Their pressure fills the vessel, then a cyan neural
+  pulse completes an impossible circuit across the open crown of the V.
+
+  Preview variants:
+  - Dark (default): <body>
+  - Light:          <body class="theme-light">
+  - Transparent:    <body class="transparent">
+  - Full lockup:    ?layout=lockup
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>VranceFlex — Intelligent Vessel Motion Mark</title>
+
+    <style>
+      :root {
+        --vf-blue: #2563eb;
+        --vf-blue-bright: #3b82f6;
+        --vf-cyan: #22d3ee;
+        --vf-graphite: #0b1220;
+        --vf-dark: #080b12;
+        --vf-surface: #101722;
+        --vf-light: #f7f9fc;
+        --vf-white: #ffffff;
+        --vf-muted: #5f6f85;
+        --vf-border-light: #d9e1ec;
+        --vf-border-dark: #263447;
+        --vf-reversed: #f2f6fc;
+
+        --vf-stage: var(--vf-dark);
+        --vf-shell: var(--vf-surface);
+        --vf-shell-edge: var(--vf-border-dark);
+        --vf-wordmark-primary: var(--vf-reversed);
+        --vf-cycle: 12s;
+      }
+
+      .theme-light {
+        --vf-stage: var(--vf-light);
+        --vf-shell: var(--vf-white);
+        --vf-shell-edge: var(--vf-border-light);
+        --vf-wordmark-primary: var(--vf-graphite);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: grid;
+        min-height: 100svh;
+        place-items: center;
+        overflow: hidden;
+        background: var(--vf-stage);
+      }
+
+      body.transparent,
+      .transparent body {
+        background: transparent;
+      }
+
+      .vf-logo {
+        display: block;
+        width: min(78vmin, 34rem);
+        height: auto;
+        overflow: visible;
+        shape-rendering: geometricPrecision;
+      }
+
+      .lockup .vf-logo {
+        width: min(92vw, 86rem);
+      }
+
+      .vf-wordmark {
+        display: none;
+      }
+
+      .lockup .vf-wordmark {
+        display: block;
+      }
+
+      .lockup .vf-mark {
+        transform: translate(40px, 40px) scale(0.78);
+      }
+
+      /*
+       * WORDMARK LOCKUP
+       * Geist SemiBold has been converted into native SVG outlines, so the
+       * production lockup remains crisp and carries no font dependency.
+       */
+      .vf-wordmark-primary {
+        fill: var(--vf-wordmark-primary);
+      }
+
+      .vf-wordmark-flex {
+        fill: var(--vf-blue-bright);
+      }
+
+      .theme-light .vf-wordmark-flex {
+        fill: var(--vf-blue);
+      }
+
+      .vf-wordmark-reveal {
+        animation: vf-wordmark-arrive var(--vf-cycle) cubic-bezier(0.22, 1, 0.36, 1)
+          infinite;
+        opacity: 0;
+      }
+
+      .vf-wordmark-curtain {
+        animation: vf-wordmark-curtain var(--vf-cycle) cubic-bezier(0.22, 1, 0.36, 1)
+          infinite;
+        transform: scaleX(0);
+        transform-origin: left center;
+      }
+
+      .vf-wordmark-energy {
+        animation: vf-wordmark-energy var(--vf-cycle) cubic-bezier(0.22, 1, 0.36, 1)
+          infinite;
+        fill: none;
+        filter: url(#vf-energy-glow);
+        stroke: var(--vf-cyan);
+        stroke-dasharray: 1120;
+        stroke-dashoffset: 1120;
+        stroke-linecap: round;
+        stroke-width: 2.2;
+      }
+
+      /*
+       * V GEOMETRY
+       * This is an original architectural silhouette, not a font glyph. The
+       * broad shoulders retain clarity at favicon size while the tapered inner
+       * void gives the moving currents enough structure to visibly navigate.
+       */
+      .vf-shell-base {
+        fill: url(#vf-shell-gradient);
+        stroke: var(--vf-shell-edge);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .vf-shell-rim {
+        fill: none;
+        stroke: url(#vf-rim-gradient);
+        stroke-width: 1.35;
+        opacity: 0.82;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .vf-inner-bevel {
+        fill: none;
+        stroke: var(--vf-reversed);
+        stroke-linecap: round;
+        stroke-width: 0.9;
+        opacity: 0.12;
+        vector-effect: non-scaling-stroke;
+      }
+
+      /* FLUID MASK + FILL MECHANICS */
+      .vf-fluid-fill {
+        animation: vf-fill-rise var(--vf-cycle) cubic-bezier(0.6, 0, 0.25, 1)
+          infinite;
+        filter: url(#vf-fluid-displacement);
+        transform: translateY(274px);
+      }
+
+      .vf-wave-back {
+        animation: vf-wave-back var(--vf-cycle) linear infinite;
+        fill: var(--vf-blue-bright);
+        opacity: 0.64;
+      }
+
+      .vf-wave-front {
+        animation: vf-wave-front var(--vf-cycle) linear infinite;
+        fill: url(#vf-liquid-gradient);
+      }
+
+      .vf-fluid-body {
+        fill: url(#vf-liquid-gradient);
+      }
+
+      .vf-fluid-depth {
+        fill: url(#vf-depth-gradient);
+        mix-blend-mode: multiply;
+        opacity: 0.62;
+      }
+
+      /* The streams trace each arm before the body fill arrives. */
+      .vf-stream {
+        fill: none;
+        filter: url(#vf-energy-glow);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 360;
+        stroke-dashoffset: 360;
+      }
+
+      .vf-stream-left {
+        animation: vf-stream-left var(--vf-cycle) cubic-bezier(0.5, 0, 0.25, 1)
+          infinite;
+        stroke: url(#vf-stream-left-gradient);
+        stroke-width: 18;
+      }
+
+      .vf-stream-right {
+        animation: vf-stream-right var(--vf-cycle) cubic-bezier(0.55, 0, 0.25, 1)
+          infinite;
+        stroke: url(#vf-stream-right-gradient);
+        stroke-width: 13;
+      }
+
+      .vf-filament {
+        animation: vf-filament-trace var(--vf-cycle) ease-in-out infinite;
+        fill: none;
+        filter: url(#vf-energy-glow);
+        stroke: var(--vf-cyan);
+        stroke-dasharray: 4 14;
+        stroke-linecap: round;
+        stroke-width: 2;
+      }
+
+      /*
+       * CONVERGENCE
+       * The vertex behaves like a tiny gravitational singularity. Currents
+       * orbit once, compress, and release their pressure into the rising fill.
+       */
+      .vf-singularity-halo {
+        animation: vf-singularity-halo var(--vf-cycle) ease-in-out infinite;
+        fill: none;
+        filter: url(#vf-energy-glow);
+        stroke: var(--vf-cyan);
+        stroke-width: 2;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+
+      .vf-singularity-core {
+        animation: vf-singularity-core var(--vf-cycle) ease-in-out infinite;
+        fill: var(--vf-cyan);
+        filter: url(#vf-energy-glow);
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+
+      .vf-orbit {
+        animation: vf-orbit var(--vf-cycle) cubic-bezier(0.42, 0, 0.3, 1) infinite;
+        fill: none;
+        stroke: var(--vf-blue-bright);
+        stroke-dasharray: 16 34;
+        stroke-linecap: round;
+        stroke-width: 2.5;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+
+      /*
+       * ENERGY ACCENT
+       * After the V fills, this path turns its open shape into an impossible
+       * closed circuit: up the left arm, across empty space, down the right arm.
+       * It is the signature VranceFlex "intelligence loop".
+       */
+      .vf-neural-track {
+        animation: vf-neural-track var(--vf-cycle) ease-in-out infinite;
+        fill: none;
+        filter: url(#vf-soft-glow);
+        stroke: url(#vf-neural-gradient);
+        stroke-dasharray: 3 14 2 24;
+        stroke-linecap: round;
+        stroke-width: 1.75;
+      }
+
+      .vf-neural-pulse {
+        filter: url(#vf-energy-glow);
+      }
+
+      .vf-specular-band {
+        animation: vf-specular-sweep var(--vf-cycle) cubic-bezier(0.55, 0, 0.25, 1)
+          infinite;
+        fill: url(#vf-specular-gradient);
+        opacity: 0;
+        transform: translateX(-170px) skewX(-12deg);
+      }
+
+      .vf-pressure-line {
+        animation: vf-pressure-line var(--vf-cycle) ease-in-out infinite;
+        fill: none;
+        stroke: var(--vf-cyan);
+        stroke-linecap: round;
+        stroke-width: 1;
+        opacity: 0;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .vf-reduced-fill {
+        fill: url(#vf-liquid-gradient);
+        opacity: 0;
+      }
+
+      .settled .vf-motion-layer,
+      .settled .vf-wordmark-energy {
+        display: none;
+      }
+
+      .settled .vf-reduced-fill,
+      .settled .vf-wordmark-reveal {
+        animation: none;
+        opacity: 1;
+      }
+
+      .settled .vf-wordmark-curtain {
+        animation: none;
+        transform: scaleX(1);
+      }
+
+      @keyframes vf-fill-rise {
+        0%,
+        12% {
+          opacity: 0;
+          transform: translateY(274px);
+        }
+        15% {
+          opacity: 1;
+          transform: translateY(263px);
+        }
+        24% {
+          transform: translateY(236px);
+        }
+        34% {
+          transform: translateY(184px);
+        }
+        47% {
+          transform: translateY(104px);
+        }
+        60%,
+        88% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        94% {
+          opacity: 0.95;
+          transform: translateY(260px);
+        }
+        97%,
+        100% {
+          opacity: 0;
+          transform: translateY(274px);
+        }
+      }
+
+      @keyframes vf-wave-back {
+        0%,
+        100% {
+          transform: translateX(-34px);
+        }
+        50% {
+          transform: translateX(18px);
+        }
+      }
+
+      @keyframes vf-wave-front {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        50% {
+          transform: translateX(-42px);
+        }
+      }
+
+      @keyframes vf-stream-left {
+        0%,
+        7% {
+          opacity: 0;
+          stroke-dashoffset: 360;
+        }
+        9% {
+          opacity: 0.15;
+        }
+        15%,
+        27% {
+          opacity: 0.96;
+          stroke-dashoffset: 0;
+        }
+        38%,
+        100% {
+          opacity: 0;
+          stroke-dashoffset: -45;
+        }
+      }
+
+      @keyframes vf-stream-right {
+        0%,
+        15% {
+          opacity: 0;
+          stroke-dashoffset: 360;
+        }
+        18% {
+          opacity: 0.2;
+        }
+        24%,
+        33% {
+          opacity: 0.92;
+          stroke-dashoffset: 0;
+        }
+        43%,
+        100% {
+          opacity: 0;
+          stroke-dashoffset: -35;
+        }
+      }
+
+      @keyframes vf-filament-trace {
+        0%,
+        5% {
+          opacity: 0;
+          stroke-dashoffset: 130;
+        }
+        9%,
+        26% {
+          opacity: 0.74;
+        }
+        38%,
+        100% {
+          opacity: 0;
+          stroke-dashoffset: -160;
+        }
+      }
+
+      @keyframes vf-singularity-halo {
+        0%,
+        19% {
+          opacity: 0;
+          transform: scale(0.25);
+        }
+        27% {
+          opacity: 0.82;
+          transform: scale(1.35);
+        }
+        33% {
+          opacity: 0.28;
+          transform: scale(0.62);
+        }
+        39%,
+        87% {
+          opacity: 0;
+          transform: scale(1.8);
+        }
+        91% {
+          opacity: 0.64;
+          transform: scale(1.2);
+        }
+        96%,
+        100% {
+          opacity: 0;
+          transform: scale(0.2);
+        }
+      }
+
+      @keyframes vf-singularity-core {
+        0%,
+        20% {
+          opacity: 0;
+          transform: scale(0.3);
+        }
+        28% {
+          opacity: 1;
+          transform: scale(1.1);
+        }
+        36% {
+          opacity: 0.2;
+          transform: scale(0.55);
+        }
+        40%,
+        88% {
+          opacity: 0;
+          transform: scale(0.3);
+        }
+        93% {
+          opacity: 0.9;
+          transform: scale(1.25);
+        }
+        98%,
+        100% {
+          opacity: 0;
+          transform: scale(0.1);
+        }
+      }
+
+      @keyframes vf-orbit {
+        0%,
+        21% {
+          opacity: 0;
+          transform: rotate(-80deg) scale(0.45);
+        }
+        25% {
+          opacity: 0.74;
+        }
+        34% {
+          opacity: 0;
+          transform: rotate(285deg) scale(0.9);
+        }
+        100% {
+          opacity: 0;
+          transform: rotate(285deg) scale(0.9);
+        }
+      }
+
+      @keyframes vf-neural-track {
+        0%,
+        59% {
+          opacity: 0;
+          stroke-dashoffset: 80;
+        }
+        65% {
+          opacity: 0.25;
+        }
+        74% {
+          opacity: 0.72;
+          stroke-dashoffset: -24;
+        }
+        86% {
+          opacity: 0.25;
+          stroke-dashoffset: -104;
+        }
+        90%,
+        100% {
+          opacity: 0;
+          stroke-dashoffset: -128;
+        }
+      }
+
+      @keyframes vf-specular-sweep {
+        0%,
+        61% {
+          opacity: 0;
+          transform: translateX(-170px) skewX(-12deg);
+        }
+        66% {
+          opacity: 0.18;
+        }
+        75% {
+          opacity: 0.34;
+        }
+        83% {
+          opacity: 0;
+          transform: translateX(210px) skewX(-12deg);
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(210px) skewX(-12deg);
+        }
+      }
+
+      @keyframes vf-pressure-line {
+        0%,
+        27% {
+          opacity: 0;
+          transform: scaleX(0.25);
+        }
+        32% {
+          opacity: 0.8;
+          transform: scaleX(1);
+        }
+        39%,
+        100% {
+          opacity: 0;
+          transform: scaleX(1.35);
+        }
+      }
+
+      @keyframes vf-wordmark-arrive {
+        0%,
+        60% {
+          opacity: 0;
+        }
+        64%,
+        89% {
+          opacity: 1;
+        }
+        96%,
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes vf-wordmark-curtain {
+        0%,
+        60% {
+          transform: scaleX(0);
+        }
+        70%,
+        100% {
+          transform: scaleX(1);
+        }
+      }
+
+      @keyframes vf-wordmark-energy {
+        0%,
+        59% {
+          opacity: 0;
+          stroke-dashoffset: 1120;
+        }
+        62% {
+          opacity: 0.9;
+        }
+        72% {
+          opacity: 0;
+          stroke-dashoffset: 0;
+        }
+        100% {
+          opacity: 0;
+          stroke-dashoffset: 0;
+        }
+      }
+
+      /*
+       * REDUCED MOTION
+       * All SMIL motion lives inside .vf-motion-layer and is removed. CSS
+       * animations are stopped and a fully charged, crisp static mark replaces
+       * the sequence without flashing or showing a half-filled state.
+       */
+      @media (prefers-reduced-motion: reduce) {
+        .vf-motion-layer {
+          display: none;
+        }
+
+        .vf-reduced-fill {
+          opacity: 1;
+        }
+
+        .vf-wordmark-reveal {
+          opacity: 1;
+        }
+
+        .vf-wordmark-curtain {
+          transform: scaleX(1);
+        }
+
+        .vf-wordmark-energy {
+          display: none;
+        }
+
+        .vf-logo * {
+          animation: none !important;
+        }
+      }
+    </style>
+
+    <script>
+      /* Demo switches: ?theme=light and ?background=transparent. */
+      const preview = new URLSearchParams(window.location.search);
+
+      if (preview.get("theme") === "light") {
+        document.documentElement.classList.add("theme-light");
+      }
+
+      if (preview.get("background") === "transparent") {
+        document.documentElement.classList.add("transparent");
+      }
+
+      if (preview.get("layout") === "lockup") {
+        document.documentElement.classList.add("lockup");
+      }
+
+      if (preview.get("state") === "settled") {
+        document.documentElement.classList.add("settled");
+      }
+    </script>
+  </head>
+
+  <body>
+    <svg
+      class="vf-logo"
+      viewBox="0 0 360 360"
+      role="img"
+      aria-labelledby="vf-logo-title vf-logo-description"
+      xmlns="http://www.w3.org/2000/svg"
+      xmlns:xlink="http://www.w3.org/1999/xlink"
+    >
+      <title id="vf-logo-title">VranceFlex animated V logo</title>
+      <desc id="vf-logo-description">
+        A geometric V fills with flowing blue energy before a cyan pulse travels
+        continuously through the completed mark.
+      </desc>
+
+      <defs>
+        <!-- Original V geometry: broad shoulders, carved inner void, soft vertex. -->
+        <path
+          id="vf-v-geometry"
+          d="M 48 42 L 112 42 L 180 247 L 248 42 L 312 42 L 217 307 C 210 327 197 336 180 336 C 163 336 150 327 143 307 Z"
+        />
+
+        <clipPath id="vf-v-clip" clipPathUnits="userSpaceOnUse">
+          <use href="#vf-v-geometry" xlink:href="#vf-v-geometry" />
+        </clipPath>
+
+        <!-- A restrained shell gives the dormant state dimensional structure. -->
+        <linearGradient id="vf-shell-gradient" x1="70" y1="35" x2="270" y2="330" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="var(--vf-shell)" />
+          <stop offset="0.48" stop-color="var(--vf-graphite)" />
+          <stop offset="1" stop-color="var(--vf-surface)" />
+        </linearGradient>
+
+        <linearGradient id="vf-rim-gradient" x1="48" y1="42" x2="300" y2="320" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="var(--vf-muted)" stop-opacity="0.55" />
+          <stop offset="0.45" stop-color="var(--vf-blue-bright)" stop-opacity="0.2" />
+          <stop offset="1" stop-color="var(--vf-cyan)" stop-opacity="0.45" />
+        </linearGradient>
+
+        <!-- Liquid uses only brand blues; movement comes from layered opacity. -->
+        <linearGradient id="vf-liquid-gradient" x1="74" y1="46" x2="272" y2="330" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="var(--vf-blue-bright)" />
+          <stop offset="0.5" stop-color="var(--vf-blue)" />
+          <stop offset="0.82" stop-color="var(--vf-blue)" />
+          <stop offset="1" stop-color="var(--vf-cyan)" stop-opacity="0.9" />
+        </linearGradient>
+
+        <linearGradient id="vf-depth-gradient" x1="58" y1="70" x2="280" y2="300" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="var(--vf-blue-bright)" stop-opacity="0" />
+          <stop offset="0.52" stop-color="var(--vf-graphite)" stop-opacity="0.15" />
+          <stop offset="1" stop-color="var(--vf-graphite)" stop-opacity="0.7" />
+        </linearGradient>
+
+        <linearGradient id="vf-stream-left-gradient" x1="88" y1="42" x2="180" y2="306" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="var(--vf-cyan)" />
+          <stop offset="0.5" stop-color="var(--vf-blue-bright)" />
+          <stop offset="1" stop-color="var(--vf-blue)" />
+        </linearGradient>
+
+        <linearGradient id="vf-stream-right-gradient" x1="260" y1="42" x2="180" y2="306" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="var(--vf-blue-bright)" />
+          <stop offset="0.62" stop-color="var(--vf-blue)" />
+          <stop offset="1" stop-color="var(--vf-cyan)" />
+        </linearGradient>
+
+        <linearGradient id="vf-neural-gradient" x1="72" y1="292" x2="280" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="var(--vf-cyan)" stop-opacity="0.1" />
+          <stop offset="0.48" stop-color="var(--vf-cyan)" />
+          <stop offset="1" stop-color="var(--vf-blue-bright)" stop-opacity="0.18" />
+        </linearGradient>
+
+        <linearGradient id="vf-specular-gradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="var(--vf-white)" stop-opacity="0" />
+          <stop offset="0.5" stop-color="var(--vf-white)" stop-opacity="0.75" />
+          <stop offset="1" stop-color="var(--vf-cyan)" stop-opacity="0" />
+        </linearGradient>
+
+        <!-- Small filter regions keep the animated mark inexpensive to render. -->
+        <filter id="vf-soft-glow" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB">
+          <feGaussianBlur stdDeviation="2.2" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+
+        <filter id="vf-energy-glow" x="-28%" y="-28%" width="156%" height="156%" color-interpolation-filters="sRGB">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="blur" />
+          <feColorMatrix
+            in="blur"
+            type="matrix"
+            values="0 0 0 0 0.133
+                    0 0 0 0 0.827
+                    0 0 0 0 0.933
+                    0 0 0 0.45 0"
+            result="tintedBlur"
+          />
+          <feMerge>
+            <feMergeNode in="tintedBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        <!-- Low-amplitude turbulence removes the mechanical edge of the fill. -->
+        <filter id="vf-fluid-displacement" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.009 0.055"
+            numOctaves="1"
+            seed="17"
+            result="noise"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="noise"
+            scale="3.4"
+            xChannelSelector="R"
+            yChannelSelector="B"
+          />
+        </filter>
+
+        <!-- Shared path for the living neural circuit and its traveling pulse. -->
+        <path
+          id="vf-closed-current-path"
+          d="M 180 306 C 157 238 128 139 91 52 C 116 12 244 12 269 52 C 232 139 203 238 180 306"
+          pathLength="100"
+        />
+
+        <!-- Vector wordmark glyphs, converted from Geist SemiBold outlines. -->
+        <path id="vf-glyph-v" d="M 35.328 0 L 2.434 -90.879 L 19.969 -90.879 L 45.441 -18.559 L 70.785 -90.879 L 88.32 -90.879 L 55.297 0 Z" />
+        <path id="vf-glyph-r" d="M 8.961 0 L 8.961 -68.352 L 24.32 -68.352 L 24.703 -55.039 C 26.07 -59.648 28.074 -63.02 30.719 -65.152 C 33.367 -67.285 36.82 -68.352 41.09 -68.352 L 47.359 -68.352 L 47.359 -54.273 L 40.961 -54.273 C 35.754 -54.273 31.852 -53.098 29.246 -50.754 C 26.645 -48.406 25.344 -44.629 25.344 -39.426 L 25.344 0 Z" />
+        <path id="vf-glyph-a" d="M 28.801 1.535 C 21.633 1.535 15.871 -0.086 11.52 -3.328 C 7.168 -6.57 4.992 -11.18 4.992 -17.152 C 4.992 -23.039 6.828 -27.648 10.496 -30.977 C 14.164 -34.305 19.754 -36.691 27.266 -38.145 L 49.922 -42.625 C 49.922 -52.352 45.523 -57.215 36.734 -57.215 C 32.812 -57.215 29.695 -56.297 27.391 -54.465 C 25.09 -52.629 23.551 -50.004 22.785 -46.594 L 6.145 -47.359 C 7.508 -54.527 10.836 -60.074 16.129 -64 C 21.418 -67.926 28.289 -69.887 36.734 -69.887 C 46.465 -69.887 53.824 -67.434 58.816 -62.527 C 63.809 -57.621 66.305 -50.602 66.305 -41.473 L 66.305 -16.641 C 66.305 -14.848 66.625 -13.609 67.266 -12.93 C 67.902 -12.246 68.863 -11.902 70.145 -11.902 L 72.32 -11.902 L 72.32 0 C 70.871 .34 68.863 .512 66.305 .512 C 62.633 .512 59.52 -.258 56.961 -1.793 C 54.398 -3.328 52.777 -6.188 52.098 -10.367 L 52.098 -10.496 C 50.391 -6.91 47.465 -4.012 43.328 -1.793 C 39.188 .426 34.348 1.535 28.801 1.535 Z M 32.129 -10.367 C 37.59 -10.367 41.922 -11.945 45.121 -15.105 C 48.32 -18.262 49.922 -22.441 49.922 -27.648 L 49.922 -31.488 L 32.258 -27.902 C 28.586 -27.137 25.961 -26.004 24.383 -24.512 C 22.805 -23.02 22.016 -21.078 22.016 -18.688 C 22.016 -13.141 25.387 -10.367 32.129 -10.367 Z" />
+        <path id="vf-glyph-n" d="M 8.961 0 L 8.961 -68.352 L 23.809 -68.352 L 24.191 -56.703 C 26.07 -61.398 28.82 -64.77 32.449 -66.816 C 36.074 -68.863 40.148 -69.887 44.672 -69.887 C 52.18 -69.887 57.941 -67.477 61.953 -62.656 C 65.961 -57.836 67.969 -51.586 67.969 -43.902 L 67.969 0 L 51.586 0 L 51.586 -38.656 C 51.586 -44.457 50.711 -48.895 48.961 -51.969 C 47.211 -55.039 44.117 -56.574 39.68 -56.574 C 35.242 -56.574 31.742 -55.039 29.184 -51.969 C 26.625 -48.895 25.344 -44.457 25.344 -38.656 L 25.344 0 Z" />
+        <path id="vf-glyph-c" d="M 38.656 1.535 C 31.828 1.535 25.898 .062 20.863 -2.879 C 15.828 -5.824 11.926 -9.984 9.152 -15.359 C 6.379 -20.734 4.992 -27.008 4.992 -34.176 C 4.992 -41.344 6.379 -47.617 9.152 -52.992 C 11.926 -58.367 15.828 -62.527 20.863 -65.473 C 25.898 -68.414 31.828 -69.887 38.656 -69.887 C 47.359 -69.887 54.594 -67.625 60.352 -63.105 C 66.113 -58.582 69.504 -52.266 70.527 -44.16 L 53.633 -43.266 C 52.949 -47.617 51.266 -50.922 48.574 -53.184 C 45.887 -55.445 42.582 -56.574 38.656 -56.574 C 33.367 -56.574 29.27 -54.613 26.367 -50.688 C 23.465 -46.762 22.016 -41.258 22.016 -34.176 C 22.016 -27.094 23.465 -21.59 26.367 -17.664 C 29.27 -13.738 33.367 -11.777 38.656 -11.777 C 42.668 -11.777 46.016 -12.93 48.703 -15.23 C 51.391 -17.535 53.035 -21.121 53.633 -25.984 L 70.527 -25.215 C 69.59 -17.023 66.238 -10.516 60.48 -5.695 C 54.719 -.875 47.445 1.535 38.656 1.535 Z" />
+        <path id="vf-glyph-e" d="M 38.527 1.535 C 31.703 1.535 25.77 .062 20.734 -2.879 C 15.703 -5.824 11.82 -9.984 9.09 -15.359 C 6.355 -20.734 4.992 -27.008 4.992 -34.176 C 4.992 -41.344 6.355 -47.617 9.09 -52.992 C 11.82 -58.367 15.68 -62.527 20.672 -65.473 C 25.664 -68.414 31.488 -69.887 38.145 -69.887 C 44.629 -69.887 50.305 -68.438 55.168 -65.535 C 60.031 -62.633 63.809 -58.453 66.496 -52.992 C 69.184 -47.531 70.527 -40.961 70.527 -33.281 L 70.527 -29.566 L 22.016 -29.566 C 22.273 -23.594 23.895 -19.094 26.879 -16.062 C 29.867 -13.035 33.793 -11.52 38.656 -11.52 C 46.078 -11.52 50.816 -14.676 52.863 -20.992 L 69.633 -19.969 C 67.754 -13.312 64.062 -8.062 58.559 -4.223 C 53.055 -.383 46.379 1.535 38.527 1.535 Z M 22.016 -40.574 L 53.633 -40.574 C 53.207 -46.121 51.605 -50.238 48.832 -52.93 C 46.059 -55.617 42.496 -56.961 38.145 -56.961 C 33.707 -56.961 30.078 -55.551 27.266 -52.734 C 24.449 -49.922 22.699 -45.867 22.016 -40.574 Z" />
+        <path id="vf-glyph-f" d="M 10.238 0 L 10.238 -90.879 L 71.039 -90.879 L 71.039 -76.414 L 26.879 -76.414 L 26.879 -51.586 L 68.734 -51.586 L 68.734 -37.246 L 26.879 -37.246 L 26.879 0 Z" />
+        <path id="vf-glyph-l" d="M 25.344 0 C 20.309 0 16.32 -1.281 13.375 -3.84 C 10.434 -6.398 8.961 -10.496 8.961 -16.129 L 8.961 -90.879 L 25.344 -90.879 L 25.344 -17.793 C 25.344 -14.379 27.051 -12.672 30.465 -12.672 L 35.457 -12.672 L 35.457 0 Z" />
+        <path id="vf-glyph-x" d="M 5.887 0 L 30.465 -34.816 L 6.785 -68.352 L 24.574 -68.352 L 40.191 -45.055 L 55.551 -68.352 L 73.602 -68.352 L 50.047 -34.688 L 74.496 0 L 56.703 0 L 40.449 -24.574 L 24.062 0 Z" />
+
+        <clipPath id="vf-wordmark-clip" clipPathUnits="userSpaceOnUse">
+          <rect class="vf-wordmark-curtain" x="-4" y="-102" width="706" height="110" />
+        </clipPath>
+      </defs>
+
+      <g class="vf-mark">
+        <!-- Dormant architectural vessel. -->
+        <use class="vf-shell-base" href="#vf-v-geometry" xlink:href="#vf-v-geometry" />
+        <use class="vf-shell-rim" href="#vf-v-geometry" xlink:href="#vf-v-geometry" />
+
+        <path class="vf-inner-bevel" d="M 107 53 L 174 256 Q 180 272 186 256 L 253 53" />
+
+      <!-- Static accessible result shown when reduced motion is requested. -->
+        <use
+          class="vf-reduced-fill"
+          href="#vf-v-geometry"
+          xlink:href="#vf-v-geometry"
+        />
+
+        <g class="vf-motion-layer">
+        <!-- Fluid body. Its moving meniscus is displaced, layered, and clipped. -->
+        <g clip-path="url(#vf-v-clip)">
+          <g class="vf-fluid-fill">
+            <rect class="vf-fluid-body" x="-8" y="40" width="376" height="344" />
+            <path
+              class="vf-wave-back"
+              d="M -70 27 C -8 6 44 43 104 23 C 164 3 217 43 279 22 C 337 3 389 37 450 18 L 450 380 L -70 380 Z"
+            />
+            <path
+              class="vf-wave-front"
+              d="M -55 24 C 12 45 63 2 126 24 C 190 47 242 4 306 24 C 361 42 406 11 440 22 L 440 380 L -55 380 Z"
+            />
+            <path
+              class="vf-fluid-depth"
+              d="M 0 48 C 88 86 120 156 151 250 C 161 282 172 314 180 340 L 360 340 L 360 48 Z"
+            />
+          </g>
+
+          <!-- Asymmetric streams visibly obey each arm of the V. -->
+          <path
+            class="vf-stream vf-stream-left"
+            d="M 79 42 C 86 78 101 119 117 160 C 136 208 146 263 180 306"
+          />
+          <path
+            class="vf-stream vf-stream-right"
+            d="M 278 42 C 267 78 254 116 239 158 C 222 208 208 261 180 306"
+          />
+          <path
+            class="vf-filament"
+            d="M 82 42 C 101 98 105 145 131 190 C 151 226 153 270 180 306"
+          />
+
+          <!-- A fine pressure ripple marks the currents colliding. -->
+          <path class="vf-pressure-line" d="M 153 292 Q 180 283 207 292" />
+
+          <!-- Controlled reflection makes the charged fluid feel refractive. -->
+          <rect
+            class="vf-specular-band"
+            x="120"
+            y="20"
+            width="34"
+            height="350"
+            rx="17"
+          />
+        </g>
+
+        <!-- Vertex singularity sits above the clip so its pressure is legible. -->
+        <g aria-hidden="true">
+          <ellipse class="vf-orbit" cx="180" cy="304" rx="28" ry="9" />
+          <circle class="vf-singularity-halo" cx="180" cy="304" r="14" />
+          <circle class="vf-singularity-core" cx="180" cy="304" r="4.5" />
+        </g>
+
+        <!-- The completed mark stays alive through one restrained neural loop. -->
+        <use
+          class="vf-neural-track"
+          href="#vf-closed-current-path"
+          xlink:href="#vf-closed-current-path"
+        />
+        <circle class="vf-neural-pulse" r="3.8" fill="var(--vf-cyan)" opacity="0">
+          <animate
+            attributeName="opacity"
+            values="0;0;1;1;0;0"
+            keyTimes="0;0.61;0.65;0.84;0.89;1"
+            dur="12s"
+            repeatCount="indefinite"
+          />
+          <animate
+            attributeName="r"
+            values="3.2;3.2;4.2;3.2;3.2"
+            keyTimes="0;0.64;0.74;0.86;1"
+            dur="12s"
+            repeatCount="indefinite"
+          />
+          <animateMotion
+            dur="12s"
+            repeatCount="indefinite"
+            keyPoints="0;0;0.33;1;1"
+            keyTimes="0;0.61;0.72;0.88;1"
+            calcMode="spline"
+            keySplines="0 0 1 1;0.4 0 0.2 1;0.4 0 0.2 1;0 0 1 1"
+          >
+            <mpath href="#vf-closed-current-path" xlink:href="#vf-closed-current-path" />
+          </animateMotion>
+        </circle>
+
+        <!-- Two escaped droplets are elastically reclaimed by the vertex. -->
+        <circle r="2.4" fill="var(--vf-cyan)" opacity="0">
+          <animate
+            attributeName="opacity"
+            values="0;0;0.75;0.55;0;0"
+            keyTimes="0;0.18;0.22;0.29;0.35;1"
+            dur="12s"
+            repeatCount="indefinite"
+          />
+          <animateMotion
+            path="M 256 118 C 283 160 225 246 180 304"
+            dur="12s"
+            repeatCount="indefinite"
+            keyPoints="0;0;0.34;1;1"
+            keyTimes="0;0.18;0.22;0.34;1"
+          />
+        </circle>
+        <circle r="1.7" fill="var(--vf-blue-bright)" opacity="0">
+          <animate
+            attributeName="opacity"
+            values="0;0;0.6;0.35;0;0"
+            keyTimes="0;0.12;0.16;0.25;0.31;1"
+            dur="12s"
+            repeatCount="indefinite"
+          />
+          <animateMotion
+            path="M 101 102 C 70 147 132 253 180 304"
+            dur="12s"
+            repeatCount="indefinite"
+            keyPoints="0;0;0.3;1;1"
+            keyTimes="0;0.12;0.17;0.3;1"
+          />
+        </circle>
+        </g>
+      </g>
+
+      <!--
+        The wordmark arrives only after the vessel is charged. It is composed
+        entirely from vector outlines and remains visually static once revealed.
+      -->
+      <g class="vf-wordmark" aria-hidden="true">
+        <path class="vf-wordmark-energy" d="M 282 252 C 316 252 328 252 356 252 L 1530 252" />
+
+        <g class="vf-wordmark-reveal" transform="translate(355 255) scale(1.7)">
+          <g clip-path="url(#vf-wordmark-clip)">
+            <g class="vf-wordmark-primary">
+              <use href="#vf-glyph-v" xlink:href="#vf-glyph-v" x="0" />
+              <use href="#vf-glyph-r" xlink:href="#vf-glyph-r" x="85.891" />
+              <use href="#vf-glyph-a" xlink:href="#vf-glyph-a" x="133.641" />
+              <use href="#vf-glyph-n" xlink:href="#vf-glyph-n" x="207.625" />
+              <use href="#vf-glyph-c" xlink:href="#vf-glyph-c" x="282.891" />
+              <use href="#vf-glyph-e" xlink:href="#vf-glyph-e" x="355.844" />
+            </g>
+
+            <g class="vf-wordmark-flex">
+              <use href="#vf-glyph-f" xlink:href="#vf-glyph-f" x="430.203" />
+              <use href="#vf-glyph-l" xlink:href="#vf-glyph-l" x="504.438" />
+              <use href="#vf-glyph-e" xlink:href="#vf-glyph-e" x="541.422" />
+              <use href="#vf-glyph-x" xlink:href="#vf-glyph-x" x="609.516" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </svg>
+
+    <script>
+      if (document.documentElement.classList.contains("lockup")) {
+        document.querySelector(".vf-logo").setAttribute("viewBox", "0 0 1560 360");
+      }
+    </script>
+  </body>
+</html>

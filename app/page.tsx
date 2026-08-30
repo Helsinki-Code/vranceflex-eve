@@ -7,6 +7,7 @@ import { LiveAvatarSalesGuide } from "../components/live-avatar-sales-guide";
 import { PublicNav } from "../components/public-nav";
 import { Button } from "../components/ui/button";
 import Link from "next/link";
+import { BrandLockup } from "../components/brand/vranceflex-logo";
 
 const agents = [
   ["01", "Lead researcher", "Maps your market and verifies every reachable decision-maker."],
@@ -147,7 +148,7 @@ export default function HomePage() {
       </section>
 
       <footer>
-        <Link className="brand footer-brand" href="/#top"><span className="brand-mark">VF</span><span>VranceFlex</span></Link>
+        <Link className="brand footer-brand" href="/#top" aria-label="VranceFlex home"><BrandLockup /></Link>
         <p>Agent-led prospecting, with people in control.</p>
         <span>© 2026 VranceFlex</span>
       </footer>
