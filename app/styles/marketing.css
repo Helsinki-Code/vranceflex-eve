@@ -19,7 +19,7 @@
   
     /* ---- Core palette (unchanged token names — Tailwind/shadcn depend on
        these) ---- */
-    --background: #ffffff;
+    --background: #f7f9fc;
     --foreground: #0b1220;
     --foreground-rgb: 11, 18, 32;
     --card: #ffffff;
@@ -41,6 +41,15 @@
     --success: #15803d;
     --warning: #b45309;
     --radius: 0.75rem;
+
+    /* The startup sequence is intentionally brand-dark in both themes. */
+    --startup-background: #080b12;
+    --startup-foreground: #f2f6fc;
+    --startup-muted: #94a3b8;
+    --chrome-background: #0b1220;
+    --chrome-foreground: #f2f6fc;
+    --chrome-muted: #94a3b8;
+    --chrome-border: #263447;
   
     /* ---- Radius scale (built from --radius; the notch is always ~30% of
        the base corner, so it never has to be hand-tuned per component) ---- */
@@ -60,9 +69,13 @@
     --space-4: 1rem;      /* 16px */
     --space-5: 1.25rem;   /* 20px */
     --space-6: 1.5rem;    /* 24px */
+    --space-7: 1.75rem;   /* 28px */
     --space-8: 2rem;      /* 32px */
+    --space-9: 2.25rem;   /* 36px */
     --space-10: 2.5rem;   /* 40px */
+    --space-11: 2.75rem;  /* 44px */
     --space-12: 3rem;     /* 48px */
+    --space-14: 3.5rem;   /* 56px */
     --space-16: 4rem;     /* 64px */
     --space-20: 5rem;     /* 80px */
   
@@ -142,14 +155,43 @@
       overflow-x: clip;
       scroll-behavior: smooth;
     }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
   
     body {
       min-width: 320px;
+      margin: 0;
       overflow-x: clip;
       background: var(--background);
       color: var(--foreground);
+      font-family: var(--font-geist-sans), "Geist Sans", ui-sans-serif, system-ui, sans-serif;
       font-feature-settings: "cv11", "ss01";
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button,
+    input,
+    optgroup,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img,
+    svg {
+      display: block;
+      max-width: 100%;
     }
   
     :focus-visible {
@@ -586,8 +628,8 @@
     position: relative;
     z-index: var(--z-raised);
     padding: var(--space-6);
-    background: var(--foreground);
-    color: var(--background);
+    background: var(--chrome-background);
+    color: var(--chrome-foreground);
     border: 1px solid rgba(255, 255, 255, 0.13);
     border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-notch-xl);
     box-shadow: var(--shadow-lg);
@@ -642,21 +684,15 @@
   }
   
   .activity-success {
-    color: var(--success);
+    color: color-mix(in srgb, var(--success) 68%, white 32%);
   }
   
   .activity-running {
-    color: var(--warning);
+    color: color-mix(in srgb, var(--warning) 56%, white 44%);
   }
   
   .activity-waiting {
-    color: color-mix(in srgb, var(--foreground) 55%, transparent);
-  }
-  
-  .dark .hero-console .activity-success,
-  .dark .hero-console .activity-running,
-  .dark .hero-console .activity-waiting {
-    filter: brightness(1.15);
+    color: var(--chrome-muted);
   }
   
   /* ==========================================================================
@@ -743,8 +779,8 @@
   
   .workflow-section {
     padding-block: var(--space-20);
-    background: var(--foreground);
-    color: var(--background);
+    background: var(--chrome-background);
+    color: var(--chrome-foreground);
   }
   
   .workflow-intro {
@@ -774,8 +810,8 @@
   
   .workflow-steps .ui-surface-card {
     border-color: color-mix(in srgb, white 16%, transparent);
-    background: color-mix(in srgb, var(--foreground) 88%, black 12%);
-    color: var(--background);
+    background: color-mix(in srgb, var(--chrome-background) 88%, black 12%);
+    color: var(--chrome-foreground);
     box-shadow: none;
   }
   
@@ -858,7 +894,8 @@
     margin: 0;
   }
   
-  footer > span {
+  footer > span,
+  footer > a:last-child {
     justify-self: end;
   }
   

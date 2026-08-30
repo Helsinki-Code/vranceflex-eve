@@ -1,4 +1,5 @@
 import { CreditCard, KeyRound, PlugZap, ShieldCheck, Users } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "../../components/app-shell";
 import { isAuthConfigured } from "../../lib/auth/config";
 import { requireWorkspacePage } from "../../lib/auth/page-actor";
@@ -26,10 +27,10 @@ export default async function SettingsPage() {
     >
       <section className="settings-grid">
         {settings.map(([title, description, href, Icon]) => (
-          <a href={href} key={title}>
+          <Link href={href} key={title}>
             <span><Icon size={19} /></span>
             <div><h2>{title}</h2><p>{description}</p></div>
-          </a>
+          </Link>
         ))}
       </section>
       {!isAuthConfigured() && (

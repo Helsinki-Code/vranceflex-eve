@@ -3,8 +3,8 @@
 .product-app {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 225px minmax(0, 1fr);
-  background: #f3f4ed;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  background: var(--background);
 }
 
 .app-sidebar {
@@ -12,8 +12,8 @@
   display: flex;
   flex-direction: column;
   padding: 26px 18px 18px;
-  background: var(--foreground);
-  color: white;
+  background: var(--chrome-background);
+  color: var(--chrome-foreground);
 }
 
 .app-sidebar .brand {
@@ -34,13 +34,13 @@
   padding: 0 12px;
   color: rgba(255, 255, 255, 0.55);
   border-radius: 9px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 680;
 }
 
 .app-sidebar nav a.active {
-  background: rgba(37, 99, 235, 0.11);
-  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: color-mix(in srgb, var(--primary) 58%, white 42%);
 }
 
 .sidebar-account {
@@ -97,14 +97,14 @@
 
 .app-header h1 {
   margin: 8px 0 0;
-  font-size: 40px;
+  font-size: 2.5rem;
   letter-spacing: -0.05em;
 }
 
 .button-primary.compact {
   min-height: 42px;
   padding: 0 16px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .metric-grid {
@@ -132,7 +132,7 @@
 .metric-grid strong {
   display: block;
   margin: 19px 0 12px;
-  font-size: 37px;
+  font-size: 2.3125rem;
   letter-spacing: -0.05em;
 }
 
@@ -155,7 +155,7 @@
 
 .list-heading h2 {
   margin: 6px 0 0;
-  font-size: 22px;
+  font-size: 1.375rem;
   letter-spacing: -0.04em;
 }
 
@@ -199,13 +199,13 @@
   background: var(--muted);
   color: var(--primary);
   border-radius: 10px;
-  font-size: 8px;
+  font-size: var(--text-xs);
   font-weight: 900;
 }
 
 .campaign-identity h3 {
   margin: 0 0 5px;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .campaign-identity p {
@@ -238,29 +238,29 @@
 .status-badge {
   width: fit-content;
   padding: 6px 8px;
-  background: #edf1e9;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
   border-radius: 999px;
-  color: var(--success);
+  color: var(--primary);
   font-size: 0.75rem;
   font-weight: 800;
   white-space: nowrap;
 }
 
 .status-awaiting_approval {
-  background: #fff0d4;
-  color: #8a5715;
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--warning);
 }
 
 .status-sent,
 .status-delivered,
 .status-replied {
-  background: #e2f5e3;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
   color: var(--success);
 }
 
 .status-stopped {
-  background: #ececec;
-  color: #626262;
+  background: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .campaign-meta {
@@ -312,7 +312,7 @@
 
 .dashboard-state h2 {
   margin: 20px 0 8px;
-  font-size: 28px;
+  font-size: 1.75rem;
   letter-spacing: -0.04em;
 }
 
@@ -447,7 +447,7 @@
   }
 
   .wizard-success h2 {
-    font-size: 42px;
+    font-size: 2.625rem;
   }
 
   .wizard-success > div {
@@ -462,7 +462,7 @@
   }
 
   .app-header h1 {
-    font-size: 34px;
+    font-size: 2.125rem;
   }
 
   .app-header .button-primary.compact {

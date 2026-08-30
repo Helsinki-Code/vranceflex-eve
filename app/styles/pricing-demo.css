@@ -37,13 +37,13 @@
 }
 
 .billing-summary-card strong {
-  font-size: 24px;
+  font-size: 1.5rem;
   letter-spacing: -0.04em;
 }
 
 .billing-summary-card p {
   margin: 0;
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.55;
 }
 
@@ -68,7 +68,7 @@
 .billing-provider-note p {
   margin: 4px 0 0;
   color: rgba(var(--foreground-rgb), 0.58);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.55;
 }
 
@@ -105,7 +105,7 @@
   color: rgba(var(--foreground-rgb), 0.58);
   background: transparent;
   font: inherit;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 750;
   cursor: pointer;
 }
@@ -144,22 +144,22 @@
   padding: 5px 8px;
   border-radius: 6px;
   background: var(--primary);
-  color: var(--foreground);
-  font-size: 8px;
+  color: var(--primary-foreground);
+  font-size: var(--text-xs);
   font-weight: 850;
   letter-spacing: 0.13em;
 }
 
 .pricing-plan-card h3 {
   margin: 14px 0 8px;
-  font-size: 34px;
+  font-size: 2.125rem;
   letter-spacing: -0.05em;
 }
 
 .pricing-plan-card h3 small {
   margin-left: 3px;
   color: rgba(var(--foreground-rgb), 0.48);
-  font-size: 12px;
+  font-size: 0.75rem;
   letter-spacing: 0;
 }
 
@@ -167,7 +167,7 @@
   min-height: 62px;
   margin: 0;
   color: rgba(var(--foreground-rgb), 0.58);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.55;
 }
 
@@ -203,7 +203,7 @@
   color: rgba(var(--foreground-rgb), 0.55);
   background: rgba(var(--foreground-rgb), 0.04);
   font: inherit;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 750;
 }
 
@@ -219,14 +219,14 @@
 
 .credit-topups h3 {
   margin: 8px 0;
-  font-size: 24px;
+  font-size: 1.5rem;
   letter-spacing: -0.04em;
 }
 
 .credit-topups p {
   margin: 0;
   color: rgba(var(--foreground-rgb), 0.56);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.55;
 }
 
@@ -320,7 +320,7 @@
 }
 
 .wizard-credit-meter strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .wizard-credit-meter span,
@@ -438,13 +438,13 @@
 
 .pricing-faq h2 {
   margin: 0 0 9px;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .pricing-faq p {
   margin: 0;
   color: rgba(var(--foreground-rgb), 0.56);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.65;
 }
 
@@ -475,21 +475,21 @@
 
 .demo-stage-card h2 {
   margin: 30px 0 10px;
-  font-size: 24px;
+  font-size: 1.5rem;
   letter-spacing: -0.04em;
 }
 
 .demo-stage-card p {
   min-height: 58px;
   color: rgba(var(--foreground-rgb), 0.56);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.6;
 }
 
 .demo-stage-card strong {
   display: block;
   margin-top: 22px;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .demo-review-card {
@@ -514,7 +514,7 @@
 
 .demo-review-card h2 {
   margin: 7px 0 0;
-  font-size: 27px;
+  font-size: 1.6875rem;
 }
 
 .demo-review-card ul {
@@ -682,14 +682,14 @@
 
 .security-copy h2 {
   margin: 0;
-  font-size: 38px;
+  font-size: 2.375rem;
   line-height: 1;
   letter-spacing: -0.05em;
 }
 
 .security-copy p {
   color: rgba(var(--foreground-rgb), 0.55);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.65;
 }
 
@@ -711,13 +711,13 @@
   height: 29px;
   display: grid;
   place-items: center;
-  background: #f1ebe7;
-  color: #8c4a2e;
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--warning);
   border-radius: 8px;
 }
 
 .security-checks article > span.ready {
-  background: rgba(37, 99, 235, 0.4);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
   color: var(--success);
 }
 
@@ -728,7 +728,7 @@
 
 .security-checks strong {
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .security-checks small {
@@ -768,4 +768,3 @@
     padding: 26px 22px;
   }
 }
-

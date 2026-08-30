@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   CircleDashed,
@@ -15,9 +14,7 @@ import {
   SurfaceCard,
 } from "../../components/design-system";
 import { LiveAvatarSalesGuide } from "../../components/live-avatar-sales-guide";
-import { ThemeToggle } from "../../components/motion/theme-toggle";
-import Link from "next/link";
-import { BrandLockup } from "../../components/brand/vranceflex-logo";
+import { PublicNav } from "../../components/public-nav";
 
 const sampleLeads = [
   ["Maya Chen", "VP Revenue Operations", "Northstar Cloud", "Verified"],
@@ -34,11 +31,7 @@ export default function DemoPage() {
   return (
     <main className="marketing-page demo-page">
       <AppBackdrop subtle />
-      <nav className="nav-shell" aria-label="Demo navigation">
-        <Link className="brand" href="/" aria-label="VranceFlex home"><BrandLockup /></Link>
-        <Link className="settings-back" href="/"><ArrowLeft size={15} /> Back to product</Link>
-        <ThemeToggle variant="rectangle" start="bottom-up" className="theme-toggle" iconClassName="theme-toggle-icon" />
-      </nav>
+      <PublicNav backHref="/" backLabel="Back to product" />
 
       <header className="demo-hero">
         <span className="section-label">GUIDED SAMPLE · NO LIVE PROVIDER CALLS</span>

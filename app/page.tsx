@@ -10,9 +10,10 @@ import {
   Radio,
   Search,
   ShieldCheck,
-  Sun,
   Users,
 } from "lucide-react";
+import { BrandLockup } from "@/components/brand/vranceflex-logo";
+import { PublicNav } from "@/components/public-nav";
 
 export const metadata: Metadata = {
   title: "VranceFlex — Agent-led B2B outreach, approved by you before it sends",
@@ -111,37 +112,7 @@ export default function LandingPage() {
       <div aria-hidden="true" className="app-backdrop" />
 
       <header>
-        <nav className="nav-shell">
-          <Link className="brand" href="/">
-            <img alt="" aria-hidden="true" className="vf-brand-lockup" src="/brand/wordmark.svg" />
-          </Link>
-
-          <div className="nav-links">
-            <a href="#product">Product</a>
-            <a href="#workflow">Workflow</a>
-            <a href="#trust">Trust</a>
-          </div>
-
-          <div className="nav-actions">
-            {/* TODO: replace with your real theme toggle component (next-themes) */}
-            <button aria-label="Toggle theme" className="theme-toggle" type="button">
-              <Sun className="theme-toggle-icon" />
-            </button>
-            <Link href="/login">Sign in</Link>
-            <Link className="nav-cta" href="/signup">
-              Start a campaign <ArrowRight size={15} />
-            </Link>
-          </div>
-
-          <div className="nav-mobile-actions">
-            <button aria-label="Toggle theme" className="theme-toggle" type="button">
-              <Sun className="theme-toggle-icon" />
-            </button>
-            <Link className="nav-cta" href="/signup">
-              Start
-            </Link>
-          </div>
-        </nav>
+        <PublicNav />
       </header>
 
       <main>
@@ -159,7 +130,7 @@ export default function LandingPage() {
             </p>
 
             <div className="hero-actions">
-              <Link className="button-primary" href="/signup">
+              <Link className="button-primary" href="/sign-up">
                 Start a campaign <ArrowRight size={16} />
               </Link>
               <a className="button-secondary" href="#workflow">
@@ -240,7 +211,7 @@ export default function LandingPage() {
         </section>
 
         {/* ================= Agents ================= */}
-        <section className="agents-section">
+        <section className="agents-section" id="agents">
           <div className="section-shell">
             <div className="section-heading">
               <div>
@@ -329,18 +300,18 @@ export default function LandingPage() {
             No shared sending account, no autopilot. Just verified research and drafted
             outreach, waiting for your yes.
           </p>
-          <Link className="button-light" href="/signup">
+          <Link className="button-light" href="/sign-up">
             Start a campaign <ArrowRight size={16} />
           </Link>
         </section>
       </main>
 
       <footer>
-        <span className="footer-brand">VranceFlex</span>
+        <Link className="footer-brand" href="/" aria-label="VranceFlex home">
+          <BrandLockup />
+        </Link>
         <p>© {new Date().getFullYear()} VranceFlex. All rights reserved.</p>
-        <span>
-          <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
-        </span>
+        <Link href="/pricing">Plans and billing</Link>
       </footer>
     </div>
   );
