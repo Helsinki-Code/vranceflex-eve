@@ -9,12 +9,35 @@ const protectedPages = [
   "/settings",
 ];
 
-export default function middleware(request: NextRequest) {
-  const isProtected = protectedPages.some(
-    (path) =>
-      request.nextUrl.pathname === path ||
-      request.nextUrl.pathname.startsWith(`${path}/`),
+const nonIndexablePages = [
+  ...protectedPages,
+  "/forgot-password",
+  "/invites",
+  "/replies",
+  "/session-tasks",
+  "/sign-in",
+  "/sign-up",
+];
+
+const privateRobotsDirective =
+  "noindex, nofollow, noarchive, nosnippet, noimageindex";
+
+function matchesPath(pathname: string, paths: string[]) {
+  return paths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
+}
+
+function markPrivate(response: NextResponse, pathname: string) {
+  if (matchesPath(pathname, nonIndexablePages)) {
+    response.headers.set("X-Robots-Tag", privateRobotsDirective);
+  }
+
+  return response;
+}
+
+export default function middleware(request: NextRequest) {
+  const isProtected = matchesPath(request.nextUrl.pathname, protectedPages);
 
   if (isProtected && !request.cookies.has(AUTH_SESSION_COOKIE)) {
     const signIn = new URL("/sign-in", request.url);
@@ -22,10 +45,13 @@ export default function middleware(request: NextRequest) {
       "next",
       `${request.nextUrl.pathname}${request.nextUrl.search}`,
     );
-    return NextResponse.redirect(signIn);
+    return markPrivate(
+      NextResponse.redirect(signIn),
+      request.nextUrl.pathname,
+    );
   }
 
-  return NextResponse.next();
+  return markPrivate(NextResponse.next(), request.nextUrl.pathname);
 }
 
 export const config = {

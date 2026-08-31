@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   ArrowRight,
   Check,
@@ -15,6 +16,7 @@ import {
 } from "../../components/design-system";
 import { LiveAvatarSalesGuide } from "../../components/live-avatar-sales-guide";
 import { PublicNav } from "../../components/public-nav";
+import { PublicFooter } from "../../components/public-footer";
 
 const sampleLeads = [
   ["Maya Chen", "VP Revenue Operations", "Northstar Cloud", "Verified"],
@@ -22,17 +24,25 @@ const sampleLeads = [
   ["Amara Okafor", "Head of Growth", "Waypoint", "Needs review"],
 ];
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Guided product demo · VranceFlex",
   description: "Explore a sample VranceFlex campaign without starting paid live research.",
+  alternates: { canonical: "/demo" },
+  openGraph: {
+    url: "/demo",
+    title: "Guided VranceFlex campaign demo",
+    description:
+      "Follow a sample campaign from market discovery through verification, Eve preparation and human approval.",
+  },
 };
 
 export default function DemoPage() {
   return (
-    <main className="marketing-page demo-page">
+    <div className="marketing-page demo-page">
       <AppBackdrop subtle />
-      <PublicNav backHref="/" backLabel="Back to product" />
+      <PublicNav />
 
+      <main>
       <header className="demo-hero">
         <span className="section-label">GUIDED SAMPLE · NO LIVE PROVIDER CALLS</span>
         <h1>See how a campaign moves from market signal to approved outreach.</h1>
@@ -87,6 +97,8 @@ export default function DemoPage() {
         <div><span className="section-label">ASK THE PRODUCT GUIDE</span><h2>Want the walkthrough in your own words?</h2><p>Open the LiveAvatar guide and ask how discovery, credits, approvals, scheduling, or BYOK delivery work.</p></div>
         <LiveAvatarSalesGuide embedUrl={process.env.NEXT_PUBLIC_LIVEAVATAR_EMBED_URL} />
       </section>
-    </main>
+      </main>
+      <PublicFooter />
+    </div>
   );
 }

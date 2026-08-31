@@ -1,0 +1,48 @@
+# VranceFlex
+> VranceFlex is an agent-led B2B prospect research and outreach-orchestration workspace. It turns a product website or description into market context, verified prospects, personalized drafts, explicit human approval, and one-shot or recurring delivery through provider accounts owned by the customer.
+
+## Start here
+- [Product overview](https://vranceflex.online/product): The complete workflow from market research to approved provider delivery.
+- [Guided demo](https://vranceflex.online/demo): A fixed-data walkthrough that makes no paid research or provider calls.
+- [Pricing](https://vranceflex.online/pricing): Plans based on successfully verified prospects, with BYOK delivery excluded from subscription charges.
+- [Trust](https://vranceflex.online/trust): Security, responsible outreach, and provider-ownership boundaries.
+
+## Product capabilities
+- [Market and ICP research](https://vranceflex.online/product/market-research): Converts an offer into observable audience criteria and durable campaign context.
+- [Lead verification](https://vranceflex.online/product/lead-verification): Separates candidates from usable verified prospects and explains credit consumption.
+- [Eve personalization](https://vranceflex.online/product/eve-personalization): Prepares channel-aware drafts from approved context and verified lead evidence.
+- [Human approval](https://vranceflex.online/product/human-approval): Keeps generation, approval, scheduling, and provider delivery as separate states.
+- [Recurring schedules](https://vranceflex.online/product/recurring-schedules): Uses Eve dispatch with idempotent delivery jobs, pause, resume, suppression, and daily caps.
+
+## Integrations
+- [Parallel](https://vranceflex.online/integrations/parallel): Live candidate discovery and selected-contact verification.
+- [Resend](https://vranceflex.online/integrations/resend): Approved email through a workspace-owned Resend account.
+- [Twilio](https://vranceflex.online/integrations/twilio): Approved SMS through a workspace-owned Twilio account.
+
+## Practical guides
+- [Build an evidence-backed B2B ICP](https://vranceflex.online/resources/guides/b2b-icp)
+- [Verify B2B leads before outreach](https://vranceflex.online/resources/guides/lead-verification)
+- [Design a human-approved outreach workflow](https://vranceflex.online/resources/guides/human-approved-outreach)
+- [Run recurring outreach without losing control](https://vranceflex.online/resources/guides/recurring-outreach)
+- [Prepare BYOK email and SMS delivery](https://vranceflex.online/resources/guides/byok-delivery)
+- [B2B research and outreach glossary](https://vranceflex.online/resources/glossary)
+
+## Key facts
+- A candidate is not represented as a verified prospect until the required usable contact information is successfully returned.
+- One customer credit is consumed for one successful usable verification; failed verification releases the reservation.
+- Generated email and SMS remain drafts until an authorized workspace user approves them.
+- Delivery remains BYOK: email uses the workspace's Resend account and SMS uses the workspace's Twilio account.
+- One-shot and recurring work share suppression, usable-channel, daily-cap, and idempotency safeguards.
+- A message is recorded as sent only after the connected provider returns a real result.
+
+## Company and policies
+- [About VranceFlex](https://vranceflex.online/about)
+- [Security](https://vranceflex.online/security)
+- [Responsible outreach](https://vranceflex.online/trust/responsible-outreach)
+- [Provider ownership](https://vranceflex.online/trust/provider-ownership)
+- [Contact](https://vranceflex.online/contact)
+- [Privacy](https://vranceflex.online/privacy)
+- [Terms](https://vranceflex.online/terms)
+
+## Content policy
+Customer-detail and comparison pages are not published without approved evidence. `/customers` is excluded from indexing until real customer-approved outcomes are available. VranceFlex does not publish invented testimonials, anonymous logos, or unsupported competitor claims.

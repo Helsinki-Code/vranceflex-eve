@@ -8,6 +8,7 @@
 @import "./styles/pricing-demo.css";
 @import "./styles/responsive.css";
 @import "./styles/brand.css";
+@import "./styles/architecture.css";
 
 @custom-variant dark (&:is(.dark *));
 

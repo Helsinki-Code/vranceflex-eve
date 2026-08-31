@@ -12,13 +12,22 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { BrandLockup } from "@/components/brand/vranceflex-logo";
+import { PublicFooter } from "@/components/public-footer";
 import { PublicNav } from "@/components/public-nav";
+import { SeoJsonLd } from "@/components/seo-json-ld";
+import { absoluteSiteUrl } from "@/lib/seo/site";
 
 export const metadata: Metadata = {
   title: "VranceFlex — Agent-led B2B outreach, approved by you before it sends",
   description:
     "Give VranceFlex a product and it researches your market, builds ideal-customer profiles, finds and verifies real leads, and drafts a multi-channel outreach sequence for each one. Nothing sends until you approve it — through your own Resend and Twilio accounts.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    url: "/",
+    title: "Agent-led B2B outreach with human approval | VranceFlex",
+    description:
+      "Research a market, verify real prospects and prepare personalized outreach without surrendering the send button.",
+  },
 };
 
 const agents: Array<{
@@ -111,6 +120,32 @@ export default function LandingPage() {
     <div className="marketing-page">
       <div aria-hidden="true" className="app-backdrop" />
 
+      <SeoJsonLd data={[
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "VranceFlex",
+          url: absoluteSiteUrl("/"),
+          logo: absoluteSiteUrl("/icon.svg"),
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "VranceFlex",
+          url: absoluteSiteUrl("/"),
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "VranceFlex",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          description: metadata.description,
+          url: absoluteSiteUrl("/"),
+          offers: { "@type": "AggregateOffer", lowPrice: "99", highPrice: "699", priceCurrency: "USD", offerCount: "3" },
+        },
+      ]} />
+
       <header>
         <PublicNav />
       </header>
@@ -187,6 +222,14 @@ export default function LandingPage() {
                 <span>Nothing sent yet</span>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="geo-answer-block homepage-geo-answer" aria-labelledby="what-is-vranceflex">
+          <span>Direct answer</span>
+          <div>
+            <h2 id="what-is-vranceflex">What is VranceFlex?</h2>
+            <p>VranceFlex is an agent-led B2B prospect research and outreach-orchestration workspace. A user starts with a product website or description, and the platform turns that context into a market brief and observable ideal-customer criteria. It uses Parallel-powered discovery to find candidate people, lets the user choose who should be verified, and consumes one prospect credit only when the required usable contact information is successfully returned. Eve then prepares personalized email or SMS sequences from the approved campaign context and verified lead evidence. Generated messages remain drafts until an authorized workspace user reviews and approves them. Approved one-shot or recurring delivery runs through the customer’s own Resend or Twilio account, with suppression, usable-channel, daily-cap, and idempotency checks applied by the delivery worker. A message is recorded as sent only after the connected provider returns a real result.</p>
           </div>
         </section>
 
@@ -306,13 +349,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer>
-        <Link className="footer-brand" href="/" aria-label="VranceFlex home">
-          <BrandLockup />
-        </Link>
-        <p>© {new Date().getFullYear()} VranceFlex. All rights reserved.</p>
-        <Link href="/pricing">Plans and billing</Link>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
