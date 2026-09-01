@@ -7,6 +7,12 @@ import {
   solutionPages,
   trustPages,
 } from "../lib/seo/public-content";
+import {
+  alternativesSlugFor,
+  comparisonSlugFor,
+  competitorProfiles,
+  pairComparisons,
+} from "../lib/competitors/data";
 
 const INDEXABLE_PUBLIC_PATHS = [
   "/",
@@ -18,6 +24,12 @@ const INDEXABLE_PUBLIC_PATHS = [
   ...integrationPages.map(({ slug }) => `/integrations/${slug}`),
   "/pricing",
   "/demo",
+  "/compare",
+  ...competitorProfiles.map((profile) => `/compare/${comparisonSlugFor(profile)}`),
+  ...pairComparisons.map(({ slug }) => `/compare/${slug}`),
+  "/alternatives",
+  ...competitorProfiles.map(({ slug }) => `/alternatives/${slug}`),
+  ...competitorProfiles.map((profile) => `/alternatives/${alternativesSlugFor(profile)}`),
   "/resources",
   "/resources/guides",
   ...guidePages.map(({ slug }) => `/resources/guides/${slug}`),

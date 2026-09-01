@@ -8,6 +8,12 @@ import {
 import robots from "../../app/robots";
 import sitemap from "../../app/sitemap";
 import middleware from "../../middleware";
+import {
+  competitorLastReviewed,
+  competitorProfiles,
+  pairComparisons,
+  vranceFlexProfile,
+} from "../competitors/data";
 
 describe("public search architecture", () => {
   it("publishes the completed canonical public architecture", () => {
@@ -21,6 +27,12 @@ describe("public search architecture", () => {
       "/integrations/resend",
       "/pricing",
       "/demo",
+      "/compare",
+      "/compare/vranceflex-vs-instantly",
+      "/compare/instantly-vs-smartlead",
+      "/alternatives",
+      "/alternatives/clay",
+      "/alternatives/clay-alternatives",
       "/resources/guides/recurring-outreach",
       "/resources/glossary",
       "/trust/responsible-outreach",
@@ -32,6 +44,27 @@ describe("public search architecture", () => {
     expect(paths).not.toContain("/customers");
     expect(paths).not.toContain("/campaigns");
     expect(new Set(paths).size).toBe(paths.length);
+  });
+
+  it("publishes source-dated, centralized competitor profiles", () => {
+    expect(competitorLastReviewed).toBe("2026-08-31");
+    expect(competitorProfiles.map(({ slug }) => slug)).toEqual([
+      "instantly",
+      "smartlead",
+      "apollo",
+      "clay",
+      "lemlist",
+    ]);
+    expect(vranceFlexProfile.tradeoffs.length).toBeGreaterThanOrEqual(3);
+    expect(pairComparisons.map(({ slug }) => slug)).toEqual([
+      "instantly-vs-smartlead",
+      "apollo-vs-clay",
+    ]);
+    for (const profile of competitorProfiles) {
+      expect(profile.sources.length).toBeGreaterThan(0);
+      expect(profile.bestFor.length).toBeGreaterThanOrEqual(3);
+      expect(profile.notIdealFor.length).toBeGreaterThanOrEqual(2);
+    }
   });
 
   it("references the sitemap and blocks private route families", () => {
@@ -69,6 +102,9 @@ describe("public search architecture", () => {
     expect(llms).toContain("# VranceFlex");
     expect(llms).toContain("https://vranceflex.online/product/lead-verification");
     expect(llms).toContain("https://vranceflex.online/resources/guides/recurring-outreach");
+    expect(llms).toContain("https://vranceflex.online/compare/vranceflex-vs-instantly");
+    expect(llms).toContain("https://vranceflex.online/alternatives");
+    expect(llms).toContain("https://vranceflex.online/alternatives/instantly-alternatives");
     expect(llms).not.toContain("https://vranceflex.online/campaigns");
     expect(llms).not.toContain("https://vranceflex.online/settings");
   });

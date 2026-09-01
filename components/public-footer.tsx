@@ -32,6 +32,16 @@ const groups = [
     ],
   },
   {
+    title: "Compare",
+    links: [
+      ["All comparisons", "/compare"],
+      ["Alternative guides", "/alternatives"],
+      ["VranceFlex vs Instantly", "/compare/vranceflex-vs-instantly"],
+      ["VranceFlex vs Smartlead", "/compare/vranceflex-vs-smartlead"],
+      ["VranceFlex vs Apollo", "/compare/vranceflex-vs-apollo"],
+    ],
+  },
+  {
     title: "Legal",
     links: [
       ["Privacy", "/privacy"],

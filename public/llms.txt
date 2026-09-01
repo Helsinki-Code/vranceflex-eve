@@ -27,6 +27,18 @@
 - [Prepare BYOK email and SMS delivery](https://vranceflex.online/resources/guides/byok-delivery)
 - [B2B research and outreach glossary](https://vranceflex.online/resources/glossary)
 
+## Evidence-based comparisons
+- [Comparison hub](https://vranceflex.online/compare): Direct and head-to-head evaluations using vendor-controlled sources.
+- [Alternative guides](https://vranceflex.online/alternatives): Controlled-switch guides with explicit migration and product-limit boundaries.
+- [Instantly alternatives](https://vranceflex.online/alternatives/instantly-alternatives): Five-option market guide with evaluation criteria and use-case recommendations.
+- [VranceFlex vs Instantly](https://vranceflex.online/compare/vranceflex-vs-instantly)
+- [VranceFlex vs Smartlead](https://vranceflex.online/compare/vranceflex-vs-smartlead)
+- [VranceFlex vs Apollo](https://vranceflex.online/compare/vranceflex-vs-apollo)
+- [VranceFlex vs Clay](https://vranceflex.online/compare/vranceflex-vs-clay)
+- [VranceFlex vs lemlist](https://vranceflex.online/compare/vranceflex-vs-lemlist)
+
+Comparison pages are published by VranceFlex and are not represented as independent reviews. They use official vendor sources, state where another product is stronger, identify VranceFlex limitations, include the source-review date, and contain no invented customer quotes.
+
 ## Key facts
 - A candidate is not represented as a verified prospect until the required usable contact information is successfully returned.
 - One customer credit is consumed for one successful usable verification; failed verification releases the reservation.
@@ -45,4 +57,4 @@
 - [Terms](https://vranceflex.online/terms)
 
 ## Content policy
-Customer-detail and comparison pages are not published without approved evidence. `/customers` is excluded from indexing until real customer-approved outcomes are available. VranceFlex does not publish invented testimonials, anonymous logos, or unsupported competitor claims.
+Customer-detail pages are not published without approved evidence. `/customers` is excluded from indexing until real customer-approved outcomes are available. Competitor pages use current official sources and a visible editorial disclosure. VranceFlex does not publish invented testimonials, anonymous logos, universal winner claims, or unsupported competitor claims.

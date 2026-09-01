@@ -9,6 +9,7 @@
 @import "./styles/responsive.css";
 @import "./styles/brand.css";
 @import "./styles/architecture.css";
+@import "./styles/competitors.css";
 
 @custom-variant dark (&:is(.dark *));
 

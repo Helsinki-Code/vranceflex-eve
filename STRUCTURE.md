@@ -16,9 +16,9 @@ The architecture stays within three clicks of the homepage, uses short lowercase
 
 ## Current indexable release
 
-The repository now implements the complete approved public architecture: the homepage, Product, Solutions, Integrations, Pricing, Demo, Resources and guides, Glossary, Trust, Security, Company, About, Contact, Privacy, and Terms. Every published route has unique metadata, a canonical URL, an inbound link, and—below the hub level—a visible breadcrumb with `BreadcrumbList` structured data.
+The repository now implements the complete approved public architecture: the homepage, Product, Solutions, Integrations, Pricing, Demo, Resources and guides, Glossary, Trust, Security, Company, About, Contact, Privacy, Terms, evidence-based product comparisons, and controlled-switch alternative guides. Every published route has unique metadata, a canonical URL, an inbound link, and—below the hub level—a visible breadcrumb with `BreadcrumbList` structured data.
 
-`/customers` exists as a transparent evidence gate with `noindex` until real customer-approved outcomes are available. Customer-detail and comparison routes remain intentionally unimplemented because their publication gates have not been satisfied.
+`/customers` exists as a transparent evidence gate with `noindex` until real customer-approved outcomes are available. Comparison routes are now published from a centralized, source-dated competitor dataset. Each page discloses VranceFlex ownership, links to official vendor sources, states who should choose the competing product, and omits unapproved switcher testimonials.
 
 Authentication and product-workspace routes remain absent from the sitemap. The repository produces `/sitemap.xml` and `/robots.txt` through Next.js metadata routes, and middleware adds an HTTP `X-Robots-Tag` to private and authentication pages.
 
@@ -62,8 +62,12 @@ Homepage (/) [Live]
 ├── Company (/company) [P2]
 │   ├── About (/about) [P2]
 │   └── Contact (/contact) [P1]
-├── Compare (/compare) [Conditional]
-│   └── Evidence-Based Comparison (/compare/{competitor}) [Conditional]
+├── Compare (/compare) [Live]
+│   ├── VranceFlex vs Competitor (/compare/vranceflex-vs-{competitor}) [Live]
+│   └── Competitor vs Competitor (/compare/{competitor-a}-vs-{competitor-b}) [Live]
+├── Alternatives (/alternatives) [Live]
+│   ├── Competitor Alternative (/alternatives/{competitor}) [Live]
+│   └── Competitor Alternatives (/alternatives/{competitor}-alternatives) [Live]
 ├── Privacy (/privacy) [P1]
 └── Terms (/terms) [P1]
 ```
@@ -134,6 +138,12 @@ graph TD
 | Twilio integration | `/integrations/twilio` | Integrations | Integrations grid | High | Real setup, sender requirements and SMS behavior |
 | Pricing | `/pricing` | Homepage | Header | Critical | Live |
 | Guided demo | `/demo` | Homepage | Header | Critical | Live |
+| Comparison hub | `/compare` | Homepage | Header/Footer | High | Methodology, reviewed date and source-backed comparison index |
+| VranceFlex comparisons | `/compare/vranceflex-vs-{competitor}` | Comparison hub | Comparison grid/Footer | High | Neutral fit analysis, tradeoffs, migration and official sources |
+| Competitor comparisons | `/compare/{competitor}-vs-{competitor}` | Comparison hub | Comparison grid | Medium | Balanced third-party comparison with VranceFlex disclosed as an option |
+| Alternatives hub | `/alternatives` | Comparison hub | Footer/Comparison hub | High | Curated switch guides and distinct multi-option market guides |
+| Competitor alternatives | `/alternatives/{competitor}` | Alternatives hub | Alternatives grid | High | Honest switch/stay criteria, migration guidance and official sources |
+| Competitor alternative lists | `/alternatives/{competitor}-alternatives` | Alternatives hub | Alternatives grid | Medium | Five real options, evaluation criteria and use-case recommendations |
 | Trust hub | `/trust` | Homepage | Header/Footer | High | Consolidated proof and policies |
 | Security | `/security` | Trust | Header/Footer | High | Accurate controls, retention and tenant isolation |
 | Resources | `/resources` | Homepage | Header | Medium | At least three substantive resources at launch |
@@ -176,15 +186,16 @@ These routes receive `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noi
 
 ### Header
 
-Use five primary choices plus authentication and one CTA:
+Use six primary choices plus authentication and one CTA:
 
 1. **Product** — market research, lead verification, Eve personalization, approval and scheduling.
 2. **Solutions** — founders, agencies and revenue operations.
-3. **Pricing** — direct link to `/pricing`.
-4. **Resources** — guides, customer stories and glossary.
-5. **Demo** — direct link to `/demo`.
-6. **Sign in** — visually secondary.
-7. **Start a campaign** — rightmost primary CTA to `/sign-up` for logged-out users and `/campaigns/new` for authenticated users.
+3. **Compare** — direct link to `/compare` with alternatives discoverable from the hub.
+4. **Pricing** — direct link to `/pricing`.
+5. **Resources** — guides, customer stories and glossary.
+6. **Demo** — direct link to `/demo`.
+7. **Sign in** — visually secondary.
+8. **Start a campaign** — rightmost primary CTA to `/sign-up` for logged-out users and `/campaigns/new` for authenticated users.
 
 Until the P1 hubs exist, retain the current anchor links rather than publishing navigation to 404 pages.
 
@@ -197,10 +208,11 @@ Until the P1 hubs exist, retain the current anchor links rather than publishing 
 
 ### Footer
 
-Use four compact columns:
+Use five compact columns:
 
 - **Product:** Product, Lead Verification, Human Approval, Recurring Schedules, Pricing.
 - **Integrations:** Parallel, Resend, Twilio.
+- **Compare:** Comparison hub, Alternatives, Instantly, Smartlead, Apollo and Clay comparisons.
 - **Resources:** Demo, Guides, Customer Stories, Security, Contact.
 - **Legal:** Privacy, Terms, Responsible Outreach.
 
