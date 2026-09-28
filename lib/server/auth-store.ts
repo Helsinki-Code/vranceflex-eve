@@ -26,8 +26,10 @@ import {
 } from "./auth-crypto";
 import { assertAuthEmailConfigured, sendAuthOtp } from "./auth-email";
 import { AuthRequestError } from "./auth-errors";
+import { assertWorkspaceCapacity } from "./billing-entitlements";
 import { getDatabase } from "./database";
 import {
+  auditEvents,
   authChallenges,
   authSessions,
   organizationMemberships,
@@ -530,4 +532,42 @@ export async function switchCurrentWorkspace(organizationId: string) {
     .set({ organizationId, lastSeenAt: new Date() })
     .where(and(eq(authSessions.tokenHash, hashSessionToken(token)), isNull(authSessions.revokedAt)));
   return { organizationId };
+}
+
+// Adds a workspace to the caller's plan (Agency/Enterprise). The new workspace
+// shares the paying workspace's subscription, credits and limits, and the
+// session moves to it so the creator lands inside it.
+export async function createWorkspace(name: string) {
+  const token = await currentSessionToken();
+  const actor = await authenticateSessionToken(token);
+  if (!actor) throw new AuthRequestError("Sign in to continue.", 401);
+  if (actor.organizationRole !== "admin") {
+    throw new AuthRequestError("Only workspace admins can create workspaces.", 403);
+  }
+  const trimmed = name.trim();
+  if (trimmed.length < 2 || trimmed.length > 120) {
+    throw new AuthRequestError("Give the workspace a name between 2 and 120 characters.", 400);
+  }
+  const { billingOrganizationId } = await assertWorkspaceCapacity(actor.organizationId);
+  const organizationId = crypto.randomUUID();
+  const database = getDatabase();
+  await database.transaction(async (transaction) => {
+    await transaction.insert(organizations).values({ id: organizationId, name: trimmed, billingOrganizationId });
+    await transaction.insert(organizationMemberships).values({ organizationId, userId: actor.userId, role: "admin" });
+    await transaction.insert(auditEvents).values({
+      id: crypto.randomUUID(),
+      organizationId: billingOrganizationId,
+      actorId: actor.userId,
+      campaignId: null,
+      action: "workspace.created",
+      entityType: "organization",
+      entityId: organizationId,
+      metadata: { name: trimmed, createdFrom: actor.organizationId },
+    });
+    await transaction
+      .update(authSessions)
+      .set({ organizationId, lastSeenAt: new Date() })
+      .where(and(eq(authSessions.tokenHash, hashSessionToken(token)), isNull(authSessions.revokedAt)));
+  });
+  return { organizationId, name: trimmed };
 }

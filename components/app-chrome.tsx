@@ -4,6 +4,8 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BarChart3, BookOpen, Check, ChevronsUpDown, CreditCard, LoaderCircle, LogOut, Menu, MessageSquareText, Plus, Search, Settings2, Target, Users } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
@@ -18,7 +20,7 @@ import { ThemeToggle } from "./motion/theme-toggle";
 import { BrandLockup } from "./brand/vranceflex-logo";
 import { ProductMotion } from "./product/motion";
 
-export type ShellAccount = { workspace: string; workspaceId: string; role: string; name: string; email: string; demo: boolean; workspaces: Array<{ id: string; name: string; role: string }> };
+export type ShellAccount = { workspace: string; workspaceId: string; role: string; name: string; email: string; demo: boolean; workspaces: Array<{ id: string; name: string; role: string }>; workspaceSlots?: { used: number; limit: number } | null };
 export type ShellPlan = { name: string | null; active: boolean; status: string; available: number; included: number };
 
 const links = [
@@ -97,13 +99,51 @@ function WorkspaceBadge({ name }: { name: string }) {
   return <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground font-mono text-xs font-semibold text-background">{initials(name)}</span>;
 }
 
+function NewWorkspaceDialog({ open, onOpenChange, slots, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; slots: { used: number; limit: number }; onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const response = await fetch("/api/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const data = (await response.json()) as { error?: string; name?: string };
+      if (!response.ok) throw new Error(data.error ?? "Couldn't create the workspace.");
+      toast.success(`${data.name ?? "Workspace"} created.`);
+      setName("");
+      onOpenChange(false);
+      onCreated();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't create the workspace.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-md">
+      <form onSubmit={submit} className="grid gap-4">
+        <DialogHeader>
+          <DialogTitle>New workspace</DialogTitle>
+          <DialogDescription>A separate space for a client or team, with its own campaigns, leads and delivery accounts. It shares this plan&apos;s credits and limits. {slots.used} of {slots.limit} workspaces in use.</DialogDescription>
+        </DialogHeader>
+        <label className="grid gap-1.5 text-sm font-medium">Name<Input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Acme (client)" minLength={2} maxLength={120} required /></label>
+        <DialogFooter><Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" disabled={busy || name.trim().length < 2}>{busy ? <LoaderCircle className="animate-spin" /> : null}Create workspace</Button></DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>;
+}
+
 function WorkspaceSwitcher({ account, onNavigate }: { account: ShellAccount; onNavigate?: () => void }) {
   const router = useRouter();
   const [switching, setSwitching] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const slots = account.workspaceSlots ?? null;
+  const canCreate = Boolean(slots && slots.used < slots.limit && account.role === "admin");
   const label = <><WorkspaceBadge name={account.workspace} /><span className="min-w-0 flex-1 text-left leading-tight"><span className="block truncate text-sm font-medium text-foreground">{account.workspace}</span><span className="block truncate text-xs capitalize text-muted-foreground">{account.role}</span></span></>;
-  if (account.workspaces.length <= 1) {
+  if (account.workspaces.length <= 1 && !canCreate) {
     return <Link href="/settings/team" onClick={onNavigate} className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/60">{label}</Link>;
   }
+  const afterChange = () => { onNavigate?.(); router.push("/dashboard"); router.refresh(); };
   const switchTo = async (organizationId: string) => {
     if (organizationId === account.workspaceId) return;
     setSwitching(organizationId);
@@ -111,30 +151,32 @@ function WorkspaceSwitcher({ account, onNavigate }: { account: ShellAccount; onN
       const response = await fetch("/api/auth/workspace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId }) });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Couldn't switch workspace.");
-      onNavigate?.();
-      router.push("/dashboard");
-      router.refresh();
+      afterChange();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't switch workspace.");
     } finally {
       setSwitching(null);
     }
   };
-  return <DropdownMenu>
-    <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      {label}<ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-60">
-      <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Workspaces</DropdownMenuLabel>
-      {account.workspaces.map((workspace) => <DropdownMenuItem key={workspace.id} onSelect={() => void switchTo(workspace.id)} className="gap-2.5">
-        <WorkspaceBadge name={workspace.name} />
-        <span className="min-w-0 flex-1 leading-tight"><span className="block truncate text-sm">{workspace.name}</span><span className="block text-xs capitalize text-muted-foreground">{workspace.role}</span></span>
-        {switching === workspace.id ? <LoaderCircle className="size-3.5 animate-spin" /> : workspace.id === account.workspaceId ? <Check className="size-3.5 text-primary" /> : null}
-      </DropdownMenuItem>)}
-      <DropdownMenuSeparator />
-      <DropdownMenuItem asChild><Link href="/settings/team" onClick={onNavigate}><Users className="size-3.5" />Team & roles</Link></DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>;
+  return <>
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {label}<ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-60">
+        <DropdownMenuLabel className="flex items-center justify-between text-xs font-normal text-muted-foreground">Workspaces{slots ? <span className="font-mono">{slots.used}/{slots.limit}</span> : null}</DropdownMenuLabel>
+        {account.workspaces.map((workspace) => <DropdownMenuItem key={workspace.id} onSelect={() => void switchTo(workspace.id)} className="gap-2.5">
+          <WorkspaceBadge name={workspace.name} />
+          <span className="min-w-0 flex-1 leading-tight"><span className="block truncate text-sm">{workspace.name}</span><span className="block text-xs capitalize text-muted-foreground">{workspace.role}</span></span>
+          {switching === workspace.id ? <LoaderCircle className="size-3.5 animate-spin" /> : workspace.id === account.workspaceId ? <Check className="size-3.5 text-primary" /> : null}
+        </DropdownMenuItem>)}
+        <DropdownMenuSeparator />
+        {canCreate ? <DropdownMenuItem onSelect={() => setCreating(true)}><Plus className="size-3.5" />New workspace</DropdownMenuItem> : null}
+        <DropdownMenuItem asChild><Link href="/settings/team" onClick={onNavigate}><Users className="size-3.5" />Team & roles</Link></DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    {canCreate && slots ? <NewWorkspaceDialog open={creating} onOpenChange={setCreating} slots={slots} onCreated={afterChange} /> : null}
+  </>;
 }
 
 function SidebarBody({ account, plan, onNavigate, onSearch, layoutId }: { account: ShellAccount; plan: ShellPlan | null; onNavigate?: () => void; onSearch: () => void; layoutId: string }) {

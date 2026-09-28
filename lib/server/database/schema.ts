@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -113,6 +114,9 @@ export const organizations = pgTable("organizations", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug"),
+  // Set on extra workspaces created under an Agency/Enterprise plan: the
+  // workspace whose subscription, credits and limits this one shares.
+  billingOrganizationId: text("billing_organization_id").references((): AnyPgColumn => organizations.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -509,6 +513,9 @@ export const outreachMessages = pgTable(
     lastError: text("last_error"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    // True once this message went out with a signed unsubscribe link; older
+    // messages keep accepting their unsigned link.
+    unsubscribeSigned: boolean("unsubscribe_signed").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

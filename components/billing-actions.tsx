@@ -105,7 +105,11 @@ export function BillingActions({ billing, configuration, canManage, setupGaps, r
   const planOrder: PaidPlanKey[] = ["launch", "growth", "agency", "enterprise"];
 
   return <div className="space-y-8">
-    {setupGaps.length ? <Notice tone="warning" title="Stripe isn't fully connected">
+    {billing.billedThrough ? <Notice tone="info" title={`This workspace shares the ${billing.plan?.name ?? ""} plan of ${billing.billedThrough.name}`.replace("  ", " ")}>
+      Credits, research runs, campaigns and seats come from that plan. Switch to {billing.billedThrough.name} in the sidebar to change the plan, buy credits or see invoices.
+    </Notice> : null}
+
+    {setupGaps.length && !billing.billedThrough ? <Notice tone="warning" title="Stripe isn't fully connected">
       Checkout stays off until these are set in the hosting environment: <span className="font-mono text-xs">{setupGaps.join(", ")}</span>. Run <span className="font-mono text-xs">npm run stripe:setup</span> to create them.
     </Notice> : null}
 
@@ -142,12 +146,13 @@ export function BillingActions({ billing, configuration, canManage, setupGaps, r
           <Meter label="Research runs this month" used={billing.usage.discoveryRuns} limit={billing.usage.discoveryRunLimit} />
           <Meter label="Active campaigns" used={billing.usage.activeCampaigns} limit={currentPlan.activeCampaigns} />
           <Meter label="Seats" used={billing.usage.seats} limit={currentPlan.seats} />
+          {currentPlan.workspaces > 1 ? <Meter label="Workspaces" used={billing.usage.workspaces} limit={currentPlan.workspaces} /> : null}
           {billing.creditWindowEnd ? <p className="text-xs text-muted-foreground">Monthly credits reset {formatDate(billing.creditWindowEnd)}. Top-up credits last 12 months.</p> : null}
         </> : <p className="text-sm leading-6 text-muted-foreground">Usage limits appear here once a plan is active: monthly verified prospects, research runs, active campaigns and seats.</p>}
       </div>
     </section>
 
-    <section className="space-y-4" aria-labelledby="plans-heading">
+    {billing.billedThrough ? null : <section className="space-y-4" aria-labelledby="plans-heading">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div><h2 id="plans-heading" className="text-lg font-semibold tracking-tight">{billing.hasSubscription ? "Change plan" : "Choose a plan"}</h2><p className="text-sm text-muted-foreground">Upgrades apply now and are prorated. Downgrades credit the difference to your next invoice.</p></div>
         <IntervalToggle value={interval} onChange={setInterval} />
@@ -190,9 +195,9 @@ export function BillingActions({ billing, configuration, canManage, setupGaps, r
           </motion.article>;
         })}
       </div>
-    </section>
+    </section>}
 
-    {billing.active ? <Panel title="Extra credits" description="One-time packs for a busy month. They're used after your monthly credits and last 12 months.">
+    {billing.active && !billing.billedThrough ? <Panel title="Extra credits" description="One-time packs for a busy month. They're used after your monthly credits and last 12 months.">
       <div className="grid gap-3 sm:grid-cols-3">
         {configuration.topUps.map((item) => {
           const key = `topup-${item.key}`;
@@ -205,7 +210,7 @@ export function BillingActions({ billing, configuration, canManage, setupGaps, r
       </div>
     </Panel> : null}
 
-    {canManage ? <Panel title="Invoices" description="Receipts for subscriptions and credit packs." bodyClassName="p-0" actions={billing.hasSubscription && !billing.cancelAtPeriodEnd ? <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => void openPortal("subscription_cancel")} disabled={Boolean(busy)}>Cancel plan</Button> : null}>
+    {canManage && !billing.billedThrough ? <Panel title="Invoices" description="Receipts for subscriptions and credit packs." bodyClassName="p-0" actions={billing.hasSubscription && !billing.cancelAtPeriodEnd ? <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => void openPortal("subscription_cancel")} disabled={Boolean(busy)}>Cancel plan</Button> : null}>
       {invoices === null ? <div className="space-y-2 p-5">{[0, 1, 2].map((row) => <div key={row} className="h-4 animate-pulse rounded bg-muted" />)}</div>
         : invoices.length === 0 ? <div className="p-5"><EmptyState icon={<FileText />} title="No invoices yet" description="Invoices show up here after the first payment." /></div>
           : <ul>{invoices.map((invoice) => <li key={invoice.id} className="flex items-center justify-between gap-4 border-b border-rule px-5 py-3 text-sm last:border-0">

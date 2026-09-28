@@ -17,7 +17,16 @@ async function loadShellContext(authConfigured: boolean): Promise<{ account: She
     listUserWorkspaces(actor.userId).catch(() => []),
   ]);
   return {
-    account: { workspace: organization?.name ?? "Workspace", workspaceId: actor.organizationId, role: actor.organizationRole, name: actor.name ?? actor.email, email: actor.email, demo: false, workspaces },
+    account: {
+      workspace: organization?.name ?? "Workspace",
+      workspaceId: actor.organizationId,
+      role: actor.organizationRole,
+      name: actor.name ?? actor.email,
+      email: actor.email,
+      demo: false,
+      workspaces,
+      workspaceSlots: billing?.active && billing.plan && billing.plan.workspaces > 1 ? { used: billing.usage.workspaces, limit: billing.plan.workspaces } : null,
+    },
     plan: billing ? {
       name: billing.plan?.name ?? null,
       active: billing.active,

@@ -1,0 +1,3 @@
+ALTER TABLE "organizations" ADD COLUMN "billing_organization_id" text;--> statement-breakpoint
+ALTER TABLE "outreach_messages" ADD COLUMN "unsubscribe_signed" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "organizations" ADD CONSTRAINT "organizations_billing_organization_id_organizations_id_fk" FOREIGN KEY ("billing_organization_id") REFERENCES "public"."organizations"("id") ON DELETE set null ON UPDATE no action;

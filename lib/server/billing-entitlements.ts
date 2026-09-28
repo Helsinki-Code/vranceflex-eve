@@ -27,6 +27,7 @@ import {
   organizationBilling,
   organizationInvites,
   organizationMemberships,
+  organizations,
   prospectCreditGrants,
   prospectCreditReservations,
   usageLedger,
@@ -82,6 +83,27 @@ export function monthlyCreditWindow(anchor: Date, now: Date, subscriptionEnd: Da
   };
 }
 
+// A workspace family is a paying workspace plus the extra workspaces created
+// under its Agency/Enterprise plan. They share one subscription, one credit
+// pool and one set of limits; usage rows keep the workspace that incurred them.
+export async function resolveBillingAccount(organizationId: string) {
+  const database = getDatabase();
+  const [organization] = await database
+    .select({ billingOrganizationId: organizations.billingOrganizationId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  const billingOrganizationId = organization?.billingOrganizationId ?? organizationId;
+  const children = await database
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.billingOrganizationId, billingOrganizationId));
+  return {
+    billingOrganizationId,
+    familyOrganizationIds: [billingOrganizationId, ...children.map((child) => child.id).filter((id) => id !== billingOrganizationId)],
+  };
+}
+
 // Active subscriptions have access; a failed renewal keeps access for
 // PAYMENT_GRACE_DAYS while Stripe retries so one declined card does not stop
 // in-flight campaigns.
@@ -92,7 +114,8 @@ export function subscriptionGrantsAccess(billing: { status: string; pastDueSince
   return now.getTime() - since.getTime() < PAYMENT_GRACE_DAYS * 24 * 60 * 60 * 1_000;
 }
 
-async function activeBilling(organizationId: string) {
+async function activeBilling(workspaceId: string) {
+  const { billingOrganizationId: organizationId } = await resolveBillingAccount(workspaceId);
   const database = getDatabase();
   const [billing] = await database
     .select()
@@ -129,6 +152,7 @@ async function activeBilling(organizationId: string) {
       .where(eq(organizationBilling.organizationId, organizationId));
   }
   return {
+    billingOrganizationId: organizationId,
     billing: {
       ...billing,
       planKey: resolvedPlanKey,
@@ -147,17 +171,14 @@ export async function requireActivePlan(organizationId: string) {
       402,
     );
   }
-  await ensureCurrentSubscriptionGrant(organizationId, active);
+  await ensureCurrentSubscriptionGrant(active);
   return active;
 }
 
 async function ensureCurrentSubscriptionGrant(
-  organizationId: string,
-  active?: NonNullable<Awaited<ReturnType<typeof activeBilling>>>,
+  resolved: NonNullable<Awaited<ReturnType<typeof activeBilling>>>,
 ) {
-  const resolved = active ?? (await activeBilling(organizationId));
-  if (!resolved) return null;
-  const { billing, entitlements } = resolved;
+  const { billing, entitlements, billingOrganizationId: organizationId } = resolved;
   const now = new Date();
   const window = monthlyCreditWindow(
     billing.subscriptionStartedAt!,
@@ -241,17 +262,16 @@ export async function grantTopUpCredits(input: {
   });
 }
 
-export async function getBillingOverview(organizationId: string) {
+export async function getBillingOverview(workspaceId: string) {
   const database = getDatabase();
+  const { billingOrganizationId: organizationId, familyOrganizationIds } = await resolveBillingAccount(workspaceId);
   const [billing] = await database
     .select()
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
     .limit(1);
   const active = await activeBilling(organizationId);
-  const window = active
-    ? await ensureCurrentSubscriptionGrant(organizationId, active)
-    : null;
+  const window = active ? await ensureCurrentSubscriptionGrant(active) : null;
   const now = new Date();
   const [creditTotals] = await database
     .select({
@@ -267,13 +287,13 @@ export async function getBillingOverview(organizationId: string) {
         gt(prospectCreditGrants.remaining, 0),
       ),
     );
-  const [campaignTotals, memberTotals] = await Promise.all([
+  const [campaignTotals, memberTotals, parent] = await Promise.all([
     database
       .select({ total: sql<number>`count(*)::int` })
       .from(campaigns)
       .where(
         and(
-          eq(campaigns.organizationId, organizationId),
+          inArray(campaigns.organizationId, familyOrganizationIds),
           or(
             inArray(campaigns.status, [...ACTIVE_CAMPAIGN_STATUSES]),
             and(
@@ -284,9 +304,12 @@ export async function getBillingOverview(organizationId: string) {
         ),
       ),
     database
-      .select({ total: sql<number>`count(*)::int` })
+      .select({ total: sql<number>`count(distinct ${organizationMemberships.userId})::int` })
       .from(organizationMemberships)
-      .where(eq(organizationMemberships.organizationId, organizationId)),
+      .where(inArray(organizationMemberships.organizationId, familyOrganizationIds)),
+    organizationId === workspaceId
+      ? Promise.resolve([] as Array<{ id: string; name: string }>)
+      : database.select({ id: organizations.id, name: organizations.name }).from(organizations).where(eq(organizations.id, organizationId)).limit(1),
   ]);
   const [discoveryTotals] = window
     ? await database
@@ -294,7 +317,7 @@ export async function getBillingOverview(organizationId: string) {
         .from(usageLedger)
         .where(
           and(
-            eq(usageLedger.organizationId, organizationId),
+            inArray(usageLedger.organizationId, familyOrganizationIds),
             inArray(usageLedger.kind, ["discovery_reserved", "discovery_run"]),
             gte(usageLedger.occurredAt, window.start),
             lt(usageLedger.occurredAt, window.end),
@@ -317,12 +340,15 @@ export async function getBillingOverview(organizationId: string) {
     lastPaymentError: billing?.lastPaymentError ?? null,
     hasCustomer: Boolean(billing?.stripeCustomerId),
     hasSubscription: Boolean(billing?.stripeSubscriptionId && billing.status !== "canceled"),
+    // Set when this workspace shares another workspace's plan.
+    billedThrough: (parent[0] ?? null) as { id: string; name: string } | null,
     creditWindowStart: window?.start.toISOString() ?? null,
     creditWindowEnd: window?.end.toISOString() ?? null,
     credits: { included, topUp, available: included + topUp },
     usage: {
       activeCampaigns: campaignTotals[0]?.total ?? 0,
       seats: memberTotals[0]?.total ?? 0,
+      workspaces: familyOrganizationIds.length,
       discoveryRuns: discoveryTotals?.total ?? 0,
       discoveryRunLimit: entitlements?.discoveryRuns ?? 0,
     },
@@ -338,7 +364,7 @@ export async function reserveProspectCredits(input: {
   campaignId: string;
   candidateIds: string[];
 }) {
-  await requireActivePlan(input.organizationId);
+  const { billingOrganizationId } = await requireActivePlan(input.organizationId);
   const candidateIds = [...new Set(input.candidateIds)];
   if (!candidateIds.length) {
     throw new AuthRequestError("Select at least one prospect to verify.", 400);
@@ -346,7 +372,7 @@ export async function reserveProspectCredits(input: {
   const database = getDatabase();
   return database.transaction(async (transaction) => {
     await transaction.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`prospect-credits/${input.organizationId}`}))`,
+      sql`select pg_advisory_xact_lock(hashtext(${`prospect-credits/${billingOrganizationId}`}))`,
     );
     const existing = await transaction
       .select({ candidateId: prospectCreditReservations.candidateId })
@@ -361,7 +387,7 @@ export async function reserveProspectCredits(input: {
       .from(prospectCreditGrants)
       .where(
         and(
-          eq(prospectCreditGrants.organizationId, input.organizationId),
+          eq(prospectCreditGrants.organizationId, billingOrganizationId),
           lteNow(prospectCreditGrants.validFrom, now),
           gt(prospectCreditGrants.expiresAt, now),
           gt(prospectCreditGrants.remaining, 0),
@@ -426,9 +452,10 @@ export async function consumeProspectCredit(input: {
   candidateId: string;
 }) {
   const database = getDatabase();
+  const { billingOrganizationId } = await resolveBillingAccount(input.organizationId);
   return database.transaction(async (transaction) => {
     await transaction.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`prospect-credits/${input.organizationId}`}))`,
+      sql`select pg_advisory_xact_lock(hashtext(${`prospect-credits/${billingOrganizationId}`}))`,
     );
     const [reservation] = await transaction
       .select({
@@ -502,9 +529,10 @@ export async function releaseProspectCredits(
   const uniqueIds = [...new Set(candidateIds)];
   if (!uniqueIds.length) return { released: 0 };
   const database = getDatabase();
+  const { billingOrganizationId } = await resolveBillingAccount(organizationId);
   return database.transaction(async (transaction) => {
     await transaction.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`prospect-credits/${organizationId}`}))`,
+      sql`select pg_advisory_xact_lock(hashtext(${`prospect-credits/${billingOrganizationId}`}))`,
     );
     const reservations = await transaction
       .select()
@@ -545,6 +573,7 @@ export async function reserveDiscoveryRun(input: {
   requestedProspects: number;
 }) {
   const active = await requireActivePlan(input.organizationId);
+  const { familyOrganizationIds } = await resolveBillingAccount(input.organizationId);
   const window = monthlyCreditWindow(
     active.billing.subscriptionStartedAt!,
     new Date(),
@@ -553,7 +582,7 @@ export async function reserveDiscoveryRun(input: {
   const database = getDatabase();
   return database.transaction(async (transaction) => {
     await transaction.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`discovery-quota/${input.organizationId}`}))`,
+      sql`select pg_advisory_xact_lock(hashtext(${`discovery-quota/${active.billingOrganizationId}`}))`,
     );
     const now = new Date();
     const [credits] = await transaction
@@ -563,7 +592,7 @@ export async function reserveDiscoveryRun(input: {
       .from(prospectCreditGrants)
       .where(
         and(
-          eq(prospectCreditGrants.organizationId, input.organizationId),
+          eq(prospectCreditGrants.organizationId, active.billingOrganizationId),
           lteNow(prospectCreditGrants.validFrom, now),
           gt(prospectCreditGrants.expiresAt, now),
           gt(prospectCreditGrants.remaining, 0),
@@ -580,7 +609,7 @@ export async function reserveDiscoveryRun(input: {
       .from(usageLedger)
       .where(
         and(
-          eq(usageLedger.organizationId, input.organizationId),
+          inArray(usageLedger.organizationId, familyOrganizationIds),
           inArray(usageLedger.kind, ["discovery_reserved", "discovery_run"]),
           gte(usageLedger.occurredAt, window.start),
           lt(usageLedger.occurredAt, window.end),
@@ -588,7 +617,7 @@ export async function reserveDiscoveryRun(input: {
       );
     if ((used?.total ?? 0) >= active.entitlements.discoveryRuns) {
       throw new AuthRequestError(
-        `This workspace has used its ${active.entitlements.discoveryRuns} discovery runs for the current credit month.`,
+        `This plan has used its ${active.entitlements.discoveryRuns} discovery runs for the current credit month.`,
         429,
       );
     }
@@ -676,18 +705,21 @@ export async function recordAiGenerationUsage(input: {
 
 export async function assertSeatAvailable(organizationId: string) {
   const active = await requireActivePlan(organizationId);
+  const { familyOrganizationIds } = await resolveBillingAccount(organizationId);
   const database = getDatabase();
+  // Seats are shared across the workspace family: a person in two workspaces
+  // counts once, and every pending invite holds a seat until it's accepted.
   const [members, invites] = await Promise.all([
     database
-      .select({ total: sql<number>`count(*)::int` })
+      .select({ total: sql<number>`count(distinct ${organizationMemberships.userId})::int` })
       .from(organizationMemberships)
-      .where(eq(organizationMemberships.organizationId, organizationId)),
+      .where(inArray(organizationMemberships.organizationId, familyOrganizationIds)),
     database
       .select({ total: sql<number>`count(*)::int` })
       .from(organizationInvites)
       .where(
         and(
-          eq(organizationInvites.organizationId, organizationId),
+          inArray(organizationInvites.organizationId, familyOrganizationIds),
           eq(organizationInvites.status, "pending"),
           gt(organizationInvites.expiresAt, new Date()),
           isNull(organizationInvites.revokedAt),
@@ -702,6 +734,20 @@ export async function assertSeatAvailable(organizationId: string) {
     );
   }
   return active.entitlements;
+}
+
+export async function assertWorkspaceCapacity(organizationId: string) {
+  const active = await requireActivePlan(organizationId);
+  const { familyOrganizationIds, billingOrganizationId } = await resolveBillingAccount(organizationId);
+  if (familyOrganizationIds.length >= active.entitlements.workspaces) {
+    throw new AuthRequestError(
+      active.entitlements.workspaces === 1
+        ? `${active.entitlements.name} includes one workspace. Agency and Enterprise plans include more.`
+        : `${active.entitlements.name} includes ${active.entitlements.workspaces} workspaces and all are in use.`,
+      402,
+    );
+  }
+  return { entitlements: active.entitlements, billingOrganizationId };
 }
 
 export async function assertCampaignCapacity(input: {
@@ -746,9 +792,10 @@ export function emptyBillingOverview(): BillingOverview {
     lastPaymentError: null,
     hasCustomer: false,
     hasSubscription: false,
+    billedThrough: null,
     creditWindowStart: null,
     creditWindowEnd: null,
     credits: { included: 0, topUp: 0, available: 0 },
-    usage: { activeCampaigns: 0, seats: 0, discoveryRuns: 0, discoveryRunLimit: 0 },
+    usage: { activeCampaigns: 0, seats: 0, workspaces: 1, discoveryRuns: 0, discoveryRunLimit: 0 },
   };
 }

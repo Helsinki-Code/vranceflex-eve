@@ -13,7 +13,7 @@ import {
 } from "../domain/billing";
 import type { ApiActor } from "./api-actor";
 import { AuthRequestError } from "./auth-errors";
-import { getBillingOverview, grantTopUpCredits } from "./billing-entitlements";
+import { getBillingOverview, grantTopUpCredits, resolveBillingAccount } from "./billing-entitlements";
 import { sendBillingNotice } from "./billing-email";
 import {
   metadataPlan,
@@ -43,6 +43,22 @@ function requireBillingAccess(actor: ApiActor) {
       403,
     );
   }
+}
+
+// Extra workspaces share their parent's subscription; every billing change has
+// to happen in the paying workspace so there is only ever one subscription.
+async function assertManagesOwnBilling(actor: ApiActor) {
+  const { billingOrganizationId } = await resolveBillingAccount(actor.organizationId);
+  if (billingOrganizationId === actor.organizationId) return;
+  const [parent] = await getDatabase()
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, billingOrganizationId))
+    .limit(1);
+  throw new AuthRequestError(
+    `This workspace shares the plan of ${parent?.name ?? "its parent workspace"}. Switch to that workspace to manage billing.`,
+    409,
+  );
 }
 
 export function canManageBilling(role: ApiActor["organizationRole"]) {
@@ -144,6 +160,7 @@ export async function createSubscriptionCheckout(
   input: { plan: SelfServePlanKey; interval: BillingInterval },
 ) {
   requireBillingAccess(actor);
+  await assertManagesOwnBilling(actor);
   const plan = selfServePlanKeySchema.parse(input.plan);
   const priceId = subscriptionPriceId(plan, input.interval);
   if (!priceId) throw new AuthRequestError("This plan is not configured in Stripe yet.", 503);
@@ -199,6 +216,7 @@ export async function changeSubscriptionPlan(
   input: { plan: SelfServePlanKey; interval: BillingInterval },
 ) {
   requireBillingAccess(actor);
+  await assertManagesOwnBilling(actor);
   const plan = selfServePlanKeySchema.parse(input.plan);
   const priceId = subscriptionPriceId(plan, input.interval);
   if (!priceId) throw new AuthRequestError("This plan is not configured in Stripe yet.", 503);
@@ -242,6 +260,7 @@ export async function createTopUpCheckout(
   input: { packageKey: TopUpPackageKey },
 ) {
   requireBillingAccess(actor);
+  await assertManagesOwnBilling(actor);
   const packageKey = topUpPackageKeySchema.parse(input.packageKey);
   const overview = await getBillingOverview(actor.organizationId);
   if (!overview.active) {
@@ -278,6 +297,7 @@ export async function createTopUpCheckout(
 
 export async function createPortalSession(actor: ApiActor, flow?: "payment_method_update" | "subscription_cancel") {
   requireBillingAccess(actor);
+  await assertManagesOwnBilling(actor);
   const stripe = getStripeClient();
   const billing = await getBillingSummary(actor);
   if (!billing.stripeCustomerId) {
@@ -304,6 +324,7 @@ export async function createPortalSession(actor: ApiActor, flow?: "payment_metho
 
 export async function resumeSubscription(actor: ApiActor) {
   requireBillingAccess(actor);
+  await assertManagesOwnBilling(actor);
   const billing = await getBillingSummary(actor);
   if (!billing.stripeSubscriptionId) throw new AuthRequestError("There is no subscription to resume.", 400);
   const updated = await getStripeClient().subscriptions.update(billing.stripeSubscriptionId, { cancel_at_period_end: false });
@@ -326,6 +347,8 @@ export type InvoiceSummary = {
 
 export async function listInvoices(actor: ApiActor): Promise<InvoiceSummary[]> {
   requireBillingAccess(actor);
+  const { billingOrganizationId } = await resolveBillingAccount(actor.organizationId);
+  if (billingOrganizationId !== actor.organizationId) return [];
   const billing = await getBillingSummary(actor);
   if (!billing.stripeCustomerId) return [];
   const invoices = await getStripeClient().invoices.list({ customer: billing.stripeCustomerId, limit: 12 });
