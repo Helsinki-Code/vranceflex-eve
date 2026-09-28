@@ -9,6 +9,7 @@ import { suppressLeadForUnsubscribe } from "./suppression";
 import { getDatabase, hasDatabaseConfiguration } from "./database";
 import { isDemoModeEnabled } from "../auth/config";
 import { demoReplies } from "./demo-replies";
+import { scheduleReplyRefinement } from "./reply-ai";
 import {
   auditEvents,
   campaigns,
@@ -253,6 +254,18 @@ export async function recordInboundReply(context: ReplyContext, input: ReplyReco
     }
     return { id: replyId, duplicate: false };
   });
+
+  if (!result.duplicate) {
+    scheduleReplyRefinement({
+      replyId: result.id,
+      channel: input.channel,
+      text: input.text,
+      subject: input.subject,
+      leadName: context.lead.personName,
+      companyName: context.lead.companyName,
+      regexIntent: classification.intent,
+    });
+  }
 
   return {
     linked: true as const,
