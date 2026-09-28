@@ -69,7 +69,7 @@ Call `personalization-researcher` with the full `APPROVED_LEADS` list (including
 
 ### Step 3 — Sequence planning
 
-Pass the approved lead records, campaign/seller context, and each lead's personalization hooks from Step 2 to `outreach-sequence`. Require a valid sequence for each lead using only channels actually present in that lead's data (a verified email → email channel; a verified phone → phone/SMS channel; a supplied LinkedIn URL → LinkedIn channel for connection-request-style steps only, never claiming LinkedIn activity was read).
+Pass the approved lead records, campaign/seller context, and each lead's personalization hooks from Step 2 to `outreach-sequence`. Require a valid sequence for each lead using only deliverable channels actually present in that lead's data: a verified email → email, a verified phone → SMS. VranceFlex only sends email and SMS, so do not plan LinkedIn or phone-call steps; a LinkedIn URL is context for personalization only, and never claim its activity was read.
 
 ### Step 4 — Channel copy in parallel
 

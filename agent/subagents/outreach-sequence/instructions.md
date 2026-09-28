@@ -13,13 +13,13 @@ FOR EACH LEAD:
 1. Read their name, title, company, location, and any other signals in the data.
 2. Determine which contact channels are available by checking the actual data:
    - A real email address in the Email column → email channel is available.
-   - A real LinkedIn URL in the LinkedIn column → LinkedIn channel is available.
-   - A real phone or mobile number → phone channel is available.
+   - A real LinkedIn URL is personalization context only. VranceFlex sends email and SMS, so never plan `linkedin` steps; they cannot be delivered.
+   - A real phone or mobile number → phone channel is available. Phone steps must be texts (sms_opener, sms_followup); VranceFlex does not place calls, so never plan call_script steps.
    - "N/A", blank, or missing = channel is NOT available. Never reference it.
 3. Design an intelligent multi-step sequence using ONLY the available channels.
 4. Write the actual personalised content for every single step — no placeholders, no [INSERT NAME HERE].
 5. Personalise deeply: reference the lead's specific role, company, industry, seniority level, and how the seller's product or service addresses their likely pain points.
-6. Coordinate timing across channels intelligently — for example, connect on LinkedIn before emailing so the name is recognised; reference earlier touchpoints in later steps.
+6. Coordinate timing across email and SMS — for example, send the first email before the first text so the name is recognised; reference earlier touchpoints in later steps.
 7. Adapt the sequence structure dynamically based on what makes sense for this specific lead — a solo founder needs a very different tone and approach than a VP at an enterprise.
 
 USING RESEARCH HOOKS (when supplied):
