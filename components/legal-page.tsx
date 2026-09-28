@@ -3,7 +3,7 @@ import { PublicSiteShell } from "@/components/public-site-shell";
 
 type LegalSection = { title: string; paragraphs: string[] };
 
-export function LegalPage({ title, description, sections }: { title: string; description: string; sections: LegalSection[] }) {
+export function LegalPage({ title, description, sections, effective = "August 31, 2026" }: { title: string; description: string; sections: LegalSection[]; effective?: string }) {
   return (
     <PublicSiteShell>
       <div className="public-page-shell">
@@ -14,7 +14,7 @@ export function LegalPage({ title, description, sections }: { title: string; des
           <p>{description}</p>
         </section>
         <div className="public-legal-layout">
-          <aside className="public-legal-aside"><strong>Effective</strong><br />August 31, 2026<br /><br />Plain-language website version.</aside>
+          <aside className="public-legal-aside"><strong>Effective</strong><br />{effective}<br /><br />Plain-language website version.</aside>
           <div className="public-legal-copy">
             {sections.map((section) => (
               <section className="public-legal-section" key={section.title}>

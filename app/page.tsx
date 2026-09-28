@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -251,6 +252,19 @@ export default function LandingPage() {
             <strong>Real infrastructure</strong>
             <p>Postgres, encrypted credentials, audited events — not a spreadsheet with a chatbot on top.</p>
           </article>
+        </section>
+
+        {/* ================= Product view ================= */}
+        <section className="mx-auto w-full max-w-[73.75rem] px-4 py-16 sm:px-6" aria-labelledby="product-view-title">
+          <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <h2 id="product-view-title" className="max-w-xl text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">Every lead arrives with the evidence behind it.</h2>
+            <p className="max-w-md text-sm leading-6 text-muted-foreground">The leads view from the product: confidence from the sources found, which contact details verified, and who is suppressed. Open any row to read the sources.</p>
+          </div>
+          <div className="overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-[0_30px_80px_-40px_rgba(0,0,0,0.35)]">
+            <Image className="block h-auto w-full dark:hidden" src="/product/leads-light.webp" alt="VranceFlex leads view listing eight researched decision-makers with verified contact details, a five-step confidence meter and status for each" width={1920} height={1147} sizes="(min-width: 1200px) 1180px, 100vw" />
+            <Image className="hidden h-auto w-full dark:block" src="/product/leads-dark.webp" alt="" aria-hidden="true" width={1920} height={1147} sizes="(min-width: 1200px) 1180px, 100vw" />
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">Sample data from the demo workspace.</p>
         </section>
 
         {/* ================= Agents ================= */}
