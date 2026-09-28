@@ -5,7 +5,8 @@ import { BrandWordmark, VranceLoader } from "./vranceflex-logo";
 
 type LoaderPhase = "active" | "leaving" | "hidden";
 
-const FULL_SEQUENCE_MS = 2700;
+const FULL_SEQUENCE_MS = 1400;
+const SEEN_KEY = "vf-startup-seen";
 const EXIT_MS = 420;
 const REDUCED_SEQUENCE_MS = 650;
 
@@ -13,6 +14,10 @@ export function StartupLoader() {
   const [phase, setPhase] = useState<LoaderPhase>("active");
 
   useEffect(() => {
+    // The brand sequence plays once per browser session; later loads skip straight to content.
+    let seen = false;
+    try { seen = window.sessionStorage.getItem(SEEN_KEY) === "1"; window.sessionStorage.setItem(SEEN_KEY, "1"); } catch {}
+    if (seen) { setPhase("hidden"); return; }
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const sequenceDuration = reducedMotion ? REDUCED_SEQUENCE_MS : FULL_SEQUENCE_MS;
     const leaveTimer = window.setTimeout(() => setPhase("leaving"), sequenceDuration);

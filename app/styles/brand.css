@@ -284,7 +284,7 @@
 .vf-startup-manifesto {
   margin: 13px 0 0;
   color: var(--startup-muted);
-  font-size: var(--text-xs);
+  font-size: var(--vf-text-xs);
   font-weight: 560;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -298,7 +298,7 @@
   margin-top: 42px;
   color: var(--startup-muted);
   font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
+  font-size: var(--vf-text-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }

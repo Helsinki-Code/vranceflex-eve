@@ -20,6 +20,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
       authConfigured={isAuthConfigured()}
       eyebrow="RESEARCH WORKSPACE"
       title="Leads"
+      description="Every person research found, with the sources behind them. Open a row to see the evidence before it reaches a sequence."
     >
       <LeadsWorkspace campaignId={campaignId} />
     </AppShell>

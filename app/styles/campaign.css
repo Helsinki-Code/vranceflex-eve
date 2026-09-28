@@ -54,14 +54,14 @@
   
   .wizard-nav > span {
     color: color-mix(in srgb, var(--foreground) 48%, transparent);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     font-weight: 750;
   }
   
   .wizard-nav > a:last-child {
     justify-self: end;
     color: color-mix(in srgb, var(--foreground) 64%, transparent);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     font-weight: 700;
   }
   
@@ -111,7 +111,7 @@
     border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
     background: var(--background);
     border-radius: 50%;
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 800;
   }
   
@@ -126,7 +126,7 @@
   }
   
   .wizard-progress small {
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 750;
   }
   
@@ -134,8 +134,8 @@
     padding: var(--space-9);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     background: var(--card);
-    border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-notch-xl);
-    box-shadow: var(--shadow-md);
+    border-radius: var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-notch-xl);
+    box-shadow: var(--vf-shadow-md);
   }
   
   .field-grid {
@@ -151,7 +151,7 @@
   .field-grid label {
     display: grid;
     gap: var(--space-2);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     font-weight: 760;
   }
   
@@ -161,11 +161,11 @@
     width: 100%;
     padding: var(--space-3);
     border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-    border-radius: var(--radius-sm);
+    border-radius: var(--vf-radius-sm);
     background: var(--background);
     color: var(--foreground);
     font: inherit;
-    font-size: var(--text-base);
+    font-size: var(--vf-text-base);
   }
   
   .source-field {
@@ -192,9 +192,9 @@
     gap: var(--space-3);
     padding: var(--space-4);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-    border-radius: var(--radius-md);
+    border-radius: var(--vf-radius-md);
     cursor: pointer;
-    transition: border-color 140ms var(--ease-out), background 140ms var(--ease-out);
+    transition: border-color 140ms var(--vf-ease-out), background 140ms var(--vf-ease-out);
   }
   
   .idea-grid label:has(input:checked) {
@@ -223,13 +223,13 @@
     padding: var(--space-7);
     border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
     background: var(--card);
-    border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-notch-xl);
+    border-radius: var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-notch-xl);
   }
   
   .campaign-workspace-head > div:first-child > span,
   .approval-toolbar > div:first-child > span {
     color: var(--primary);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 850;
     letter-spacing: 0.11em;
   }
@@ -244,7 +244,7 @@
   .approval-toolbar p {
     margin: 0;
     color: color-mix(in srgb, var(--foreground) 55%, transparent);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     line-height: 1.6;
   }
   
@@ -258,7 +258,7 @@
     padding: var(--space-5) var(--space-6);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     background: color-mix(in srgb, var(--primary) 14%, transparent);
-    border-radius: var(--radius-lg);
+    border-radius: var(--vf-radius-lg);
   }
   
   .pipeline-live-card.failed {
@@ -270,7 +270,7 @@
     height: 2.4375rem;
     display: grid;
     place-items: center;
-    border-radius: var(--radius-sm);
+    border-radius: var(--vf-radius-sm);
     background: var(--primary);
     color: var(--primary-foreground);
   }
@@ -283,13 +283,13 @@
   
   .pipeline-live-card strong {
     margin-bottom: var(--space-1);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
   }
   
   .pipeline-live-card p,
   .pipeline-live-card small {
     color: color-mix(in srgb, var(--foreground) 56%, transparent);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     line-height: 1.5;
   }
   
@@ -311,7 +311,7 @@
     height: 2.4375rem;
     display: grid;
     place-items: center;
-    border-radius: var(--radius-sm);
+    border-radius: var(--vf-radius-sm);
     background: var(--primary);
     color: var(--primary-foreground);
   }
@@ -337,7 +337,7 @@
     padding: var(--space-2) var(--space-3);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     border-radius: 999px;
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 760;
     color: color-mix(in srgb, var(--foreground) 45%, transparent);
   }
@@ -390,7 +390,7 @@
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-4);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     color: color-mix(in srgb, var(--foreground) 55%, transparent);
     line-height: 1.5;
   }
@@ -402,7 +402,7 @@
   
   .execution-feed time {
     flex: 0 0 auto;
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-variant-numeric: tabular-nums;
     color: color-mix(in srgb, var(--foreground) 40%, transparent);
   }
@@ -415,7 +415,7 @@
     padding: var(--space-3) var(--space-4);
     border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
     background: color-mix(in srgb, var(--warning) 14%, transparent);
-    border-radius: var(--radius-md);
+    border-radius: var(--vf-radius-md);
   }
   
   .execution-stalled svg {
@@ -426,7 +426,7 @@
   .execution-stalled p {
     flex: 1;
     margin: 0;
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     line-height: 1.5;
     color: color-mix(in srgb, var(--foreground) 72%, transparent);
   }
@@ -451,7 +451,7 @@
     padding: var(--space-5) var(--space-6);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     background: var(--card);
-    border-radius: var(--radius-lg);
+    border-radius: var(--vf-radius-lg);
   }
   
   .candidate-stage.muted {
@@ -468,13 +468,13 @@
   .candidate-stage header strong {
     display: block;
     margin-bottom: var(--space-1);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
   }
   
   .candidate-stage header p {
     margin: 0;
     color: color-mix(in srgb, var(--foreground) 56%, transparent);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     line-height: 1.5;
     max-width: 30rem;
   }
@@ -518,14 +518,14 @@
   
   .candidate-list strong {
     display: block;
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
   }
   
   .candidate-list small {
     display: block;
     margin-top: 0.1875rem;
     color: color-mix(in srgb, var(--foreground) 55%, transparent);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     line-height: 1.5;
   }
   
@@ -541,7 +541,7 @@
     padding: var(--space-7) var(--space-7);
     border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
     background: var(--card);
-    border-radius: var(--radius-lg);
+    border-radius: var(--vf-radius-lg);
   }
   
   .approval-toolbar h3 {
@@ -564,7 +564,7 @@
     padding: var(--space-7) var(--space-7);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     background: color-mix(in srgb, var(--primary) 12%, transparent);
-    border-radius: var(--radius-lg);
+    border-radius: var(--vf-radius-lg);
   }
   
   .schedule-toolbar-copy > span {
@@ -572,7 +572,7 @@
     align-items: center;
     gap: var(--space-2);
     color: var(--primary);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 850;
     letter-spacing: 0.11em;
   }
@@ -586,7 +586,7 @@
   .schedule-toolbar p {
     margin: 0;
     color: color-mix(in srgb, var(--foreground) 56%, transparent);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     line-height: 1.55;
   }
   
@@ -599,7 +599,7 @@
   .schedule-fields label {
     display: grid;
     gap: var(--space-2);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 780;
   }
   
@@ -609,10 +609,10 @@
     padding: 0 var(--space-3);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     background: var(--background);
-    border-radius: var(--radius-sm);
+    border-radius: var(--vf-radius-sm);
     color: var(--foreground);
     font: inherit;
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
   }
   
   .schedule-actions {
@@ -629,7 +629,7 @@
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     background: var(--card);
-    border-radius: var(--radius-lg);
+    border-radius: var(--vf-radius-lg);
   }
   
   .sequence-review-card > header {
@@ -642,7 +642,7 @@
   }
   
   .sequence-review-card > header strong {
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
   }
   
   .sequence-review-card-body {
@@ -655,7 +655,7 @@
     margin: 0;
     color: color-mix(in srgb, var(--foreground) 62%, transparent);
     line-height: 1.55;
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
   }
   
   /* ==========================================================================

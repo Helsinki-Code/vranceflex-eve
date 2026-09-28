@@ -64,7 +64,7 @@ export function AccountSettingsForm({
         <Input disabled value={email} />
       </label>
       <ActionButton className="button-primary" disabled={busy} type="submit">
-        {busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}
+        {busy ? <LoaderCircle className="animate-spin" size={16} /> : <Save size={16} />}
         Save profile
       </ActionButton>
       <Link href="/forgot-password">Reset password and revoke active sessions</Link>

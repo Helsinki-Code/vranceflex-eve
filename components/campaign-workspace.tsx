@@ -128,7 +128,7 @@ function ExecutionProgressPanel({
   return (
     <section className="pipeline-live-card execution-progress">
       <header>
-        <span><LoaderCircle className="spin" size={20} /></span>
+        <span><LoaderCircle className="animate-spin" size={20} /></span>
         <div>
           <strong>Eve is preparing this campaign</strong>
           <p>Live progress from the agents working on your leads. Nothing is sent without your approval.</p>
@@ -155,7 +155,7 @@ function ExecutionProgressPanel({
               {index < currentIndex ? (
                 <Check size={12} />
               ) : index === currentIndex ? (
-                <LoaderCircle className="spin" size={12} />
+                <LoaderCircle className="animate-spin" size={12} />
               ) : (
                 <CircleDashed size={12} />
               )}
@@ -172,7 +172,7 @@ function ExecutionProgressPanel({
           onClick={onStop}
           type="button"
         >
-          {stopBusy ? <LoaderCircle className="spin" size={14} /> : <Square size={13} />}
+          {stopBusy ? <LoaderCircle className="animate-spin" size={14} /> : <Square size={13} />}
           Stop campaign
         </ActionButton>
       </div>
@@ -240,7 +240,7 @@ function CandidateWorkspacePanel({
           onClick={onRediscover}
           type="button"
         >
-          {busyAction === "rediscover" ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}
+          {busyAction === "rediscover" ? <LoaderCircle className="animate-spin" size={15} /> : <RefreshCw size={15} />}
           Search again
         </ActionButton>
       </section>
@@ -266,7 +266,7 @@ function CandidateWorkspacePanel({
                 onClick={onRediscover}
                 type="button"
               >
-                {busyAction === "rediscover" ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
+                {busyAction === "rediscover" ? <LoaderCircle className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                 Search again
               </ActionButton>
               <ActionButton
@@ -294,7 +294,7 @@ function CandidateWorkspacePanel({
                 onClick={() => onVerify(selectedDiscovered)}
                 type="button"
               >
-                {busyAction === "verify" ? <LoaderCircle className="spin" size={14} /> : null}
+                {busyAction === "verify" ? <LoaderCircle className="animate-spin" size={14} /> : null}
                 Verify {selectedDiscovered.length || ""} selected
               </ActionButton>
             </div>
@@ -332,7 +332,7 @@ function CandidateWorkspacePanel({
               <strong>Verifying {enriching.length} {enriching.length === 1 ? "person" : "people"}…</strong>
               <p>Checking real email, phone and LinkedIn details. This runs in the background.</p>
             </div>
-            <LoaderCircle className="spin" size={18} />
+            <LoaderCircle className="animate-spin" size={18} />
           </header>
         </div>
       )}
@@ -364,7 +364,7 @@ function CandidateWorkspacePanel({
                 onClick={() => onApprove(selectedVerified)}
                 type="button"
               >
-                {busyAction === "approve-leads" ? <LoaderCircle className="spin" size={14} /> : null}
+                {busyAction === "approve-leads" ? <LoaderCircle className="animate-spin" size={14} /> : null}
                 Approve {selectedVerified.length || ""} selected
               </ActionButton>
             </div>
@@ -866,7 +866,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             onClick={() => void retryExecution()}
             type="button"
           >
-            {busyAction === "retry" ? <LoaderCircle className="spin" size={15} /> : <Play size={15} />}
+            {busyAction === "retry" ? <LoaderCircle className="animate-spin" size={15} /> : <Play size={15} />}
             Continue with Eve
           </ActionButton>
         </section>
@@ -897,7 +897,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             onClick={() => void retryExecution()}
             type="button"
           >
-            {busyAction === "retry" ? <LoaderCircle className="spin" size={15} /> : <Play size={15} />}
+            {busyAction === "retry" ? <LoaderCircle className="animate-spin" size={15} /> : <Play size={15} />}
             Continue from checkpoint
           </ActionButton>
         </section>
@@ -922,7 +922,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
             onClick={() => void retryExecution()}
             type="button"
           >
-            {busyAction === "retry" ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}
+            {busyAction === "retry" ? <LoaderCircle className="animate-spin" size={15} /> : <RefreshCw size={15} />}
             Continue with Eve
           </ActionButton>
         </section>
@@ -964,7 +964,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                 onClick={() => void approveSelected()}
                 type="button"
               >
-                {busyAction === "approve" ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}
+                {busyAction === "approve" ? <LoaderCircle className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
                 Approve {selected.length || ""}
               </ActionButton>
             </div>
@@ -1046,7 +1046,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                   type="button"
                 >
                   {busyAction === "schedule" ? (
-                    <LoaderCircle className="spin" size={16} />
+                    <LoaderCircle className="animate-spin" size={16} />
                   ) : (
                     <Send size={16} />
                   )}
@@ -1219,7 +1219,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                               onClick={() => void saveMessage(message.id)}
                               type="button"
                             >
-                              {busyAction === message.id ? <LoaderCircle className="spin" size={15} /> : <Save size={15} />}
+                              {busyAction === message.id ? <LoaderCircle className="animate-spin" size={15} /> : <Save size={15} />}
                             </ActionButton>
                           )}
                         </div>

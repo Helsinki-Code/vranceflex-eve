@@ -1,15 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "./styles/marketing.css";
-@import "./styles/campaign.css";
-@import "./styles/dashboard.css";
-@import "./styles/auth-settings.css";
-@import "./styles/leads-replies.css";
-@import "./styles/pricing-demo.css";
-@import "./styles/responsive.css";
-@import "./styles/brand.css";
-@import "./styles/architecture.css";
-@import "./styles/competitors.css";
+@import "./styles/marketing.css" layer(components);
+@import "./styles/campaign.css" layer(components);
+@import "./styles/dashboard.css" layer(components);
+@import "./styles/auth-settings.css" layer(components);
+@import "./styles/leads-replies.css" layer(components);
+@import "./styles/pricing-demo.css" layer(components);
+@import "./styles/responsive.css" layer(components);
+@import "./styles/brand.css" layer(components);
+@import "./styles/architecture.css" layer(components);
+@import "./styles/competitors.css" layer(components);
 
 @custom-variant dark (&:is(.dark *));
 
@@ -37,4 +37,8 @@
   --color-ring: var(--ring);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-surface-raised: var(--surface-raised);
+  --color-rule: var(--rule);
+  --color-verified: var(--verified);
+  --ease-ledger: cubic-bezier(0.2, 0.8, 0.2, 1);
 }

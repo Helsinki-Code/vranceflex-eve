@@ -139,7 +139,7 @@ function ResendCard({
           <div><span>Reply domain</span><strong>{summary.replyDomain}</strong></div>
           {isAdmin && (
             <ActionButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
-              {busy ? <LoaderCircle className="spin" size={14} /> : <Unlink size={14} />}
+              {busy ? <LoaderCircle className="animate-spin" size={14} /> : <Unlink size={14} />}
               Disconnect
             </ActionButton>
           )}
@@ -155,7 +155,7 @@ function ResendCard({
           <label><span>Reply domain</span><Input name="replyDomain" placeholder="reply.yourdomain.com" required /></label>
           <label><span>Webhook signing secret</span><Input name="webhookSecret" required type="password" /></label>
           <ActionButton className="button-primary compact" disabled={busy} type="submit">
-            {busy ? <LoaderCircle className="spin" size={14} /> : null}
+            {busy ? <LoaderCircle className="animate-spin" size={14} /> : null}
             Connect Resend
           </ActionButton>
         </form>
@@ -239,7 +239,7 @@ function TwilioCard({
           <div><span>Messaging Service</span><strong>{summary.messagingServiceSid}</strong></div>
           {isAdmin && (
             <ActionButton className="button-secondary compact" disabled={busy} onClick={() => void disconnect()} type="button">
-              {busy ? <LoaderCircle className="spin" size={14} /> : <Unlink size={14} />}
+              {busy ? <LoaderCircle className="animate-spin" size={14} /> : <Unlink size={14} />}
               Disconnect
             </ActionButton>
           )}
@@ -250,7 +250,7 @@ function TwilioCard({
           <label><span>Auth token</span><Input name="authToken" required type="password" /></label>
           <label><span>Messaging Service SID</span><Input name="messagingServiceSid" placeholder="MG…" required /></label>
           <ActionButton className="button-primary compact" disabled={busy} type="submit">
-            {busy ? <LoaderCircle className="spin" size={14} /> : null}
+            {busy ? <LoaderCircle className="animate-spin" size={14} /> : null}
             Connect Twilio
           </ActionButton>
         </form>

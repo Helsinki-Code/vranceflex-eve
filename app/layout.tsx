@@ -43,8 +43,10 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <StartupLoader />
           <noscript><style>{`.vf-startup-overlay{display:none!important}`}</style></noscript>
+          <script dangerouslySetInnerHTML={{ __html: `try{if(sessionStorage.getItem("vf-startup-seen")==="1")document.documentElement.dataset.vfBooted="1"}catch(e){}` }} />
+          <style>{`html[data-vf-booted] .vf-startup-overlay{display:none!important}`}</style>
+          <StartupLoader />
           {children}
         </ThemeProvider>
       </body>

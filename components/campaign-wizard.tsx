@@ -328,7 +328,7 @@ export function CampaignWizard({
           <ActionButton className="button-primary" disabled={!canContinue} onClick={() => setStep((current) => current + 1)} type="button">Continue <ArrowRight size={16} /></ActionButton>
         ) : (
           <ActionButton className="button-primary" disabled={!canContinue || state === "submitting"} onClick={() => void submit()} type="button">
-            {state === "submitting" ? <><LoaderCircle className="spin" size={17} /> Creating campaign</> : <>Start research <ArrowRight size={16} /></>}
+            {state === "submitting" ? <><LoaderCircle className="animate-spin" size={17} /> Creating campaign</> : <>Start research <ArrowRight size={16} /></>}
           </ActionButton>
         )}
       </div>

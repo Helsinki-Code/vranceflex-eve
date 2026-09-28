@@ -208,7 +208,7 @@ export function ReplyInbox() {
                     onClick={() => void updateStatus(reply.id, "reviewed")}
                     type="button"
                   >
-                    {busy === reply.id ? <LoaderCircle className="spin" size={14} /> : <CheckCircle2 size={14} />}
+                    {busy === reply.id ? <LoaderCircle className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
                     Mark reviewed
                   </ActionButton>
                 </div>

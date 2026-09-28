@@ -70,7 +70,7 @@ export function BillingActions({
             onClick={() => void redirectFrom("/api/billing/portal")}
             type="button"
           >
-            {busy.startsWith("/api/billing/portal") ? <LoaderCircle className="spin" size={15} /> : <Settings2 size={15} />}
+            {busy.startsWith("/api/billing/portal") ? <LoaderCircle className="animate-spin" size={15} /> : <Settings2 size={15} />}
             Manage subscription
           </ActionButton>
         ) : null}
@@ -123,7 +123,7 @@ export function BillingActions({
                   }
                   type="button"
                 >
-                  {busy === actionKey ? <LoaderCircle className="spin" size={15} /> : null}
+                  {busy === actionKey ? <LoaderCircle className="animate-spin" size={15} /> : null}
                   {configured
                     ? hasActiveSubscription
                       ? "Change in billing portal"
@@ -159,7 +159,7 @@ export function BillingActions({
                   onClick={() => void redirectFrom("/api/billing/top-up", { packageKey: item.key as TopUpPackageKey })}
                   type="button"
                 >
-                  {busy === actionKey ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}
+                  {busy === actionKey ? <LoaderCircle className="animate-spin" size={15} /> : <Plus size={15} />}
                   <strong>{item.credits.toLocaleString()} credits</strong>
                   <span>{configuredTopUp.configured ? `$${item.priceUsd}` : "Not configured"}</span>
                 </ActionButton>

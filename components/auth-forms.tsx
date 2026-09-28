@@ -54,7 +54,7 @@ function SubmitButton({
 }) {
   return (
     <ActionButton className="auth-submit" disabled={busy} type="submit">
-      {busy ? <LoaderCircle className="spin" size={17} /> : children}
+      {busy ? <LoaderCircle className="animate-spin" size={17} /> : children}
     </ActionButton>
   );
 }

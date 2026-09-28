@@ -154,7 +154,7 @@ export function TeamManagementPanel({
             </NativeSelect>
           </label>
           <ActionButton className="button-primary compact" disabled={inviteBusy} type="submit">
-            {inviteBusy ? <LoaderCircle className="spin" size={15} /> : <UserPlus size={15} />}
+            {inviteBusy ? <LoaderCircle className="animate-spin" size={15} /> : <UserPlus size={15} />}
             Send invite
           </ActionButton>
         </form>
@@ -193,7 +193,7 @@ export function TeamManagementPanel({
                 type="button"
               >
                 {rowBusy === member.id ? (
-                  <LoaderCircle className="spin" size={15} />
+                  <LoaderCircle className="animate-spin" size={15} />
                 ) : (
                   <Trash2 size={15} />
                 )}
@@ -221,7 +221,7 @@ export function TeamManagementPanel({
                 type="button"
               >
                 {rowBusy === invite.id ? (
-                  <LoaderCircle className="spin" size={15} />
+                  <LoaderCircle className="animate-spin" size={15} />
                 ) : (
                   <X size={15} />
                 )}

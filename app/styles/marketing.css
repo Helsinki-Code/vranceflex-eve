@@ -8,7 +8,7 @@
      Nothing below should ever need a hardcoded hex, px offset, or z-index.
    - Signature element: the "notched corner" radius (three full corners,
      one clipped) carries the brand across cards, buttons, and panels.
-     It's now driven by --radius-notch instead of hand-typed 4-value
+     It's now driven by --vf-radius-notch instead of hand-typed 4-value
      border-radius shorthand, so it can never drift out of proportion.
    - z-index is a fixed 8-step scale (--z-*). New floating UI must pick a
      tier from that list rather than inventing a number.
@@ -19,28 +19,32 @@
   
     /* ---- Core palette (unchanged token names — Tailwind/shadcn depend on
        these) ---- */
-    --background: #f7f9fc;
-    --foreground: #0b1220;
-    --foreground-rgb: 11, 18, 32;
-    --card: #ffffff;
-    --card-foreground: #0b1220;
-    --popover: #ffffff;
-    --popover-foreground: #0b1220;
-    --primary: #2563eb;
-    --primary-foreground: #ffffff;
-    --secondary: #eef3f9;
-    --secondary-foreground: #0b1220;
-    --muted: #eef3f9;
-    --muted-foreground: #5f6f85;
-    --accent: #e7f1ff;
-    --accent-foreground: #123a75;
-    --border: #d9e1ec;
-    --input: #c7d2e1;
-    --ring: #2563eb;
-    --destructive: #dc2626;
-    --success: #15803d;
-    --warning: #b45309;
-    --radius: 0.75rem;
+    --background: #f5f4ef;
+    --foreground: #16181d;
+    --foreground-rgb: 22, 24, 29;
+    --card: #fbfaf7;
+    --card-foreground: #16181d;
+    --popover: #fdfcf9;
+    --popover-foreground: #16181d;
+    --primary: #1f4fd1;
+    --primary-foreground: #fbfaf7;
+    --secondary: #ecebe5;
+    --secondary-foreground: #16181d;
+    --muted: #ecebe5;
+    --muted-foreground: #5c6068;
+    --accent: #e6ebf8;
+    --accent-foreground: #173a99;
+    --border: #e0ddd4;
+    --input: #cfccc2;
+    --ring: #1f4fd1;
+    --destructive: #b42318;
+    --success: #2f6b3a;
+    --warning: #9a5b00;
+    --radius: 0.625rem;
+    --surface-raised: #fefdfb;
+    --rule: #e7e4dc;
+    --verified: #2f6b3a;
+
 
     /* The startup sequence is intentionally brand-dark in both themes. */
     --startup-background: #080b12;
@@ -53,14 +57,14 @@
   
     /* ---- Radius scale (built from --radius; the notch is always ~30% of
        the base corner, so it never has to be hand-tuned per component) ---- */
-    --radius-sm: calc(var(--radius) * 0.55);
-    --radius-md: var(--radius);
-    --radius-lg: calc(var(--radius) * 1.3);
-    --radius-xl: calc(var(--radius) * 1.85);
-    --radius-notch-sm: calc(var(--radius-sm) * 0.3);
-    --radius-notch-md: calc(var(--radius-md) * 0.3);
-    --radius-notch-lg: calc(var(--radius-lg) * 0.3);
-    --radius-notch-xl: calc(var(--radius-xl) * 0.3);
+    --vf-radius-sm: calc(var(--radius) * 0.55);
+    --vf-radius-md: var(--radius);
+    --vf-radius-lg: calc(var(--radius) * 1.3);
+    --vf-radius-xl: calc(var(--radius) * 1.85);
+    --vf-radius-notch-sm: calc(var(--vf-radius-sm) * 0.3);
+    --vf-radius-notch-md: calc(var(--vf-radius-md) * 0.3);
+    --vf-radius-notch-lg: calc(var(--vf-radius-lg) * 0.3);
+    --vf-radius-notch-xl: calc(var(--vf-radius-xl) * 0.3);
   
     /* ---- Spacing scale (4px base unit) ---- */
     --space-1: 0.25rem;   /* 4px */
@@ -80,9 +84,9 @@
     --space-20: 5rem;     /* 80px */
   
     /* ---- Shadow scale (three tiers, replaces one-off box-shadow values) ---- */
-    --shadow-sm: 0 1px 2px rgba(var(--foreground-rgb), 0.05);
-    --shadow-md: 0 12px 32px rgba(var(--foreground-rgb), 0.07);
-    --shadow-lg: 0 28px 70px rgba(var(--foreground-rgb), 0.1);
+    --vf-shadow-sm: 0 1px 2px rgba(var(--foreground-rgb), 0.05);
+    --vf-shadow-md: 0 12px 32px rgba(var(--foreground-rgb), 0.07);
+    --vf-shadow-lg: 0 28px 70px rgba(var(--foreground-rgb), 0.1);
   
     /* ---- z-index scale ---- */
     --z-recessed: -1;
@@ -103,46 +107,50 @@
     --shell-max-width: 73.75rem; /* 1180px, public page content width */
   
     /* ---- Type scale (rem throughout; no raw px font-size anywhere) ---- */
-    --text-xs: 0.6875rem;   /* 11px */
-    --text-sm: 0.75rem;     /* 12px */
-    --text-base: 0.875rem;  /* 14px */
-    --text-md: 1rem;        /* 16px */
-    --text-lg: 1.125rem;    /* 18px */
-    --text-xl: 1.5rem;      /* 24px */
-    --text-2xl: 2rem;       /* 32px */
-    --text-3xl: 2.75rem;    /* 44px */
-    --text-4xl: clamp(2.75rem, 5vw, 4.5rem);
+    --vf-text-xs: 0.6875rem;   /* 11px */
+    --vf-text-sm: 0.75rem;     /* 12px */
+    --vf-text-base: 0.875rem;  /* 14px */
+    --vf-text-md: 1rem;        /* 16px */
+    --vf-text-lg: 1.125rem;    /* 18px */
+    --vf-text-xl: 1.5rem;      /* 24px */
+    --vf-text-2xl: 2rem;       /* 32px */
+    --vf-text-3xl: 2.75rem;    /* 44px */
+    --vf-text-4xl: clamp(2.75rem, 5vw, 4.5rem);
   
-    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --vf-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
   
   .dark {
     color-scheme: dark;
-    --background: #080b12;
-    --foreground: #f2f6fc;
-    --foreground-rgb: 242, 246, 252;
-    --card: #101722;
-    --card-foreground: #f2f6fc;
-    --popover: #101722;
-    --popover-foreground: #f2f6fc;
-    --border: #263447;
-    --primary: #3b82f6;
-    --primary-foreground: #ffffff;
-    --secondary: #16202e;
-    --secondary-foreground: #f2f6fc;
-    --muted: #16202e;
-    --muted-foreground: #94a3b8;
-    --accent: #172b47;
-    --accent-foreground: #dbeaff;
-    --input: #33445c;
-    --ring: #3b82f6;
-    --destructive: #f87171;
-    --success: #4ade80;
-    --warning: #fbbf24;
+    --surface-raised: #1a1d22;
+    --rule: #20242a;
+    --verified: #7cc48a;
+
+    --background: #0e1013;
+    --foreground: #e9e7e2;
+    --foreground-rgb: 233, 231, 226;
+    --card: #14171b;
+    --card-foreground: #e9e7e2;
+    --popover: #181b20;
+    --popover-foreground: #e9e7e2;
+    --border: #252930;
+    --primary: #7fa3ff;
+    --primary-foreground: #0e1013;
+    --secondary: #1b1f25;
+    --secondary-foreground: #e9e7e2;
+    --muted: #1b1f25;
+    --muted-foreground: #9a9ea6;
+    --accent: #1a2233;
+    --accent-foreground: #c9d7ff;
+    --input: #323740;
+    --ring: #7fa3ff;
+    --destructive: #f0837a;
+    --success: #7cc48a;
+    --warning: #e3b35c;
   
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 16px 40px rgba(0, 0, 0, 0.28);
-    --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.4);
+    --vf-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --vf-shadow-md: 0 16px 40px rgba(0, 0, 0, 0.28);
+    --vf-shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.4);
   }
   
   /* ==========================================================================
@@ -197,7 +205,7 @@
     :focus-visible {
       outline: 2px solid var(--ring);
       outline-offset: 2px;
-      border-radius: var(--radius-sm);
+      border-radius: var(--vf-radius-sm);
     }
   
     button,
@@ -284,13 +292,13 @@
     position: relative;
     border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
     background: var(--card);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--vf-shadow-md);
   }
   
   .ui-surface-card,
   .app-surface,
   .ui-form-surface {
-    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-notch-lg);
+    border-radius: var(--vf-radius-lg) var(--vf-radius-lg) var(--vf-radius-lg) var(--vf-radius-notch-lg);
   }
   
   .ui-surface-card,
@@ -319,7 +327,7 @@
   .dark .ui-form-surface,
   .dark .app-header,
   .dark .app-surface {
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--vf-shadow-lg);
   }
   
   /* ==========================================================================
@@ -339,16 +347,16 @@
     gap: var(--space-2);
     padding: 0 var(--space-4);
     border: 1px solid transparent;
-    border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-notch-md);
+    border-radius: var(--vf-radius-md) var(--vf-radius-md) var(--vf-radius-md) var(--vf-radius-notch-md);
     background: var(--primary);
     color: var(--primary-foreground);
     font: inherit;
-    font-size: var(--text-base);
+    font-size: var(--vf-text-base);
     font-weight: 700;
     letter-spacing: -0.01em;
     vertical-align: middle;
     cursor: pointer;
-    transition: transform 160ms var(--ease-out), filter 160ms var(--ease-out);
+    transition: transform 160ms var(--vf-ease-out), filter 160ms var(--vf-ease-out);
   }
   
   .ui-action:hover {
@@ -388,10 +396,10 @@
     justify-content: center;
     gap: var(--space-2);
     padding: 0 var(--space-5);
-    border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-notch-md);
-    font-size: var(--text-base);
+    border-radius: var(--vf-radius-md) var(--vf-radius-md) var(--vf-radius-md) var(--vf-radius-notch-md);
+    font-size: var(--vf-text-base);
     font-weight: 700;
-    transition: transform 160ms var(--ease-out), background 160ms var(--ease-out);
+    transition: transform 160ms var(--vf-ease-out), background 160ms var(--vf-ease-out);
   }
   
   .button-primary {
@@ -449,7 +457,7 @@
     align-items: center;
     gap: var(--space-2);
     width: fit-content;
-    font-size: var(--text-lg);
+    font-size: var(--vf-text-lg);
     font-weight: 750;
     letter-spacing: -0.03em;
     color: var(--foreground);
@@ -458,14 +466,14 @@
   .nav-links {
     display: flex;
     gap: var(--space-8);
-    font-size: var(--text-base);
+    font-size: var(--vf-text-base);
     font-weight: 650;
     color: color-mix(in srgb, var(--foreground) 68%, transparent);
   }
   
   .nav-links a,
   .nav-cta {
-    transition: color 160ms var(--ease-out), transform 160ms var(--ease-out);
+    transition: color 160ms var(--vf-ease-out), transform 160ms var(--vf-ease-out);
   }
   
   .nav-links a:hover {
@@ -479,9 +487,9 @@
     padding: var(--space-3) var(--space-4);
     background: var(--foreground);
     color: var(--background);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     font-weight: 720;
-    border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-notch-md);
+    border-radius: var(--vf-radius-md) var(--vf-radius-md) var(--vf-radius-md) var(--vf-radius-notch-md);
   }
   
   .nav-actions,
@@ -512,7 +520,7 @@
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
     background: var(--card);
     color: var(--foreground);
-    border-radius: var(--radius-md);
+    border-radius: var(--vf-radius-md);
     cursor: pointer;
   }
   
@@ -546,7 +554,7 @@
     align-items: center;
     gap: var(--space-2);
     margin-bottom: var(--space-5);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -556,14 +564,14 @@
   .eyebrow {
     padding: var(--space-2) var(--space-3);
     border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
-    border-radius: var(--radius-sm);
+    border-radius: var(--vf-radius-sm);
     background: color-mix(in srgb, var(--card) 66%, transparent);
   }
   
   .hero h1 {
     max-width: 11ch;
     margin: 0;
-    font-size: var(--text-4xl);
+    font-size: var(--vf-text-4xl);
     line-height: 0.98;
     letter-spacing: -0.045em;
     font-weight: 740;
@@ -574,7 +582,7 @@
     max-width: 38ch;
     margin: var(--space-6) 0 0;
     color: color-mix(in srgb, var(--foreground) 67%, transparent);
-    font-size: var(--text-lg);
+    font-size: var(--vf-text-lg);
     line-height: 1.6;
   }
   
@@ -590,7 +598,7 @@
     flex-wrap: wrap;
     gap: var(--space-4);
     margin-top: var(--space-6);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     font-weight: 680;
     color: color-mix(in srgb, var(--foreground) 58%, transparent);
   }
@@ -631,8 +639,8 @@
     background: var(--chrome-background);
     color: var(--chrome-foreground);
     border: 1px solid rgba(255, 255, 255, 0.13);
-    border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-notch-xl);
-    box-shadow: var(--shadow-lg);
+    border-radius: var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-notch-xl);
+    box-shadow: var(--vf-shadow-lg);
   }
   
   .console-head,
@@ -644,7 +652,7 @@
   }
   
   .console-kicker {
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.45);
@@ -653,14 +661,14 @@
   .console-head strong {
     display: block;
     margin-top: var(--space-1);
-    font-size: var(--text-lg);
+    font-size: var(--vf-text-lg);
     letter-spacing: -0.025em;
   }
   
   .console-foot {
     margin-top: var(--space-4);
     color: rgba(255, 255, 255, 0.48);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
@@ -680,7 +688,7 @@
     border-radius: 999px;
     background: color-mix(in srgb, var(--success) 22%, transparent);
     color: var(--success);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
   }
   
   .activity-success {
@@ -769,7 +777,7 @@
     min-height: 14.375rem;
     padding: var(--space-6);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-notch-lg);
+    border-radius: var(--vf-radius-lg) var(--vf-radius-lg) var(--vf-radius-lg) var(--vf-radius-notch-lg);
     background: var(--card);
   }
   
@@ -826,7 +834,7 @@
     padding: var(--space-16);
     background: var(--muted);
     border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-    border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-notch-xl);
+    border-radius: var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-xl) var(--vf-radius-notch-xl);
   }
   
   .trust-copy p {
@@ -851,13 +859,13 @@
   .trust-card li strong {
     display: block;
     margin-bottom: var(--space-1);
-    font-size: var(--text-md);
+    font-size: var(--vf-text-md);
   }
   
   .trust-card li span {
     display: block;
     color: color-mix(in srgb, var(--foreground) 58%, transparent);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
   }
   
   .final-cta {
@@ -887,7 +895,7 @@
     align-items: center;
     gap: var(--space-5);
     color: color-mix(in srgb, var(--foreground) 55%, transparent);
-    font-size: var(--text-xs);
+    font-size: var(--vf-text-xs);
   }
   
   footer p {
@@ -1040,7 +1048,7 @@
   
     .trust-card {
       padding: var(--space-8) var(--space-6);
-      border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-notch-lg);
+      border-radius: var(--vf-radius-lg) var(--vf-radius-lg) var(--vf-radius-lg) var(--vf-radius-notch-lg);
     }
   
     .final-cta {
@@ -1064,14 +1072,14 @@
   .signal-strip article strong {
     display: block;
     margin-bottom: var(--space-2);
-    font-size: var(--text-md);
+    font-size: var(--vf-text-md);
     letter-spacing: -0.01em;
   }
   
   .signal-strip article p {
     margin: 0;
     color: color-mix(in srgb, var(--foreground) 58%, transparent);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     line-height: 1.55;
   }
   
@@ -1081,14 +1089,14 @@
   
   .agent-card h3 {
     margin: 0 0 var(--space-2);
-    font-size: var(--text-lg);
+    font-size: var(--vf-text-lg);
     letter-spacing: -0.02em;
   }
   
   .agent-card p {
     margin: 0;
     color: color-mix(in srgb, var(--foreground) 60%, transparent);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
     line-height: 1.55;
   }
   
@@ -1105,7 +1113,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--text-sm);
+    font-size: var(--vf-text-sm);
   }
   
   .console-log li svg {
@@ -1116,7 +1124,7 @@
     display: block;
     margin-bottom: var(--space-4);
     color: rgba(255, 255, 255, 0.3);
-    font-size: var(--text-xl);
+    font-size: var(--vf-text-xl);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }

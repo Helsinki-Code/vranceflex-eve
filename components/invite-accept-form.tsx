@@ -109,7 +109,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
   if (!preview) {
     return (
       <SurfaceCard className="first-party-auth-form auth-complete">
-        <LoaderCircle className="spin" size={20} />
+        <LoaderCircle className="animate-spin" size={20} />
       </SurfaceCard>
     );
   }
@@ -155,7 +155,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
           <small>At least 10 characters with a letter and number.</small>
         </label>
         <ActionButton className="auth-submit" disabled={busy} type="submit">
-          {busy ? <LoaderCircle className="spin" size={17} /> : (
+          {busy ? <LoaderCircle className="animate-spin" size={17} /> : (
             <>Create account and join <ArrowRight size={16} /></>
           )}
         </ActionButton>
@@ -174,7 +174,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
       </div>
       {error ? <div className="auth-form-error" role="alert">{error}</div> : null}
       <ActionButton className="auth-submit" disabled={busy} onClick={() => void accept()} type="button">
-        {busy ? <LoaderCircle className="spin" size={17} /> : (
+        {busy ? <LoaderCircle className="animate-spin" size={17} /> : (
           <>Accept invite <ArrowRight size={16} /></>
         )}
       </ActionButton>
