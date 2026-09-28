@@ -2,7 +2,9 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpen, CreditCard, LogOut, Menu, MessageSquareText, Plus, Search, Settings2, Target, Users } from "lucide-react";
+import { BarChart3, BookOpen, Check, ChevronsUpDown, CreditCard, LoaderCircle, LogOut, Menu, MessageSquareText, Plus, Search, Settings2, Target, Users } from "lucide-react";
+import { toast } from "sonner";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -16,7 +18,7 @@ import { ThemeToggle } from "./motion/theme-toggle";
 import { BrandLockup } from "./brand/vranceflex-logo";
 import { ProductMotion } from "./product/motion";
 
-export type ShellAccount = { workspace: string; role: string; name: string; email: string; demo: boolean };
+export type ShellAccount = { workspace: string; workspaceId: string; role: string; name: string; email: string; demo: boolean; workspaces: Array<{ id: string; name: string; role: string }> };
 export type ShellPlan = { name: string | null; active: boolean; status: string; available: number; included: number };
 
 const links = [
@@ -91,12 +93,53 @@ function AccountBlock({ account }: { account: ShellAccount }) {
   </div>;
 }
 
+function WorkspaceBadge({ name }: { name: string }) {
+  return <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground font-mono text-xs font-semibold text-background">{initials(name)}</span>;
+}
+
+function WorkspaceSwitcher({ account, onNavigate }: { account: ShellAccount; onNavigate?: () => void }) {
+  const router = useRouter();
+  const [switching, setSwitching] = useState<string | null>(null);
+  const label = <><WorkspaceBadge name={account.workspace} /><span className="min-w-0 flex-1 text-left leading-tight"><span className="block truncate text-sm font-medium text-foreground">{account.workspace}</span><span className="block truncate text-xs capitalize text-muted-foreground">{account.role}</span></span></>;
+  if (account.workspaces.length <= 1) {
+    return <Link href="/settings/team" onClick={onNavigate} className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/60">{label}</Link>;
+  }
+  const switchTo = async (organizationId: string) => {
+    if (organizationId === account.workspaceId) return;
+    setSwitching(organizationId);
+    try {
+      const response = await fetch("/api/auth/workspace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId }) });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Couldn't switch workspace.");
+      onNavigate?.();
+      router.push("/dashboard");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't switch workspace.");
+    } finally {
+      setSwitching(null);
+    }
+  };
+  return <DropdownMenu>
+    <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {label}<ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="start" className="w-60">
+      <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Workspaces</DropdownMenuLabel>
+      {account.workspaces.map((workspace) => <DropdownMenuItem key={workspace.id} onSelect={() => void switchTo(workspace.id)} className="gap-2.5">
+        <WorkspaceBadge name={workspace.name} />
+        <span className="min-w-0 flex-1 leading-tight"><span className="block truncate text-sm">{workspace.name}</span><span className="block text-xs capitalize text-muted-foreground">{workspace.role}</span></span>
+        {switching === workspace.id ? <LoaderCircle className="size-3.5 animate-spin" /> : workspace.id === account.workspaceId ? <Check className="size-3.5 text-primary" /> : null}
+      </DropdownMenuItem>)}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem asChild><Link href="/settings/team" onClick={onNavigate}><Users className="size-3.5" />Team & roles</Link></DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
+}
+
 function SidebarBody({ account, plan, onNavigate, onSearch, layoutId }: { account: ShellAccount; plan: ShellPlan | null; onNavigate?: () => void; onSearch: () => void; layoutId: string }) {
   return <div className="flex h-full flex-col gap-5">
-    <Link href="/settings/team" onClick={onNavigate} className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/60">
-      <span className="flex size-7 items-center justify-center rounded-md bg-foreground font-mono text-xs font-semibold text-background">{initials(account.workspace)}</span>
-      <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-medium text-foreground">{account.workspace}</span><span className="block truncate text-xs capitalize text-muted-foreground">{account.role}</span></span>
-    </Link>
+    <WorkspaceSwitcher account={account} onNavigate={onNavigate} />
     <button onClick={onSearch} type="button" className="flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground transition-colors hover:border-input hover:text-foreground">
       <Search className="size-4" /><span className="flex-1 text-left">Search</span><kbd className="font-mono text-[10px]">⌘K</kbd>
     </button>

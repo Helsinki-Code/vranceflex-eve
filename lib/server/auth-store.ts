@@ -502,3 +502,32 @@ export async function removeExpiredAuthRecords() {
     expiredSessionsRemoved: expiredSessions.length,
   };
 }
+
+export async function listUserWorkspaces(userId: string) {
+  return getDatabase()
+    .select({ id: organizations.id, name: organizations.name, role: organizationMemberships.role })
+    .from(organizationMemberships)
+    .innerJoin(organizations, eq(organizations.id, organizationMemberships.organizationId))
+    .where(eq(organizationMemberships.userId, userId))
+    .orderBy(organizationMemberships.createdAt);
+}
+
+// Re-points the current session at another workspace the user belongs to.
+// Membership is checked here, so a forged organization ID is rejected.
+export async function switchCurrentWorkspace(organizationId: string) {
+  const token = await currentSessionToken();
+  const actor = await authenticateSessionToken(token);
+  if (!actor) throw new AuthRequestError("Sign in to continue.", 401);
+  const database = getDatabase();
+  const [membership] = await database
+    .select({ organizationId: organizationMemberships.organizationId })
+    .from(organizationMemberships)
+    .where(and(eq(organizationMemberships.userId, actor.userId), eq(organizationMemberships.organizationId, organizationId)))
+    .limit(1);
+  if (!membership) throw new AuthRequestError("You are not a member of that workspace.", 403);
+  await database
+    .update(authSessions)
+    .set({ organizationId, lastSeenAt: new Date() })
+    .where(and(eq(authSessions.tokenHash, hashSessionToken(token)), isNull(authSessions.revokedAt)));
+  return { organizationId };
+}
