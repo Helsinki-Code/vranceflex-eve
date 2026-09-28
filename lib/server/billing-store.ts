@@ -397,7 +397,7 @@ export async function upsertBillingFromSubscription(
       set: {
         ...values,
         // Keep the first failure time so the grace window cannot be extended by later events.
-        pastDueSince: status === "past_due" ? sql`coalesce(${organizationBilling.pastDueSince}, ${now})` : null,
+        pastDueSince: status === "past_due" ? sql`coalesce(${organizationBilling.pastDueSince}, now())` : null,
         lastPaymentError: status === "past_due" ? sql`${organizationBilling.lastPaymentError}` : null,
       },
     });
