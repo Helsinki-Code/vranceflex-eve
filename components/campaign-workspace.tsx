@@ -21,13 +21,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  ActionButton,
-  NativeSelect,
-  NativeTextarea,
-  SurfaceCard,
-} from "./design-system";
+import { AnimatePresence, motion } from "motion/react";
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { NativeTextarea } from "./design-system";
+import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Chip, FormField, Notice, SelectField } from "./product/kit";
 import {
   campaignStatusLabels,
   type Campaign,
@@ -38,7 +38,7 @@ import type {
   OutreachWorkspaceMessage,
   OutreachWorkspaceSequence,
 } from "../lib/domain/pipeline";
-import { AsyncState, CampaignTimeline, CreditMeter, StatusBadge, StickyActionBar } from "./product-ui";
+import { AsyncState } from "./product-ui";
 
 type CandidateSummary = {
   id: string;
@@ -76,6 +76,24 @@ const pipelineSteps = [
   ["copy_generated", "Drafting outreach"],
   ["awaiting_approval", "Ready for review"],
 ] as const;
+
+
+const checkboxClass = "size-4 shrink-0 cursor-pointer rounded border-input accent-[var(--primary)] disabled:cursor-not-allowed";
+
+// One card shape for every pipeline state (ready, stopped, failed, empty) so the
+// page reads as a single column of decisions rather than a wall of panels.
+function StageCard({ icon, title, children, action, tone = "neutral" }: { icon: ReactNode; title: string; children?: ReactNode; action?: ReactNode; tone?: "neutral" | "verified" | "danger" }) {
+  return <motion.section layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+    className={cn("flex flex-col gap-4 rounded-[var(--radius)] border bg-card p-5 sm:flex-row sm:items-center", tone === "danger" ? "border-destructive/30" : tone === "verified" ? "border-verified/30" : "border-border")}>
+    <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-md border [&_svg]:size-4", tone === "danger" ? "border-destructive/25 bg-destructive/8 text-destructive" : tone === "verified" ? "border-verified/25 bg-verified/8 text-verified" : "border-border bg-surface-raised text-muted-foreground")}>{icon}</span>
+    <div className="min-w-0 flex-1 space-y-1"><p className="text-sm font-semibold">{title}</p>{children ? <div className="text-sm leading-6 text-muted-foreground">{children}</div> : null}</div>
+    {action ? <div className="shrink-0">{action}</div> : null}
+  </motion.section>;
+}
+
+function Spinner({ busy, icon }: { busy: boolean; icon?: ReactNode }) {
+  return busy ? <LoaderCircle className="animate-spin" /> : <>{icon ?? null}</>;
+}
 
 function relativeTime(iso: string, now: number) {
   const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1_000));
@@ -125,81 +143,32 @@ function ExecutionProgressPanel({
   );
   const stalled = now - lastActivityAt > STALL_THRESHOLD_MS;
 
-  return (
-    <section className="pipeline-live-card execution-progress">
-      <header>
-        <span><LoaderCircle className="animate-spin" size={20} /></span>
-        <div>
-          <strong>Eve is preparing this campaign</strong>
-          <p>Live progress from the agents working on your leads. Nothing is sent without your approval.</p>
-        </div>
-        <small>
-          {elapsed ? `Running ${elapsed}` : null}
-          {execution.attempt > 1 ? ` · attempt ${execution.attempt}` : ""}
-        </small>
-      </header>
-
-      <ol className="execution-steps">
-        {pipelineSteps.map(([stage, label], index) => (
-          <li
-            className={
-              index < currentIndex
-                ? "done"
-                : index === currentIndex
-                  ? "current"
-                  : ""
-            }
-            key={stage}
-          >
-            <span>
-              {index < currentIndex ? (
-                <Check size={12} />
-              ) : index === currentIndex ? (
-                <LoaderCircle className="animate-spin" size={12} />
-              ) : (
-                <CircleDashed size={12} />
-              )}
-            </span>
-            {label}
-          </li>
-        ))}
-      </ol>
-
-      <div className="execution-actions">
-        <ActionButton
-          className="button-secondary compact"
-          disabled={stopBusy}
-          onClick={onStop}
-          type="button"
-        >
-          {stopBusy ? <LoaderCircle className="animate-spin" size={14} /> : <Square size={13} />}
-          Stop campaign
-        </ActionButton>
-      </div>
-
-      {recent.length > 0 && (
-        <ul aria-live="polite" className="execution-feed">
-          {recent.map((event, index) => (
-            <li className={index === recent.length - 1 ? "latest" : ""} key={event.id}>
-              <span>{event.message}</span>
-              <time dateTime={event.createdAt}>{relativeTime(event.createdAt, now)}</time>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {stalled && (
-        <div className="execution-stalled" role="status">
-          <AlertCircle size={15} />
-          <p>
-            No updates for {Math.floor((now - lastActivityAt) / 60_000)} minutes —
-            this run may have stalled. Stop the active run, then continue from
-            its saved Eve checkpoint.
-          </p>
-        </div>
-      )}
-    </section>
-  );
+  return <section className="overflow-hidden rounded-[var(--radius)] border border-primary/30 bg-card">
+    <header className="flex flex-col gap-3 border-b border-rule p-5 sm:flex-row sm:items-center">
+      <span className="relative flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/8 text-primary"><LoaderCircle className="size-4 animate-spin" /></span>
+      <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Eve is preparing this campaign</p><p className="text-sm text-muted-foreground">Live progress from the agents. Nothing is sent without your approval.</p></div>
+      <span className="font-mono text-xs text-muted-foreground">{elapsed ? `running ${elapsed}` : null}{execution.attempt > 1 ? ` · attempt ${execution.attempt}` : ""}</span>
+      <Button variant="outline" size="sm" disabled={stopBusy} onClick={onStop} type="button"><Spinner busy={stopBusy} icon={<Square />} />Stop</Button>
+    </header>
+    <ol className="grid grid-cols-2 gap-px bg-rule sm:grid-cols-5">
+      {pipelineSteps.map(([stage, label], index) => {
+        const done = index < currentIndex;
+        const current = index === currentIndex;
+        return <li key={stage} className={cn("flex items-center gap-2 bg-card px-4 py-3 text-xs", current ? "text-foreground" : done ? "text-muted-foreground" : "text-muted-foreground/60")}>
+          <span className={cn("flex size-4 items-center justify-center rounded-full", done ? "bg-verified text-background" : current ? "text-primary" : "border border-border")}>{done ? <Check className="size-2.5" /> : current ? <LoaderCircle className="size-3.5 animate-spin" /> : null}</span>{label}
+        </li>;
+      })}
+    </ol>
+    {recent.length > 0 ? <ul aria-live="polite" className="grid gap-1.5 border-t border-rule p-5">
+      <AnimatePresence initial={false}>
+        {recent.map((event, index) => <motion.li key={event.id} layout initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className={cn("flex items-baseline justify-between gap-4 text-sm", index === recent.length - 1 ? "text-foreground" : "text-muted-foreground")}>
+          <span className="flex items-baseline gap-2">{index === recent.length - 1 ? <span aria-hidden="true" className="size-1.5 translate-y-[-1px] animate-pulse rounded-full bg-primary" /> : <span aria-hidden="true" className="size-1.5" />}{event.message}</span>
+          <time className="shrink-0 font-mono text-[11px] text-muted-foreground" dateTime={event.createdAt}>{relativeTime(event.createdAt, now)}</time>
+        </motion.li>)}
+      </AnimatePresence>
+    </ul> : null}
+    {stalled ? <div className="border-t border-rule p-5"><Notice tone="warning" title={`No updates for ${Math.floor((now - lastActivityAt) / 60_000)} minutes`}>The run may have stalled. Stop it, then continue from its saved checkpoint; finished steps aren't repeated.</Notice></div> : null}
+  </section>;
 }
 
 function CandidateWorkspacePanel({
@@ -227,202 +196,59 @@ function CandidateWorkspacePanel({
   const [selectedVerified, setSelectedVerified] = useState<string[]>([]);
 
   if (!candidates.length) {
-    return (
-      <section className="pipeline-live-card">
-        <span><CircleDashed size={20} /></span>
-        <div>
-          <strong>No candidates found yet</strong>
-          <p>Discovery may still be starting, or the search may need broadening.</p>
-        </div>
-        <ActionButton
-          className="button-secondary"
-          disabled={busyAction === "rediscover"}
-          onClick={onRediscover}
-          type="button"
-        >
-          {busyAction === "rediscover" ? <LoaderCircle className="animate-spin" size={15} /> : <RefreshCw size={15} />}
-          Search again
-        </ActionButton>
-      </section>
-    );
+    return <StageCard icon={<CircleDashed />} title="No candidates yet" action={<Button variant="outline" size="sm" disabled={busyAction === "rediscover"} onClick={onRediscover} type="button"><Spinner busy={busyAction === "rediscover"} icon={<RefreshCw />} />Search again</Button>}>
+      Discovery may still be running. If it finished with nothing, broaden the audience or region and search again.
+    </StageCard>;
   }
 
-  return (
-    <section className="candidate-workspace">
-      {discovered.length > 0 && (
-        <div className="candidate-stage">
-          <header>
-            <div>
-              <strong>{discovered.length} people found — choose who to verify</strong>
-              <p>We check email, phone and LinkedIn for the people you select. Nothing is contacted yet.</p>
-              <span className="candidate-credit-balance">
-                {availableCredits.toLocaleString()} prospect credits available · failed verifications return their reservation
-              </span>
-            </div>
-            <div className="candidate-stage-actions">
-              <ActionButton
-                className="button-secondary compact"
-                disabled={busyAction === "rediscover"}
-                onClick={onRediscover}
-                type="button"
-              >
-                {busyAction === "rediscover" ? <LoaderCircle className="animate-spin" size={14} /> : <RefreshCw size={14} />}
-                Search again
-              </ActionButton>
-              <ActionButton
-                className="button-secondary compact"
-                onClick={() =>
-                  setSelectedDiscovered(
-                    selectedDiscovered.length === Math.min(discovered.length, availableCredits)
-                      ? []
-                      : discovered
-                          .slice(0, availableCredits)
-                          .map((candidate) => candidate.id),
-                  )
-                }
-                type="button"
-              >
-                {selectedDiscovered.length === Math.min(discovered.length, availableCredits) ? "Clear all" : "Select available"}
-              </ActionButton>
-              <ActionButton
-                className="button-primary compact"
-                disabled={
-                  !selectedDiscovered.length ||
-                  selectedDiscovered.length > availableCredits ||
-                  busyAction === "verify"
-                }
-                onClick={() => onVerify(selectedDiscovered)}
-                type="button"
-              >
-                {busyAction === "verify" ? <LoaderCircle className="animate-spin" size={14} /> : null}
-                Verify {selectedDiscovered.length || ""} selected
-              </ActionButton>
-            </div>
-          </header>
-          <ul className="candidate-list">
-            {discovered.map((candidate) => (
-              <li key={candidate.id}>
-                <label>
-                  <Input
-                    checked={selectedDiscovered.includes(candidate.id)}
-                    onChange={(event) =>
-                      setSelectedDiscovered((current) =>
-                        event.target.checked
-                          ? [...current, candidate.id]
-                          : current.filter((id) => id !== candidate.id),
-                      )
-                    }
-                    type="checkbox"
-                  />
-                  <div>
-                    <strong>{candidate.name}</strong>
-                    {candidate.description && <small>{candidate.description}</small>}
-                  </div>
-                </label>
-              </li>
-            ))}
-          </ul>
+  const allAvailable = Math.min(discovered.length, availableCredits);
+  return <section className="grid gap-4">
+    {discovered.length > 0 ? <div className="overflow-hidden rounded-[var(--radius)] border border-border bg-card">
+      <header className="flex flex-col gap-3 border-b border-rule p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">{discovered.length} people found. Choose who to verify.</p>
+          <p className="text-sm text-muted-foreground">Verification checks email, phone and LinkedIn. Nobody is contacted. <span className="font-mono text-xs text-foreground">{availableCredits.toLocaleString()}</span> credits left; failed checks give their credit back.</p>
         </div>
-      )}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="ghost" size="sm" disabled={busyAction === "rediscover"} onClick={onRediscover} type="button"><Spinner busy={busyAction === "rediscover"} icon={<RefreshCw />} />Search again</Button>
+          <Button variant="outline" size="sm" type="button" onClick={() => setSelectedDiscovered(selectedDiscovered.length === allAvailable ? [] : discovered.slice(0, availableCredits).map((candidate) => candidate.id))}>{selectedDiscovered.length === allAvailable ? "Clear" : `Select ${allAvailable}`}</Button>
+          <Button size="sm" disabled={!selectedDiscovered.length || selectedDiscovered.length > availableCredits || busyAction === "verify"} onClick={() => onVerify(selectedDiscovered)} type="button"><Spinner busy={busyAction === "verify"} />Verify {selectedDiscovered.length || ""}</Button>
+        </div>
+      </header>
+      <ul className="max-h-[28rem] overflow-y-auto">
+        {discovered.map((candidate) => <li key={candidate.id} className="border-b border-rule last:border-0">
+          <label className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
+            <input className={cn(checkboxClass, "mt-0.5")} checked={selectedDiscovered.includes(candidate.id)} onChange={(event) => setSelectedDiscovered((current) => event.target.checked ? [...current, candidate.id] : current.filter((id) => id !== candidate.id))} type="checkbox" />
+            <span className="min-w-0"><span className="block text-sm font-medium">{candidate.name}</span>{candidate.description ? <span className="block text-xs leading-5 text-muted-foreground">{candidate.description}</span> : null}</span>
+          </label>
+        </li>)}
+      </ul>
+    </div> : null}
 
-      {enriching.length > 0 && (
-        <div className="candidate-stage">
-          <header>
-            <div>
-              <strong>Verifying {enriching.length} {enriching.length === 1 ? "person" : "people"}…</strong>
-              <p>Checking real email, phone and LinkedIn details. This runs in the background.</p>
-            </div>
-            <LoaderCircle className="animate-spin" size={18} />
-          </header>
-        </div>
-      )}
+    {enriching.length > 0 ? <StageCard icon={<LoaderCircle className="animate-spin" />} title={`Verifying ${enriching.length} ${enriching.length === 1 ? "person" : "people"}`}>Checking email, phone and LinkedIn in the background. You can leave this page.</StageCard> : null}
 
-      {verified.length > 0 && (
-        <div className="candidate-stage">
-          <header>
-            <div>
-              <strong>{verified.length} verified — choose who to approve</strong>
-              <p>Approval saves these enriched leads. You decide when Eve starts preparing outreach.</p>
-            </div>
-            <div className="candidate-stage-actions">
-              <ActionButton
-                className="button-secondary compact"
-                onClick={() =>
-                  setSelectedVerified(
-                    selectedVerified.length === verified.length
-                      ? []
-                      : verified.map((candidate) => candidate.id),
-                  )
-                }
-                type="button"
-              >
-                {selectedVerified.length === verified.length ? "Clear all" : "Select all"}
-              </ActionButton>
-              <ActionButton
-                className="button-primary compact"
-                disabled={!selectedVerified.length || busyAction === "approve-leads"}
-                onClick={() => onApprove(selectedVerified)}
-                type="button"
-              >
-                {busyAction === "approve-leads" ? <LoaderCircle className="animate-spin" size={14} /> : null}
-                Approve {selectedVerified.length || ""} selected
-              </ActionButton>
-            </div>
-          </header>
-          <ul className="candidate-list">
-            {verified.map((candidate) => (
-              <li key={candidate.id}>
-                <label>
-                  <Input
-                    checked={selectedVerified.includes(candidate.id)}
-                    onChange={(event) =>
-                      setSelectedVerified((current) =>
-                        event.target.checked
-                          ? [...current, candidate.id]
-                          : current.filter((id) => id !== candidate.id),
-                      )
-                    }
-                    type="checkbox"
-                  />
-                  <div>
-                    <strong>{candidate.name}</strong>
-                    <small>
-                      {[candidate.jobTitle, candidate.companyName].filter(Boolean).join(" at ")}
-                      {candidate.email ? ` · ${candidate.email}` : ""}
-                      {candidate.phone ? ` · ${candidate.phone}` : ""}
-                    </small>
-                  </div>
-                </label>
-              </li>
-            ))}
-          </ul>
+    {verified.length > 0 ? <div className="overflow-hidden rounded-[var(--radius)] border border-verified/30 bg-card">
+      <header className="flex flex-col gap-3 border-b border-rule p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1"><p className="text-sm font-semibold">{verified.length} verified. Choose who to keep.</p><p className="text-sm text-muted-foreground">Approved leads are saved to the workspace. Eve starts drafting only when you say so.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" type="button" onClick={() => setSelectedVerified(selectedVerified.length === verified.length ? [] : verified.map((candidate) => candidate.id))}>{selectedVerified.length === verified.length ? "Clear" : "Select all"}</Button>
+          <Button size="sm" disabled={!selectedVerified.length || busyAction === "approve-leads"} onClick={() => onApprove(selectedVerified)} type="button"><Spinner busy={busyAction === "approve-leads"} />Approve {selectedVerified.length || ""}</Button>
         </div>
-      )}
+      </header>
+      <ul className="max-h-[28rem] overflow-y-auto">
+        {verified.map((candidate) => <li key={candidate.id} className="border-b border-rule last:border-0">
+          <label className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
+            <input className={cn(checkboxClass, "mt-0.5")} checked={selectedVerified.includes(candidate.id)} onChange={(event) => setSelectedVerified((current) => event.target.checked ? [...current, candidate.id] : current.filter((id) => id !== candidate.id))} type="checkbox" />
+            <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{candidate.name}</span><span className="block truncate text-xs text-muted-foreground">{[candidate.jobTitle, candidate.companyName].filter(Boolean).join(" at ")}</span></span>
+            <span className="hidden shrink-0 text-right font-mono text-xs text-muted-foreground sm:block">{candidate.email}{candidate.phone ? <span className="block">{candidate.phone}</span> : null}</span>
+          </label>
+        </li>)}
+      </ul>
+    </div> : null}
 
-      {approved.length > 0 && (
-        <div className="candidate-stage muted">
-          <header>
-            <div>
-              <strong>{approved.length} approved {approved.length === 1 ? "lead" : "leads"} saved</strong>
-              <p>Parallel enrichment is complete for these leads. They are ready for the Eve handoff.</p>
-            </div>
-            <CheckCircle2 size={18} />
-          </header>
-        </div>
-      )}
-
-      {failed.length > 0 && (
-        <div className="candidate-stage muted">
-          <header>
-            <div>
-              <strong>{failed.length} could not be verified</strong>
-              <p>No publicly verifiable email and LinkedIn were found for these people — they are excluded automatically.</p>
-            </div>
-          </header>
-        </div>
-      )}
-    </section>
-  );
+    {approved.length > 0 ? <StageCard tone="verified" icon={<CheckCircle2 />} title={`${approved.length} approved ${approved.length === 1 ? "lead" : "leads"} saved`}>Verification is done for these people and they're ready for Eve.</StageCard> : null}
+    {failed.length > 0 ? <StageCard icon={<AlertCircle />} title={`${failed.length} couldn't be verified`}>No usable public contact details were found, so they're left out automatically.</StageCard> : null}
+  </section>;
 }
 
 type MessageDraft = Pick<
@@ -789,11 +615,11 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
   }
 
   if (state === "loading") {
-    return <AsyncState state="loading" title="Loading campaign workspace" />;
+    return <AsyncState state="loading" title="Loading campaign" />;
   }
 
   if (state === "error" || !payload) {
-    return <AsyncState state="error" title="Campaign workspace is unavailable" description={error} action={<ActionButton className="button-secondary" onClick={() => void load()} type="button"><RefreshCw size={16} /> Retry</ActionButton>} />;
+    return <AsyncState state="error" title="This campaign couldn't be loaded" description={error} action={<Button variant="outline" size="sm" onClick={() => void load()} type="button"><RefreshCw />Try again</Button>} />;
   }
 
   const { campaign, execution, sequences } = payload;
@@ -806,441 +632,132 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
   const readyForEve = !execution && approvedLeadCount > 0;
   const availableCredits = payload.billing?.credits.available ?? 0;
 
-  return (
-    <div className="campaign-workspace">
-      <Link className="settings-back" href="/dashboard">
-        <ArrowLeft size={15} /> Campaigns
-      </Link>
+  // Where the campaign is on its path, from the records that actually exist.
+  const path = ["Research", "Verify", "Write", "Approve", "Send"];
+  const pathIndex = sequences.some((sequence) => ["scheduled", "active", "completed"].includes(sequence.status)) ? 4
+    : sequences.length ? 3
+      : execution ? 2
+        : candidates.some((candidate) => candidate.status !== "discovered") ? 1 : 0;
+  const statusTone = campaign.status === "stopped" ? "danger" : ["delivered", "replied", "sent"].includes(campaign.status) ? "verified" : campaign.status === "awaiting_approval" ? "warning" : "info";
+  const sequenceTone = (status: string) => status === "approved" ? "verified" : status === "awaiting_approval" ? "warning" : ["scheduled", "active"].includes(status) ? "info" : status === "stopped" ? "danger" : "neutral";
+  const messageTone = (status: string) => ["sent", "delivered", "replied"].includes(status) ? "verified" : ["bounced", "failed"].includes(status) ? "danger" : status === "scheduled" ? "info" : "neutral";
 
-      <section className="campaign-workspace-head">
-        <div>
-          <span>{campaign.source.kind === "website" ? "WEBSITE CAMPAIGN" : "PRODUCT IDEA"}</span>
-          <h2>{campaign.productName}</h2>
-          <p>{campaign.audience}</p>
+  return <div className="space-y-6">
+    <section className="overflow-hidden rounded-[var(--radius)] border border-border bg-card">
+      <div className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          <Link className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground" href="/dashboard"><ArrowLeft className="size-3" />Campaigns</Link>
+          <h2 className="text-2xl font-semibold tracking-tight">{campaign.productName}</h2>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{campaign.audience}</p>
+          <p className="font-mono text-xs text-muted-foreground">{campaign.source.kind === "website" ? campaign.source.url : "product idea"} · {campaign.geography} · {campaign.leadCount} leads</p>
         </div>
-        <StatusBadge tone={campaign.status === "stopped" ? "danger" : campaign.status === "delivered" || campaign.status === "replied" ? "success" : campaign.status === "awaiting_approval" ? "warning" : "info"}>{campaignStatusLabels[campaign.status]}</StatusBadge>
+        <div className="flex shrink-0 flex-col items-start gap-2 md:items-end">
+          <Chip tone={statusTone}>{campaignStatusLabels[campaign.status]}</Chip>
+          {payload.billing ? <Link href="/settings/billing" className="text-xs text-muted-foreground hover:text-foreground"><span className="font-mono text-foreground">{availableCredits.toLocaleString()}</span> credits · {payload.billing.plan?.name ?? "no plan"}</Link> : null}
+        </div>
+      </div>
+      <ol className="grid grid-cols-5 border-t border-rule" aria-label="Campaign progress">
+        {path.map((label, index) => <li key={label} className={cn("relative px-3 py-3 text-xs sm:px-5", index <= pathIndex ? "text-foreground" : "text-muted-foreground/70")}>
+          <span className="absolute inset-x-0 top-0 h-[2px] bg-muted" aria-hidden="true" />
+          {index < pathIndex ? <motion.span className="absolute inset-x-0 top-0 h-[2px] origin-left bg-verified" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: index * 0.08, duration: 0.3 }} aria-hidden="true" /> : null}
+          {index === pathIndex && campaign.status !== "stopped" ? <motion.span className="absolute inset-x-0 top-0 h-[2px] origin-left bg-primary" initial={{ scaleX: 0 }} animate={{ scaleX: 0.5 }} transition={{ delay: index * 0.08, duration: 0.4 }} aria-hidden="true" /> : null}
+          <span className="font-mono text-[10px] text-muted-foreground">0{index + 1}</span> <span className={cn(index === pathIndex && "font-medium")}>{label}</span>
+        </li>)}
+      </ol>
+    </section>
+
+    {error ? <Notice tone="danger" title="That didn't work">{error}</Notice> : null}
+
+    {showCandidateWorkspace ? <CandidateWorkspacePanel availableCredits={availableCredits} busyAction={busyAction} candidates={candidates} onApprove={(ids) => void approveLeads(ids)} onRediscover={() => void rediscoverCandidates()} onVerify={(ids) => void startVerification(ids)} /> : null}
+
+    {readyForEve ? <StageCard tone="verified" icon={<CheckCircle2 />} title="Leads approved. Ready for Eve." action={<Button disabled={busyAction === "retry"} onClick={() => void retryExecution()} type="button"><Spinner busy={busyAction === "retry"} icon={<Play />} />Start drafting</Button>}>
+      {approvedLeadCount} {approvedLeadCount === 1 ? "lead is" : "leads are"} saved. Eve groups them into ICPs, researches a personal hook for each person and drafts the sequence.
+    </StageCard> : null}
+
+    {processing ? <ExecutionProgressPanel execution={execution} onStop={() => void stopExecution()} progress={payload.progress ?? []} stopBusy={busyAction === "stop"} /> : null}
+
+    {cancelled ? <StageCard icon={<Square />} title="Drafting stopped" action={<Button disabled={busyAction === "retry"} onClick={() => void retryExecution()} type="button"><Spinner busy={busyAction === "retry"} icon={<Play />} />Continue</Button>}>
+      Saved at “{execution.stage.replaceAll("_", " ")}”. Continuing picks up from there without repeating finished work.
+    </StageCard> : null}
+
+    {failed ? <StageCard tone="danger" icon={<AlertCircle />} title="Drafting needs attention" action={<Button variant="outline" disabled={busyAction === "retry"} onClick={() => void retryExecution()} type="button"><Spinner busy={busyAction === "retry"} icon={<RefreshCw />} />Try again</Button>}>
+      <p>{execution.errorMessage ?? "The Eve run didn't start or finish."}</p>
+      {approvedLeadCount > 0 ? <p className="text-xs">Your {approvedLeadCount} approved {approvedLeadCount === 1 ? "lead is" : "leads are"} still saved. Trying again only redoes unfinished work.</p> : null}
+    </StageCard> : null}
+
+    {!processing && !failed && !cancelled && !showCandidateWorkspace && !readyForEve && sequences.length === 0 ? <StageCard icon={<CircleDashed />} title="Nothing to review yet">Drafted sequences appear here once Eve saves them.</StageCard> : null}
+
+    {sequences.length > 0 ? <>
+      <div className="sticky top-14 z-10 flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card/95 p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3"><ShieldCheck className="size-4 text-muted-foreground" /><div><p className="text-sm font-semibold">Review each sequence, then approve</p><p className="text-xs text-muted-foreground">Approving doesn't send anything. You pick a schedule afterwards.</p></div></div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" type="button" disabled={!pendingIds.length} onClick={() => setSelected(selected.length === pendingIds.length ? [] : pendingIds)}>{selected.length === pendingIds.length && pendingIds.length ? "Clear" : `Select ${pendingIds.length} pending`}</Button>
+          <Button size="sm" disabled={!selected.length || busyAction === "approve"} onClick={() => void approveSelected()} type="button"><Spinner busy={busyAction === "approve"} icon={<CheckCircle2 />} />Approve {selected.length || ""}</Button>
+        </div>
+      </div>
+
+      {approvedScheduleIds.length > 0 ? <section className="rounded-[var(--radius)] border border-border bg-card">
+        <header className="flex items-center gap-3 border-b border-rule px-5 py-4"><CalendarDays className="size-4 text-muted-foreground" /><div><p className="text-sm font-semibold">Schedule approved sequences</p><p className="text-xs text-muted-foreground">Each step goes out at this local time on its own day offset. Daily caps, retries and duplicate checks still apply.</p></div></header>
+        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          <FormField label="Start date"><Input min={new Date().toISOString().slice(0, 10)} onChange={(event) => setScheduleDate(event.target.value)} type="date" value={scheduleDate} /></FormField>
+          <FormField label="Local time"><Input onChange={(event) => setScheduleTime(event.target.value)} type="time" value={scheduleTime} /></FormField>
+          <FormField label="Time zone"><Input onChange={(event) => setScheduleTimezone(event.target.value)} value={scheduleTimezone} /></FormField>
+          <FormField label="Repeats"><SelectField wrapperClassName="sm:w-full" className="h-10 sm:w-full" onChange={(event) => setScheduleCadence(event.target.value as "once" | "daily" | "weekly")} value={scheduleCadence}><option value="once">Doesn't repeat</option><option value="daily">Every day</option><option value="weekly">Every week</option></SelectField></FormField>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-rule px-5 py-3">
+          <Button variant="outline" size="sm" type="button" onClick={() => setScheduleSelected(scheduleSelected.length === approvedScheduleIds.length ? [] : approvedScheduleIds)}>{scheduleSelected.length === approvedScheduleIds.length ? "Clear" : `Select ${approvedScheduleIds.length} approved`}</Button>
+          <Button size="sm" disabled={!scheduleSelected.length || busyAction === "schedule"} onClick={() => void scheduleApproved()} type="button"><Spinner busy={busyAction === "schedule"} icon={<Send />} />Schedule {scheduleSelected.length || ""}</Button>
+        </div>
+      </section> : null}
+
+      {campaign.recurrence ? <StageCard icon={<CalendarDays />} title={campaign.recurrence.intervalDays === 7 ? "Repeats weekly" : campaign.recurrence.intervalDays === 1 ? "Repeats daily" : campaign.recurrence.intervalDays ? `Repeats every ${campaign.recurrence.intervalDays} days` : `Repeats every ${campaign.recurrence.everyMinutes} minutes`}
+        action={<Button variant="outline" size="sm" disabled={busyAction === "pause-schedule" || busyAction === "resume-schedule"} onClick={() => void setSchedulePaused(!campaign.schedulePaused)} type="button">{campaign.schedulePaused ? <><Play />Resume</> : <><Pause />Pause</>}</Button>}>
+        {campaign.schedulePaused ? "Paused. Nothing due will be sent until you resume." : "Active. Due steps are picked up every minute."}
+      </StageCard> : null}
+
+      <section className="grid gap-4">
+        {sequences.map((sequence) => {
+          const editable = sequence.status === "awaiting_approval";
+          const schedulable = sequence.status === "approved";
+          const checked = editable ? selected.includes(sequence.id) : scheduleSelected.includes(sequence.id);
+          return <article key={sequence.id} className={cn("overflow-hidden rounded-[var(--radius)] border bg-card transition-colors", checked ? "border-primary/50" : "border-border")}>
+            <header className="flex items-center gap-3 border-b border-rule px-5 py-3.5">
+              <input aria-label={`Select ${sequence.leadName}`} className={checkboxClass} checked={checked} disabled={!editable && !schedulable} type="checkbox"
+                onChange={(event) => editable
+                  ? setSelected((current) => event.target.checked ? [...current, sequence.id] : current.filter((id) => id !== sequence.id))
+                  : setScheduleSelected((current) => event.target.checked ? [...current, sequence.id] : current.filter((id) => id !== sequence.id))} />
+              <span className="text-muted-foreground [&_svg]:size-4">{sequence.channel === "email" ? <Mail /> : <MessageSquareText />}</span>
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{sequence.leadName} <span className="font-normal text-muted-foreground">· {sequence.companyName}</span></p><p className="truncate text-xs text-muted-foreground">{sequence.name}</p></div>
+              <span className="hidden items-center gap-1 font-mono text-[11px] text-muted-foreground sm:flex"><Clock3 className="size-3" />{sequence.timezone}</span>
+              <Chip tone={sequenceTone(sequence.status)}>{sequence.status.replaceAll("_", " ")}</Chip>
+            </header>
+            <ol>
+              {sequence.messages.map((message) => {
+                const draft = drafts[message.id] ?? { subject: message.subject, subjectVariant: message.subjectVariant, content: message.content };
+                const dirty = draft.content !== message.content || draft.subject !== message.subject || draft.subjectVariant !== message.subjectVariant;
+                return <li key={message.id} className="grid gap-4 border-b border-rule p-5 last:border-0 md:grid-cols-[7rem_minmax(0,1fr)]">
+                  <div className="flex items-center gap-2 md:flex-col md:items-start">
+                    <span className="font-mono text-sm">{message.stepNumber.toString().padStart(2, "0")}</span>
+                    <span className="text-xs text-muted-foreground">Day {message.dayOffset}</span>
+                    <Chip tone={messageTone(message.status)}>{message.status}</Chip>
+                    {message.scheduledFor ? <time className="font-mono text-[11px] text-muted-foreground" dateTime={message.scheduledFor}>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: sequence.timezone }).format(new Date(message.scheduledFor))}</time> : null}
+                  </div>
+                  <div className="grid min-w-0 gap-3">
+                    {sequence.channel === "email" ? <div className="grid gap-3 sm:grid-cols-2">
+                      <FormField label="Subject A"><Input disabled={!editable} onChange={(event) => setDrafts((current) => ({ ...current, [message.id]: { ...draft, subject: event.target.value } }))} value={draft.subject ?? ""} /></FormField>
+                      <FormField label="Subject B"><Input disabled={!editable} onChange={(event) => setDrafts((current) => ({ ...current, [message.id]: { ...draft, subjectVariant: event.target.value } }))} value={draft.subjectVariant ?? ""} /></FormField>
+                    </div> : null}
+                    <FormField label="Message" hint={sequence.channel === "sms" ? `${draft.content.length}/160 characters` : undefined}><NativeTextarea disabled={!editable} onChange={(event) => setDrafts((current) => ({ ...current, [message.id]: { ...draft, content: event.target.value } }))} rows={sequence.channel === "sms" ? 3 : 6} value={draft.content} /></FormField>
+                    {editable ? <div className="flex justify-end"><Button variant={dirty ? "default" : "outline"} size="sm" aria-label={`Save step ${message.stepNumber}`} disabled={!dirty || busyAction === message.id} onClick={() => void saveMessage(message.id)} type="button"><Spinner busy={busyAction === message.id} icon={<Save />} />{dirty ? "Save changes" : "Saved"}</Button></div> : null}
+                  </div>
+                </li>;
+              })}
+            </ol>
+          </article>;
+        })}
       </section>
 
-      <CampaignTimeline stages={pipelineSteps.map(([stage, label], index) => {
-        const currentIndex = execution ? Math.max(0, pipelineSteps.findIndex(([value]) => value === execution.stage)) : campaign.status === "awaiting_approval" ? pipelineSteps.length - 1 : 0;
-        const state = execution?.status === "failed" && index === currentIndex ? (execution.errorCode === "user_cancelled" ? "cancelled" : "failed") : index < currentIndex ? "complete" : index === currentIndex ? "current" : "pending";
-        return { label, state };
-      })} />
-
-      {payload.billing ? (
-        <section className="campaign-credit-strip" aria-label="Workspace prospect credit balance">
-          <span>{payload.billing.plan?.name ?? "No active plan"}</span>
-          <strong>{availableCredits.toLocaleString()} prospect credits available</strong>
-          <Link href="/settings/billing">Manage plan & credits</Link>
-        </section>
-      ) : null}
-
-      {payload.billing ? <CreditMeter used={Math.max(0, payload.billing.credits.included + payload.billing.credits.topUp - availableCredits)} total={payload.billing.credits.included + payload.billing.credits.topUp} /> : null}
-
-      {error && <div className="form-error" role="alert">{error}</div>}
-
-      {showCandidateWorkspace && (
-        <CandidateWorkspacePanel
-          availableCredits={availableCredits}
-          busyAction={busyAction}
-          candidates={candidates}
-          onApprove={(ids) => void approveLeads(ids)}
-          onRediscover={() => void rediscoverCandidates()}
-          onVerify={(ids) => void startVerification(ids)}
-        />
-      )}
-
-      {readyForEve && (
-        <section className="pipeline-live-card">
-          <span><CheckCircle2 size={20} /></span>
-          <div>
-            <strong>Enrichment complete — continue with Eve</strong>
-            <p>
-              {approvedLeadCount} approved {approvedLeadCount === 1 ? "lead is" : "leads are"} safely saved.
-              Eve will organize ICPs, research personalization signals and draft outreach from this point.
-            </p>
-          </div>
-          <ActionButton
-            className="button-primary"
-            disabled={busyAction === "retry"}
-            onClick={() => void retryExecution()}
-            type="button"
-          >
-            {busyAction === "retry" ? <LoaderCircle className="animate-spin" size={15} /> : <Play size={15} />}
-            Continue with Eve
-          </ActionButton>
-        </section>
-      )}
-
-      {processing && (
-        <ExecutionProgressPanel
-          execution={execution}
-          onStop={() => void stopExecution()}
-          progress={payload.progress ?? []}
-          stopBusy={busyAction === "stop"}
-        />
-      )}
-
-      {cancelled && (
-        <section className="pipeline-live-card">
-          <span><Square size={18} /></span>
-          <div>
-            <strong>Campaign preparation stopped</strong>
-            <p>
-              Eve preserved this campaign at {execution.stage.replaceAll("_", " ")}.
-              Continue when you are ready; completed work will not be repeated.
-            </p>
-          </div>
-          <ActionButton
-            className="button-primary"
-            disabled={busyAction === "retry"}
-            onClick={() => void retryExecution()}
-            type="button"
-          >
-            {busyAction === "retry" ? <LoaderCircle className="animate-spin" size={15} /> : <Play size={15} />}
-            Continue from checkpoint
-          </ActionButton>
-        </section>
-      )}
-
-      {failed && (
-        <section className="pipeline-live-card failed">
-          <span><AlertCircle size={20} /></span>
-          <div>
-            <strong>Campaign preparation needs attention</strong>
-            <p>{execution.errorMessage ?? "The Eve run did not start or complete."}</p>
-            {approvedLeadCount > 0 && (
-              <small>
-                Parallel enrichment is complete and {approvedLeadCount} approved {approvedLeadCount === 1 ? "lead remains" : "leads remain"} saved.
-                Continuing reuses the latest persisted campaign checkpoint and performs only unfinished Eve work.
-              </small>
-            )}
-          </div>
-          <ActionButton
-            className="button-secondary"
-            disabled={busyAction === "retry"}
-            onClick={() => void retryExecution()}
-            type="button"
-          >
-            {busyAction === "retry" ? <LoaderCircle className="animate-spin" size={15} /> : <RefreshCw size={15} />}
-            Continue with Eve
-          </ActionButton>
-        </section>
-      )}
-
-      {!processing && !failed && !cancelled && !showCandidateWorkspace && !readyForEve && sequences.length === 0 && (
-        <section className="pipeline-live-card">
-          <span><CircleDashed size={20} /></span>
-          <div>
-            <strong>Generated sequences will appear here</strong>
-            <p>Eve has not persisted reviewable campaign artifacts yet.</p>
-          </div>
-        </section>
-      )}
-
-      {sequences.length > 0 && (
-        <>
-          <StickyActionBar className="approval-toolbar">
-            <div>
-              <span><ShieldCheck size={16} /> HUMAN REVIEW</span>
-              <h3>Review every sequence before approval.</h3>
-              <p>Approval changes draft records only. It does not schedule or send them.</p>
-            </div>
-            <div>
-              <ActionButton
-                className="button-secondary"
-                onClick={() =>
-                  setSelected(
-                    selected.length === pendingIds.length ? [] : pendingIds,
-                  )
-                }
-                type="button"
-              >
-                {selected.length === pendingIds.length ? "Clear selection" : "Select pending"}
-              </ActionButton>
-              <ActionButton
-                className="button-primary"
-                disabled={!selected.length || busyAction === "approve"}
-                onClick={() => void approveSelected()}
-                type="button"
-              >
-                {busyAction === "approve" ? <LoaderCircle className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-                Approve {selected.length || ""}
-              </ActionButton>
-            </div>
-          </StickyActionBar>
-
-          {approvedScheduleIds.length > 0 && (
-            <section className="schedule-toolbar">
-              <div className="schedule-toolbar-copy">
-                <span><CalendarDays size={16} /> DELIVERY SCHEDULE</span>
-                <h3>Choose when approved sequences begin.</h3>
-                <p>
-                  Every step uses the selected local time and its own day offset.
-                  Daily limits, retries and duplicate protection remain enforced.
-                </p>
-              </div>
-              <div className="schedule-fields">
-                <label>
-                  Start date
-                  <Input
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(event) => setScheduleDate(event.target.value)}
-                    type="date"
-                    value={scheduleDate}
-                  />
-                </label>
-                <label>
-                  Local time
-                  <Input
-                    onChange={(event) => setScheduleTime(event.target.value)}
-                    type="time"
-                    value={scheduleTime}
-                  />
-                </label>
-                <label>
-                  Time zone
-                  <Input
-                    onChange={(event) => setScheduleTimezone(event.target.value)}
-                    value={scheduleTimezone}
-                  />
-                </label>
-                <label>
-                  Repeats
-                  <NativeSelect
-                    onChange={(event) =>
-                      setScheduleCadence(
-                        event.target.value as "once" | "daily" | "weekly",
-                      )
-                    }
-                    value={scheduleCadence}
-                  >
-                    <option value="once">Does not repeat</option>
-                    <option value="daily">Every day</option>
-                    <option value="weekly">Every week</option>
-                  </NativeSelect>
-                </label>
-              </div>
-              <div className="schedule-actions">
-                <ActionButton
-                  className="button-secondary"
-                  onClick={() =>
-                    setScheduleSelected(
-                      scheduleSelected.length === approvedScheduleIds.length
-                        ? []
-                        : approvedScheduleIds,
-                    )
-                  }
-                  type="button"
-                >
-                  {scheduleSelected.length === approvedScheduleIds.length
-                    ? "Clear approved"
-                    : "Select approved sequences"}
-                </ActionButton>
-                <ActionButton
-                  className="button-primary"
-                  disabled={
-                    !scheduleSelected.length || busyAction === "schedule"
-                  }
-                  onClick={() => void scheduleApproved()}
-                  type="button"
-                >
-                  {busyAction === "schedule" ? (
-                    <LoaderCircle className="animate-spin" size={16} />
-                  ) : (
-                    <Send size={16} />
-                  )}
-                  Schedule {scheduleSelected.length || ""}
-                </ActionButton>
-              </div>
-            </section>
-          )}
-
-          {campaign.recurrence && (
-            <section className="schedule-toolbar">
-              <div className="schedule-toolbar-copy">
-                <span><CalendarDays size={16} /> RECURRING DELIVERY</span>
-                <h3>
-                  {campaign.recurrence.intervalDays === 7
-                    ? "Sends weekly"
-                    : campaign.recurrence.intervalDays === 1
-                      ? "Sends daily"
-                      : campaign.recurrence.intervalDays
-                        ? `Sends every ${campaign.recurrence.intervalDays} days`
-                        : `Sends every ${campaign.recurrence.everyMinutes} minutes`}
-                </h3>
-                <p>
-                  {campaign.schedulePaused
-                    ? "This schedule is paused. No due deliveries will be claimed."
-                    : "This schedule is active and checked by eve every minute."}
-                </p>
-              </div>
-              <div className="schedule-actions">
-                <ActionButton
-                  className="button-secondary"
-                  disabled={
-                    busyAction === "pause-schedule" ||
-                    busyAction === "resume-schedule"
-                  }
-                  onClick={() =>
-                    void setSchedulePaused(!campaign.schedulePaused)
-                  }
-                  type="button"
-                >
-                  {campaign.schedulePaused ? (
-                    <><Play size={16} /> Resume schedule</>
-                  ) : (
-                    <><Pause size={16} /> Pause schedule</>
-                  )}
-                </ActionButton>
-              </div>
-            </section>
-          )}
-
-          <section className="sequence-review-list">
-            {sequences.map((sequence) => {
-              const editable = sequence.status === "awaiting_approval";
-              const schedulable = sequence.status === "approved";
-              return (
-                <SurfaceCard as="article" className="sequence-review-card" key={sequence.id}>
-                  <header>
-                    <label>
-                      <Input
-                        checked={
-                          editable
-                            ? selected.includes(sequence.id)
-                            : scheduleSelected.includes(sequence.id)
-                        }
-                        disabled={!editable && !schedulable}
-                        onChange={(event) =>
-                          editable
-                            ? setSelected((current) =>
-                                event.target.checked
-                                  ? [...current, sequence.id]
-                                  : current.filter((id) => id !== sequence.id),
-                              )
-                            : setScheduleSelected((current) =>
-                                event.target.checked
-                                  ? [...current, sequence.id]
-                                  : current.filter((id) => id !== sequence.id),
-                              )
-                        }
-                        type="checkbox"
-                      />
-                      <span>
-                        {sequence.channel === "email" ? <Mail size={17} /> : <MessageSquareText size={17} />}
-                      </span>
-                    </label>
-                    <div>
-                      <h3>{sequence.leadName} · {sequence.companyName}</h3>
-                      <p>{sequence.name}</p>
-                    </div>
-                    <div className={`sequence-status sequence-status-${sequence.status}`}>
-                      {sequence.status.replaceAll("_", " ")}
-                    </div>
-                    <small><Clock3 size={13} /> {sequence.timezone}</small>
-                  </header>
-
-                  <div className="sequence-message-list">
-                    {sequence.messages.map((message) => {
-                      const draft = drafts[message.id] ?? {
-                        subject: message.subject,
-                        subjectVariant: message.subjectVariant,
-                        content: message.content,
-                      };
-                      return (
-                        <div className="sequence-message-editor" key={message.id}>
-                          <div className="message-step">
-                            <span>{message.stepNumber.toString().padStart(2, "0")}</span>
-                            <small>Day {message.dayOffset}</small>
-                            <em className={`message-status message-status-${message.status}`}>
-                              {message.status}
-                            </em>
-                            {message.scheduledFor && (
-                              <time dateTime={message.scheduledFor}>
-                                {new Intl.DateTimeFormat(undefined, {
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                  timeZone: sequence.timezone,
-                                }).format(new Date(message.scheduledFor))}
-                              </time>
-                            )}
-                          </div>
-                          <div className="message-fields">
-                            {sequence.channel === "email" && (
-                              <div className="field-grid two">
-                                <label>
-                                  Subject A
-                                  <Input
-                                    disabled={!editable}
-                                    onChange={(event) =>
-                                      setDrafts((current) => ({
-                                        ...current,
-                                        [message.id]: { ...draft, subject: event.target.value },
-                                      }))
-                                    }
-                                    value={draft.subject ?? ""}
-                                  />
-                                </label>
-                                <label>
-                                  Subject B
-                                  <Input
-                                    disabled={!editable}
-                                    onChange={(event) =>
-                                      setDrafts((current) => ({
-                                        ...current,
-                                        [message.id]: { ...draft, subjectVariant: event.target.value },
-                                      }))
-                                    }
-                                    value={draft.subjectVariant ?? ""}
-                                  />
-                                </label>
-                              </div>
-                            )}
-                            <label>
-                              Message
-                              <NativeTextarea
-                                disabled={!editable}
-                                onChange={(event) =>
-                                  setDrafts((current) => ({
-                                    ...current,
-                                    [message.id]: { ...draft, content: event.target.value },
-                                  }))
-                                }
-                                rows={6}
-                                value={draft.content}
-                              />
-                            </label>
-                          </div>
-                          {editable && (
-                            <ActionButton
-                              aria-label={`Save step ${message.stepNumber}`}
-                              disabled={busyAction === message.id}
-                              onClick={() => void saveMessage(message.id)}
-                              type="button"
-                            >
-                              {busyAction === message.id ? <LoaderCircle className="animate-spin" size={15} /> : <Save size={15} />}
-                            </ActionButton>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </SurfaceCard>
-              );
-            })}
-          </section>
-
-          <div className="truth-banner">
-            <Check size={18} />
-            <p>
-              <strong>Generated is not sent.</strong> Approved sequences remain
-              inert until you create a schedule. Sent and delivered labels appear
-              only after verified Resend events.
-            </p>
-          </div>
-        </>
-      )}
-    </div>
-  );
+      <p className="text-xs leading-5 text-muted-foreground">Approved sequences don't send until you schedule them. “Sent” and “delivered” only appear after the provider confirms them.</p>
+    </> : null}
+  </div>;
 }

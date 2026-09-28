@@ -1,16 +1,15 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CalendarClock, Check, Globe2, Lightbulb, LoaderCircle, Save } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, Globe2, Lightbulb, LoaderCircle, Mail, MessageSquare } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CampaignCreateInput } from "../lib/domain/campaign";
-import {
-  ActionButton,
-  ActionLink,
-  NativeSelect,
-  NativeTextarea,
-  SurfaceCard,
-} from "./design-system";
+import { cn } from "@/lib/utils";
+import { NativeTextarea } from "./design-system";
+import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { FormField, Notice, SelectField } from "./product/kit";
 
 type Mode = "website" | "idea";
 type FormState = {
@@ -45,7 +44,20 @@ const initialForm: FormState = {
   channels: ["email"],
 };
 
-const stepNames = ["Product", "Audience", "Campaign", "Review"];
+const stepNames = ["Product", "Audience", "Run settings", "Review"];
+
+function Choice({ active, onClick, icon, title, description, disabled }: { active: boolean; onClick: () => void; icon?: ReactNode; title: string; description?: string; disabled?: boolean }) {
+  return <button type="button" aria-pressed={active} onClick={onClick} disabled={disabled}
+    className={cn("relative flex items-start gap-3 rounded-md border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50", active ? "border-primary bg-primary/6" : "border-border hover:border-input")}>
+    {icon ? <span className={cn("mt-0.5 [&_svg]:size-4", active ? "text-primary" : "text-muted-foreground")}>{icon}</span> : null}
+    <span><span className="block text-sm font-medium">{title}</span>{description ? <span className="block text-xs leading-5 text-muted-foreground">{description}</span> : null}</span>
+    {active ? <Check className="absolute right-3 top-3 size-3.5 text-primary" /> : null}
+  </button>;
+}
+
+function StepHeading({ index, title, description }: { index: number; title: string; description: string }) {
+  return <div className="space-y-1"><p className="font-mono text-xs text-muted-foreground">step {index} of 4</p><h2 className="text-xl font-semibold tracking-tight">{title}</h2><p className="text-sm leading-6 text-muted-foreground">{description}</p></div>;
+}
 
 export function CampaignWizard({
   initialMode = "website",
@@ -70,10 +82,29 @@ export function CampaignWizard({
   const [campaignId, setCampaignId] = useState("");
   const idempotencyKey = useRef<string | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string>("");
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Restore an unfinished draft unless the page was opened with a URL or idea to start from.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    if (initialValue) return;
+    try {
+      const raw = window.localStorage.getItem("vranceflex:campaign-draft");
+      if (!raw) return;
+      const draft = JSON.parse(raw) as { mode?: Mode; form?: Partial<FormState> };
+      if (draft.form && (draft.form.productName || draft.form.businessName || draft.form.websiteUrl || draft.form.ideaDescription)) {
+        setForm((current) => ({ ...current, ...draft.form }));
+        if (draft.mode === "website" || draft.mode === "idea") setMode(draft.mode);
+        setDraftRestored(true);
+      }
+    } catch {}
+  }, [initialValue]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem("vranceflex:campaign-draft", JSON.stringify({ mode, form }));
+      try { window.localStorage.setItem("vranceflex:campaign-draft", JSON.stringify({ mode, form })); } catch {}
       setDraftSavedAt(new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date()));
     }, 300);
     return () => window.clearTimeout(timer);
@@ -162,6 +193,7 @@ export function CampaignWizard({
       };
       if (!response.ok || !data.campaign) throw new Error(data.error ?? "Campaign creation failed.");
       setCampaignId(data.campaign.id);
+      try { window.localStorage.removeItem("vranceflex:campaign-draft"); } catch {}
       setMessage(data.warning ?? "");
       setState("success");
     } catch (error) {
@@ -171,167 +203,106 @@ export function CampaignWizard({
   }
 
   if (state === "success") {
-    return (
-      <SurfaceCard as="section" className="wizard-success">
-        <span><Check size={24} /></span>
-        <p className="section-label">Campaign accepted</p>
-        <h2>{message ? "Campaign saved." : "Research has started."}</h2>
-        <p>
-          {message || (
-            <>
-              Your campaign is truthfully marked <strong>Researching</strong>. No outreach has been sent,
-              scheduled or approved.
-            </>
-          )}
-        </p>
-        <div>
-          <ActionLink className="button-primary" href={`/campaigns/${campaignId}`}>
-            View campaign <ArrowRight size={17} />
-          </ActionLink>
-          <ActionLink className="button-secondary" href="/campaigns/new">Create another</ActionLink>
-        </div>
-      </SurfaceCard>
-    );
+    return <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-xl rounded-[var(--radius)] border border-border bg-card p-8">
+      <span className="flex size-10 items-center justify-center rounded-full bg-verified/12 text-verified"><Check className="size-5" /></span>
+      <h2 className="mt-5 text-xl font-semibold tracking-tight">{message ? "Campaign saved" : "Research has started"}</h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{message || "Candidates usually appear within a few minutes. Nothing has been sent or scheduled; you'll choose who to verify next."}</p>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Button asChild><Link href={`/campaigns/${campaignId}`}>Open campaign<ArrowRight /></Link></Button>
+        <Button asChild variant="outline"><Link href="/campaigns/new">Start another</Link></Button>
+      </div>
+    </motion.section>;
   }
 
-  return (
-    <SurfaceCard as="section" className="campaign-wizard">
-      <div className="wizard-progress" aria-label={`Step ${step + 1} of ${stepNames.length}`}>
-        {stepNames.map((name, index) => (
-          <div className={index <= step ? "active" : ""} key={name}>
-            <span>{index < step ? <Check size={13} /> : index + 1}</span>
-            <small>{name}</small>
-          </div>
-        ))}
-      </div>
-      <div className="wizard-autosave" role="status"><Save />{draftSavedAt ? `Draft saved at ${draftSavedAt}` : "Saving draft…"}</div>
+  const reviewRows: Array<[string, ReactNode]> = [
+    ["Product", <>{form.productName}<span className="block text-xs text-muted-foreground">{mode === "website" ? form.websiteUrl : `${form.ideaName} · ${form.ideaStage}`}</span></>],
+    ["Audience", <>{form.audience}<span className="block text-xs text-muted-foreground">{form.geography}</span></>],
+    ["Goal", { book_meetings: "Book qualified meetings", validate_demand: "Validate demand", build_waitlist: "Build a waitlist", sell_product: "Generate sales opportunities" }[form.goal]],
+    ["Verified leads", <><span className="font-mono tabular-nums">up to {form.leadCount}</span><span className="block text-xs text-muted-foreground">{creditBalance.toLocaleString()} credits available on {planName}. Credits are only used when a lead verifies.</span></>],
+    ["Channels", form.channels.map((channel) => channel === "sms" ? "SMS" : "Email").join(" and ")],
+    ["Sending", "Only after you approve the sequence and pick a schedule"],
+  ];
 
-      {step === 0 && (
-        <div className="wizard-panel">
-          <div className="panel-heading">
-            <span>01 · PRODUCT CONTEXT</span>
-            <h2>What are you taking to market?</h2>
-            <p>Start with a live website or describe an idea that has not launched yet.</p>
-          </div>
-          <div className="source-choice">
-            <ActionButton className={mode === "website" ? "active" : ""} onClick={() => switchMode("website")} type="button">
-              <Globe2 size={19} /><span><strong>Website</strong><small>We analyse your existing pages.</small></span>
-            </ActionButton>
-            <ActionButton className={mode === "idea" ? "active" : ""} onClick={() => switchMode("idea")} type="button">
-              <Lightbulb size={19} /><span><strong>Product idea</strong><small>No website or launch required.</small></span>
-            </ActionButton>
-          </div>
-          <div className="field-grid two">
-            <label>Business or founder name<Input value={form.businessName} onChange={(event) => update("businessName", event.target.value)} placeholder="Acme Labs" /></label>
-            <label>Product name<Input value={form.productName} onChange={(event) => update("productName", event.target.value)} placeholder="SignalOS" /></label>
-          </div>
-          {mode === "website" ? (
-            <label>Website URL<Input value={form.websiteUrl} onChange={(event) => update("websiteUrl", event.target.value)} placeholder="https://example.com" type="url" /></label>
-          ) : (
-            <div className="field-grid idea-grid">
-              <label>Idea name<Input value={form.ideaName} onChange={(event) => update("ideaName", event.target.value)} placeholder="AI onboarding copilot" /></label>
-              <label>Current stage<NativeSelect value={form.ideaStage} onChange={(event) => update("ideaStage", event.target.value as FormState["ideaStage"])}><option value="concept">Concept</option><option value="prototype">Prototype</option><option value="mvp">MVP</option><option value="launched">Launched</option></NativeSelect></label>
-              <label className="full">Describe the idea<NativeTextarea value={form.ideaDescription} onChange={(event) => update("ideaDescription", event.target.value)} placeholder="What does it do, who needs it, and what painful problem does it solve?" rows={4} /></label>
-            </div>
-          )}
-          <label>Product summary<NativeTextarea value={form.productSummary} onChange={(event) => update("productSummary", event.target.value)} placeholder="Explain the outcome customers get and why your approach is different." rows={4} /></label>
-        </div>
-      )}
+  return <div className="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[11rem_minmax(0,1fr)]">
+    <ol className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1" aria-label={`Step ${step + 1} of ${stepNames.length}`}>
+      {stepNames.map((name, index) => <li key={name}>
+        <button type="button" disabled={index > step} onClick={() => setStep(index)} className={cn("flex h-9 w-full items-center gap-3 whitespace-nowrap rounded-md px-3 text-sm transition-colors", index === step ? "bg-card text-foreground ring-1 ring-border" : index < step ? "text-foreground hover:bg-muted/50" : "text-muted-foreground")}>
+          <span className={cn("flex size-5 items-center justify-center rounded-full font-mono text-[10px]", index < step ? "bg-primary text-primary-foreground" : index === step ? "border border-primary text-primary" : "border border-border")}>{index < step ? <Check className="size-3" /> : index + 1}</span>{name}
+        </button>
+      </li>)}
+      <li className="mt-auto hidden px-3 pt-4 text-xs text-muted-foreground lg:block" role="status">{draftSavedAt ? `Draft saved ${draftSavedAt}` : "Saving draft…"}</li>
+    </ol>
 
-      {step === 1 && (
-        <div className="wizard-panel">
-          <div className="panel-heading">
-            <span>02 · MARKET</span>
-            <h2>Who should care first?</h2>
-            <p>Give the agents a strong starting hypothesis. Research will validate and sharpen it.</p>
-          </div>
-          <label>Ideal audience<NativeTextarea value={form.audience} onChange={(event) => update("audience", event.target.value)} placeholder="e.g. RevOps leaders at 50–500 person B2B SaaS companies struggling with stale CRM data" rows={5} /></label>
-          <div className="field-grid two">
-            <label>Primary geography<Input value={form.geography} onChange={(event) => update("geography", event.target.value)} placeholder="United Kingdom and DACH" /></label>
-            <label>Campaign goal<NativeSelect value={form.goal} onChange={(event) => update("goal", event.target.value as FormState["goal"])}><option value="book_meetings">Book qualified meetings</option><option value="validate_demand">Validate market demand</option><option value="build_waitlist">Build a waitlist</option><option value="sell_product">Generate sales opportunities</option></NativeSelect></label>
-          </div>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="wizard-panel">
-          <div className="panel-heading">
-            <span>03 · CAMPAIGN CONTROLS</span>
-            <h2>Set a deliberate first run.</h2>
-            <p>Choose the research depth and channels. Every message still requires approval.</p>
-          </div>
-          <div className="choice-section">
-            <label>Verified lead target</label>
-            <div className="option-row">
-              {[10, 25, 50, 100, 250, 500].map((count) => (
-                <ActionButton
-                  className={form.leadCount === count ? "active" : ""}
-                  disabled={count > creditBalance}
-                  onClick={() => update("leadCount", count as FormState["leadCount"])}
-                  title={count > creditBalance ? "Not enough prospect credits" : undefined}
-                  type="button"
-                  key={count}
-                >
-                  {count}
-                </ActionButton>
-              ))}
-            </div>
-            <p className="option-row-note">
-              We&apos;ll find up to {Math.min(1_000, form.leadCount * 3)} candidates instantly, then you choose who to verify.
-            </p>
-            <div className="wizard-credit-meter" role="status">
-              <div>
-                <strong>{creditBalance.toLocaleString()} credits available</strong>
-                <span>{planName} plan · this campaign can consume up to {form.leadCount} after successful verification</span>
+    <section className="min-w-0 rounded-[var(--radius)] border border-border bg-card">
+      <div className="p-6 sm:p-8">
+        {draftRestored && step === 0 ? <Notice className="mb-6" tone="info" title="Picked up your unfinished draft" action={<Button variant="ghost" size="sm" onClick={() => { setForm(initialForm); setDraftRestored(false); }}>Start over</Button>} /> : null}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={step} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }} className="grid gap-6">
+            {step === 0 ? <>
+              <StepHeading index={1} title="What are you taking to market?" description="Point research at a live website, or describe a product that hasn't launched yet." />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Choice active={mode === "website"} onClick={() => switchMode("website")} icon={<Globe2 />} title="A website" description="Research reads your existing pages." />
+                <Choice active={mode === "idea"} onClick={() => switchMode("idea")} icon={<Lightbulb />} title="A product idea" description="No website or launch needed." />
               </div>
-              <ActionLink href="/settings/billing">Add credits</ActionLink>
-            </div>
-          </div>
-          <div className="field-grid two">
-            <label>
-              Monthly outreach budget (USD)
-              <Input min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} />
-              <small className="field-help">Planning only—this never changes your VranceFlex subscription charge.</small>
-            </label>
-            <div className="choice-section">
-              <label>Channels to prepare</label>
-              <div className="channel-row">
-                {(["email", "sms"] as const).map((channel) => (
-                  <ActionButton className={form.channels.includes(channel) ? "active" : ""} onClick={() => toggleChannel(channel)} type="button" key={channel}><span>{form.channels.includes(channel) && <Check size={12} />}</span>{channel.toUpperCase()}</ActionButton>
-                ))}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Company or founder name"><Input value={form.businessName} onChange={(event) => update("businessName", event.target.value)} placeholder="Acme Labs" /></FormField>
+                <FormField label="Product name"><Input value={form.productName} onChange={(event) => update("productName", event.target.value)} placeholder="SignalOS" /></FormField>
               </div>
-            </div>
-          </div>
-          <div className="approval-note"><Check size={18} /><div><strong>Human approval is mandatory.</strong><p>Generated copy remains “Copy Generated” or “Awaiting Approval.” It cannot become “Sent” without a confirmed provider event.</p></div></div>
-        </div>
-      )}
+              {mode === "website"
+                ? <FormField label="Website URL"><Input value={form.websiteUrl} onChange={(event) => update("websiteUrl", event.target.value)} placeholder="https://example.com" type="url" /></FormField>
+                : <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
+                  <FormField label="Idea name"><Input value={form.ideaName} onChange={(event) => update("ideaName", event.target.value)} placeholder="AI onboarding copilot" /></FormField>
+                  <FormField label="Stage"><SelectField wrapperClassName="sm:w-full" className="h-10 sm:w-full" value={form.ideaStage} onChange={(event) => update("ideaStage", event.target.value as FormState["ideaStage"])}><option value="concept">Concept</option><option value="prototype">Prototype</option><option value="mvp">MVP</option><option value="launched">Launched</option></SelectField></FormField>
+                  <FormField className="sm:col-span-2" label="Describe the idea" hint={`${form.ideaDescription.trim().length}/30 characters minimum`}><NativeTextarea value={form.ideaDescription} onChange={(event) => update("ideaDescription", event.target.value)} placeholder="What it does, who needs it, and the problem it removes." rows={4} /></FormField>
+                </div>}
+              <FormField label="What customers get" hint={`${form.productSummary.trim().length}/30 characters minimum. The outcome, and why your approach is different.`}><NativeTextarea value={form.productSummary} onChange={(event) => update("productSummary", event.target.value)} placeholder="e.g. Finance teams close the month in two days instead of eight because reconciliation runs continuously." rows={4} /></FormField>
+            </> : null}
 
-      {step === 3 && (
-        <div className="wizard-panel wizard-review">
-          <div className="panel-heading"><span>04 · FINAL REVIEW</span><h2>Confirm before external research begins.</h2><p>VranceFlex will reserve capacity, discover candidates, and wait for you to choose who gets verified.</p></div>
-          <div className="wizard-review-grid">
-            <article><span>Product</span><strong>{form.productName}</strong><p>{mode === "website" ? form.websiteUrl : form.ideaName}</p></article>
-            <article><span>Audience</span><strong>{form.geography}</strong><p>{form.audience}</p></article>
-            <article><span>Credit estimate</span><strong className="font-mono">Up to {form.leadCount}</strong><p>{creditBalance.toLocaleString()} available on {planName}</p></article>
-            <article><span>Channels</span><strong>{form.channels.map((channel) => channel.toUpperCase()).join(" + ")}</strong><p>Every message requires human approval.</p></article>
-            <article><span>Scheduling</span><strong><CalendarClock /> After approval</strong><p>Choose one-shot, daily, or weekly delivery after reviewing sequences.</p></article>
-            <article><span>Timezone preview</span><strong>{Intl.DateTimeFormat().resolvedOptions().timeZone}</strong><p>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date())}</p></article>
-          </div>
-        </div>
-      )}
+            {step === 1 ? <>
+              <StepHeading index={2} title="Who should hear about it first?" description="A starting guess is enough. Research checks it against real companies and sharpens it into an ICP." />
+              <FormField label="Ideal audience" hint="Role, company size and the problem they have work best."><NativeTextarea value={form.audience} onChange={(event) => update("audience", event.target.value)} placeholder="RevOps leaders at 50–500 person B2B SaaS companies struggling with stale CRM data" rows={5} /></FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Region"><Input value={form.geography} onChange={(event) => update("geography", event.target.value)} placeholder="United Kingdom and DACH" /></FormField>
+                <FormField label="Goal"><SelectField wrapperClassName="sm:w-full" className="h-10 sm:w-full" value={form.goal} onChange={(event) => update("goal", event.target.value as FormState["goal"])}><option value="book_meetings">Book qualified meetings</option><option value="validate_demand">Validate demand</option><option value="build_waitlist">Build a waitlist</option><option value="sell_product">Generate sales opportunities</option></SelectField></FormField>
+              </div>
+            </> : null}
 
-      {state === "error" && <div className="form-error" role="alert">{message}<ActionButton onClick={() => setState("idle")} type="button">Try again</ActionButton></div>}
+            {step === 2 ? <>
+              <StepHeading index={3} title="How big should the first run be?" description="Start small, check the quality, then scale. Every message still waits for your approval." />
+              <div className="grid gap-2">
+                <p className="text-sm font-medium">Verified leads</p>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {[10, 25, 50, 100, 250, 500].map((count) => <button key={count} type="button" aria-pressed={form.leadCount === count} disabled={count > creditBalance} title={count > creditBalance ? "Not enough credits" : undefined} onClick={() => update("leadCount", count as FormState["leadCount"])}
+                    className={cn("h-10 rounded-md border font-mono text-sm tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40", form.leadCount === count ? "border-primary bg-primary/8 text-primary" : "border-border hover:border-input")}>{count}</button>)}
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">Research finds up to {Math.min(1_000, form.leadCount * 3)} candidates. You pick who to verify, and a credit is used only when verification succeeds. <span className="font-mono text-foreground">{creditBalance.toLocaleString()}</span> credits left on {planName}. <Link className="text-primary hover:underline" href="/settings/billing">Add credits</Link></p>
+              </div>
+              <div className="grid gap-2">
+                <p className="text-sm font-medium">Channels to draft</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Choice active={form.channels.includes("email")} onClick={() => toggleChannel("email")} icon={<Mail />} title="Email" description="Sent through your Resend account." />
+                  <Choice active={form.channels.includes("sms")} onClick={() => toggleChannel("sms")} icon={<MessageSquare />} title="SMS" description="Sent through your Twilio account." />
+                </div>
+              </div>
+              <FormField label="Monthly outreach budget (USD)" hint="For planning only. It doesn't change your VranceFlex bill."><Input className="sm:max-w-48" min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} /></FormField>
+            </> : null}
 
-      <div className="wizard-actions">
-        {step > 0 ? <ActionButton className="button-secondary" onClick={() => setStep((current) => current - 1)} type="button"><ArrowLeft size={16} /> Back</ActionButton> : <ActionLink className="button-secondary" href="/">Cancel</ActionLink>}
-        {step < stepNames.length - 1 ? (
-          <ActionButton className="button-primary" disabled={!canContinue} onClick={() => setStep((current) => current + 1)} type="button">Continue <ArrowRight size={16} /></ActionButton>
-        ) : (
-          <ActionButton className="button-primary" disabled={!canContinue || state === "submitting"} onClick={() => void submit()} type="button">
-            {state === "submitting" ? <><LoaderCircle className="animate-spin" size={17} /> Creating campaign</> : <>Start research <ArrowRight size={16} /></>}
-          </ActionButton>
-        )}
+            {step === 3 ? <>
+              <StepHeading index={4} title="Check it before research starts" description="Starting research runs a discovery search now. Verification and sending each wait for you." />
+              <dl className="divide-y divide-rule rounded-md border border-border">
+                {reviewRows.map(([label, value]) => <div key={label} className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4"><dt className="text-muted-foreground">{label}</dt><dd className="min-w-0 break-words">{value}</dd></div>)}
+              </dl>
+            </> : null}
+          </motion.div>
+        </AnimatePresence>
+        {state === "error" ? <Notice className="mt-6" tone="danger" title="The campaign couldn't be created">{message}</Notice> : null}
       </div>
-    </SurfaceCard>
-  );
+      <div className="flex items-center justify-between gap-3 border-t border-rule px-6 py-4 sm:px-8">
+        {step > 0 ? <Button variant="ghost" onClick={() => setStep((current) => current - 1)} type="button"><ArrowLeft />Back</Button> : <Button asChild variant="ghost"><Link href="/dashboard">Cancel</Link></Button>}
+        {step < stepNames.length - 1
+          ? <Button disabled={!canContinue} onClick={() => setStep((current) => current + 1)} type="button">Continue<ArrowRight /></Button>
+          : <Button disabled={!canContinue || state === "submitting"} onClick={() => void submit()} type="button">{state === "submitting" ? <><LoaderCircle className="animate-spin" />Starting research</> : <>Start research<ArrowRight /></>}</Button>}
+      </div>
+    </section>
+  </div>;
 }
