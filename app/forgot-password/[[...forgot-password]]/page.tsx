@@ -6,9 +6,9 @@ export const metadata = { title: "Recover account · VranceFlex" };
 export default function ForgotPasswordPage() {
   return (
     <AuthSurface
-      description="Recover access using a short-lived email code. Completing a reset revokes every existing session."
-      eyebrow="SECURE RECOVERY"
-      title="Get back to your workspace safely."
+      description="We email you a code that lasts ten minutes. Resetting signs you out on every other device."
+      eyebrow="Reset password"
+      title="Reset your password."
     >
       <ForgotPasswordFlow />
     </AuthSurface>

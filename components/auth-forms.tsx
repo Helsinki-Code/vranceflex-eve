@@ -270,7 +270,7 @@ export function SignUpFlow() {
       <div className="auth-form-heading">
         <span><ShieldCheck size={15} /> Verified signup</span>
         <h2>Create your workspace</h2>
-        <p>Your account stays pending until the email OTP is confirmed.</p>
+        <p>We email you a six-digit code to confirm the address before the workspace opens.</p>
       </div>
       <ErrorMessage error={error} />
       <div className="auth-field-grid">

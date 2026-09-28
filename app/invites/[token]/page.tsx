@@ -14,8 +14,8 @@ export default async function InvitePage({ params }: PageContext) {
   return (
     <AuthSurface
       description="Accept an invitation to collaborate on a VranceFlex workspace."
-      eyebrow="TEAM INVITE"
-      title="You've been invited to a workspace."
+      eyebrow="Invitation"
+      title="Join your team on VranceFlex."
     >
       <InviteAcceptForm token={token} />
     </AuthSurface>

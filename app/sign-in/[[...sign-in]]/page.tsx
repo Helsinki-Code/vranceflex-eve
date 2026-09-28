@@ -15,9 +15,9 @@ export default async function SignInPage({
 
   return (
     <AuthSurface
-      description="Return to your evidence-backed campaign workspace. Sessions are owned by VranceFlex and stored securely in Neon."
-      eyebrow="WELCOME BACK"
-      title="Continue building pipeline with control."
+      description="Pick up where your campaigns left off: new replies, sequences waiting for approval, and leads that finished verifying."
+      eyebrow="Sign in"
+      title="Your campaigns are where you left them."
     >
       <SignInForm nextPath={nextPath} />
     </AuthSurface>

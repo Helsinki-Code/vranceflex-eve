@@ -6,9 +6,9 @@ export const metadata = { title: "Create account · VranceFlex" };
 export default function SignUpPage() {
   return (
     <AuthSurface
-      description="Create a private workspace for your team. Every new account is verified by a short-lived email OTP before access is granted."
-      eyebrow="START WITH CONTROL"
-      title="Your market motion, in one verified workspace."
+      description="Create a workspace, confirm your email with a six-digit code, and start your first campaign from a URL or an idea."
+      eyebrow="Create account"
+      title="Set up a workspace for your team."
     >
       <SignUpFlow />
     </AuthSurface>
