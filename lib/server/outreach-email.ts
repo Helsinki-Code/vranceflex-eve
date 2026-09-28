@@ -1,12 +1,17 @@
 import { findUnresolvedPlaceholders } from "./message-placeholders";
 import { sendResendEmail, type ResendSendCredentials } from "./resend-email";
+import { signUnsubscribeToken } from "./unsubscribe-token";
 
 export class OutreachEmailPolicyError extends Error {}
 
 function unsubscribeUrl(messageId: string) {
   const base = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "");
-  if (!base) return undefined;
-  return `${base}/api/unsubscribe/${messageId}`;
+  if (!base) return { url: undefined, signed: false };
+  const token = signUnsubscribeToken(messageId);
+  return {
+    url: `${base}/api/unsubscribe/${messageId}${token ? `?t=${token}` : ""}`,
+    signed: Boolean(token),
+  };
 }
 
 function withComplianceFooter(body: string, unsubscribe: string) {
@@ -86,9 +91,9 @@ export async function sendApprovedOutreachEmail(
     );
   }
 
-  const unsubscribe = unsubscribeUrl(input.messageId);
+  const { url: unsubscribe, signed: unsubscribeSigned } = unsubscribeUrl(input.messageId);
 
-  return sendResendEmail(credentials, {
+  const result = await sendResendEmail(credentials, {
     to: input.to.trim(),
     subject: input.subject.trim(),
     text: unsubscribe ? withComplianceFooter(input.text, unsubscribe) : input.text,
@@ -112,4 +117,5 @@ export async function sendApprovedOutreachEmail(
         }
       : {}),
   });
+  return { ...result, unsubscribeSigned };
 }

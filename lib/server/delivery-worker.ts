@@ -476,6 +476,8 @@ async function processClaimedJob(jobId: string) {
           attemptCount: job.attemptCount,
           lastError: null,
           sentAt: channel === "sms" ? now : message.sentAt,
+          // Once any send used a signed link, unsigned links stop working.
+          ...("unsubscribeSigned" in result && result.unsubscribeSigned ? { unsubscribeSigned: true } : {}),
           updatedAt: now,
         })
         .where(eq(outreachMessages.id, message.id));

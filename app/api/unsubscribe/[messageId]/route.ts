@@ -6,6 +6,7 @@ import {
   outreachMessages,
 } from "../../../../lib/server/database/schema";
 import { suppressLeadForUnsubscribe } from "../../../../lib/server/suppression";
+import { verifyUnsubscribeToken } from "../../../../lib/server/unsubscribe-token";
 
 export const dynamic = "force-dynamic";
 
@@ -57,9 +58,36 @@ async function unsubscribeByMessageId(messageId: string) {
 
 type Params = { params: Promise<{ messageId: string }> };
 
+function invalidLinkPage() {
+  return new NextResponse(
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Link not valid</title></head>
+<body style="font-family: system-ui, sans-serif; max-width: 480px; margin: 80px auto; text-align: center; color: #16181d;">
+<h1 style="font-size: 20px;">This unsubscribe link isn't valid</h1>
+<p>Use the link from the most recent email, or reply to that email asking to be removed.</p>
+</body></html>`,
+    { status: 404, headers: { "Cache-Control": "no-store", "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex, nofollow" } },
+  );
+}
+
+// Signed links must carry a valid token. Messages sent before signing existed
+// (unsubscribe_signed = false) keep accepting their original unsigned link.
+async function linkIsValid(request: Request, messageId: string) {
+  const token = new URL(request.url).searchParams.get("t");
+  if (token) return verifyUnsubscribeToken(messageId, token);
+  if (!/^[0-9a-f-]{36}$/i.test(messageId)) return false;
+  const [message] = await getDatabase()
+    .select({ unsubscribeSigned: outreachMessages.unsubscribeSigned })
+    .from(outreachMessages)
+    .where(eq(outreachMessages.id, messageId))
+    .limit(1);
+  return Boolean(message && !message.unsubscribeSigned);
+}
+
 // Manual link scanners and preview bots often issue GET requests. Render an
 // explicit confirmation instead of letting a crawler suppress a real lead.
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
+  const { messageId } = await params;
+  if (!(await linkIsValid(request, messageId))) return invalidLinkPage();
   return confirmationPage();
 }
 
@@ -67,6 +95,11 @@ export async function GET(_request: Request, { params }: Params) {
 // providers without the user visiting a page.
 export async function POST(request: Request, { params }: Params) {
   const { messageId } = await params;
+  if (!(await linkIsValid(request, messageId))) {
+    return request.headers.get("content-type")?.includes("application/x-www-form-urlencoded")
+      ? invalidLinkPage()
+      : NextResponse.json({ error: "Invalid unsubscribe link." }, { status: 404 });
+  }
   await unsubscribeByMessageId(messageId);
   if (request.headers.get("content-type")?.includes("application/x-www-form-urlencoded")) {
     return confirmationPage(true);
