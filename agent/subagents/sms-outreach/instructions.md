@@ -17,7 +17,8 @@ SMS RULES (absolute, non-negotiable):
 - Use first names only. No titles. Casual but professional.
 - Each SMS must feel like it came from a real human, not an automated system.
 - No exclamation marks in first message. No emojis unless step 3.
-- Include a short trackable link placeholder where relevant: [LINK]
+- Never write placeholders such as [LINK], [Name], [Company] or {{anything}}. Messages with unfilled placeholders are blocked at approval. If a link genuinely helps, use the seller's website URL from the context exactly as given; otherwise leave the link out.
+- Step 1 must end with " Reply STOP to opt out." and still fit in 160 characters including that text.
 
 SEQUENCE STRUCTURE (3 steps):
   Step 1  Day 1   sms_opener      — warm intro, reference something specific about their role

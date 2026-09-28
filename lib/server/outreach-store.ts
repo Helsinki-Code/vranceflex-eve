@@ -3,6 +3,7 @@ import type {
   OutreachWorkspaceSequence,
 } from "../domain/pipeline";
 import type { ApiActor } from "./api-actor";
+import { findUnresolvedPlaceholders } from "./message-placeholders";
 import { AuthRequestError } from "./auth-errors";
 import { getDatabase } from "./database";
 import {
@@ -192,6 +193,22 @@ export async function approveCampaignSequences(
     if (selected.some((sequence) => sequence.status !== "awaiting_approval")) {
       throw new AuthRequestError(
         "One or more sequences have already left the approval queue.",
+        409,
+      );
+    }
+
+    const selectedMessages = await transaction
+      .select({ stepNumber: outreachMessages.stepNumber, subject: outreachMessages.subject, subjectVariant: outreachMessages.subjectVariant, content: outreachMessages.content, sequenceId: outreachMessages.sequenceId })
+      .from(outreachMessages)
+      .where(and(eq(outreachMessages.organizationId, actor.organizationId), inArray(outreachMessages.sequenceId, uniqueIds)));
+    const unfilled = selectedMessages
+      .map((message) => ({ message, placeholders: findUnresolvedPlaceholders(message.subject, message.subjectVariant, message.content) }))
+      .filter((item) => item.placeholders.length);
+    if (unfilled.length) {
+      const names = new Map(selected.map((sequence) => [sequence.id, sequence.name]));
+      const detail = unfilled.slice(0, 3).map(({ message, placeholders }) => `${names.get(message.sequenceId) ?? "sequence"} step ${message.stepNumber}: ${placeholders.join(", ")}`).join("; ");
+      throw new AuthRequestError(
+        `Fill in the placeholders before approving (${detail}${unfilled.length > 3 ? "; …" : ""}).`,
         409,
       );
     }

@@ -1,3 +1,4 @@
+import { findUnresolvedPlaceholders } from "./message-placeholders";
 import { sendTwilioSms, type TwilioCredentials } from "./twilio-sms";
 
 export class OutreachSmsPolicyError extends Error {}
@@ -44,6 +45,13 @@ export async function sendApprovedOutreachSms(
   if (!input.to.trim() || !input.text.trim()) {
     throw new OutreachSmsPolicyError(
       "Recipient and message content are required.",
+    );
+  }
+
+  const placeholders = findUnresolvedPlaceholders(input.text);
+  if (placeholders.length) {
+    throw new OutreachSmsPolicyError(
+      `The message still contains unfilled placeholders (${placeholders.join(", ")}). Edit the step before it can send.`,
     );
   }
 

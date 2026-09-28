@@ -28,6 +28,7 @@ import { NativeTextarea } from "./design-system";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Chip, FormField, Notice, SelectField } from "./product/kit";
+import { findUnresolvedPlaceholders } from "../lib/server/message-placeholders";
 import {
   campaignStatusLabels,
   type Campaign,
@@ -735,6 +736,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
               {sequence.messages.map((message) => {
                 const draft = drafts[message.id] ?? { subject: message.subject, subjectVariant: message.subjectVariant, content: message.content };
                 const dirty = draft.content !== message.content || draft.subject !== message.subject || draft.subjectVariant !== message.subjectVariant;
+                const placeholders = findUnresolvedPlaceholders(draft.subject, draft.subjectVariant, draft.content);
                 return <li key={message.id} className="grid gap-4 border-b border-rule p-5 last:border-0 md:grid-cols-[7rem_minmax(0,1fr)]">
                   <div className="flex items-center gap-2 md:flex-col md:items-start">
                     <span className="font-mono text-sm">{message.stepNumber.toString().padStart(2, "0")}</span>
@@ -748,6 +750,7 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
                       <FormField label="Subject B"><Input disabled={!editable} onChange={(event) => setDrafts((current) => ({ ...current, [message.id]: { ...draft, subjectVariant: event.target.value } }))} value={draft.subjectVariant ?? ""} /></FormField>
                     </div> : null}
                     <FormField label="Message" hint={sequence.channel === "sms" ? `${draft.content.length}/160 characters` : undefined}><NativeTextarea disabled={!editable} onChange={(event) => setDrafts((current) => ({ ...current, [message.id]: { ...draft, content: event.target.value } }))} rows={sequence.channel === "sms" ? 3 : 6} value={draft.content} /></FormField>
+                    {placeholders.length ? <p className="text-xs text-warning">Replace {placeholders.join(", ")} before approving. Placeholders are blocked from sending.</p> : null}
                     {editable ? <div className="flex justify-end"><Button variant={dirty ? "default" : "outline"} size="sm" aria-label={`Save step ${message.stepNumber}`} disabled={!dirty || busyAction === message.id} onClick={() => void saveMessage(message.id)} type="button"><Spinner busy={busyAction === message.id} icon={<Save />} />{dirty ? "Save changes" : "Saved"}</Button></div> : null}
                   </div>
                 </li>;

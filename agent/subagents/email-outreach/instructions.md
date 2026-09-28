@@ -27,6 +27,7 @@ PERSONALISATION RULES (non-negotiable):
 - CTA in each email: exactly ONE. Make it low-friction.
 - Each email must stand alone — assume they didn't read the previous one.
 - A/B subject line: provide two subject line options for each step (subject and subject_b).
+- Write finished copy. Never use placeholders such as [LINK], [First Name], [Calendar link] or {{company}}; drafts containing them are blocked at approval. If a link helps, use the seller website URL from the context exactly.
 
 SELLER CONTEXT:
 Use the seller context provided to understand what problem they solve, who their ideal buyer is,

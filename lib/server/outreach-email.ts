@@ -1,3 +1,4 @@
+import { findUnresolvedPlaceholders } from "./message-placeholders";
 import { sendResendEmail, type ResendSendCredentials } from "./resend-email";
 
 export class OutreachEmailPolicyError extends Error {}
@@ -75,6 +76,13 @@ export async function sendApprovedOutreachEmail(
   if (!input.to.trim() || !input.subject.trim() || !input.text.trim()) {
     throw new OutreachEmailPolicyError(
       "Recipient, subject and text content are required.",
+    );
+  }
+
+  const placeholders = findUnresolvedPlaceholders(input.subject, input.text);
+  if (placeholders.length) {
+    throw new OutreachEmailPolicyError(
+      `The email still contains unfilled placeholders (${placeholders.join(", ")}). Edit the step before it can send.`,
     );
   }
 
