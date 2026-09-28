@@ -1,7 +1,9 @@
-import { CircleDashed } from "lucide-react";
+import { ArrowLeft, Target } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "../../components/app-shell";
 import { IcpReport } from "../../components/icp-report";
-import { ActionLink, SurfaceCard } from "../../components/design-system";
+import { EmptyState } from "../../components/product/kit";
+import { Button } from "../../components/ui/button";
 import { isAuthConfigured } from "../../lib/auth/config";
 import { requireWorkspacePage } from "../../lib/auth/page-actor";
 import { getApiActor } from "../../lib/server/api-actor";
@@ -24,18 +26,14 @@ export default async function IcpPage({ searchParams }: { searchParams: SearchPa
     <AppShell
       activeHref="/leads"
       authConfigured={isAuthConfigured()}
-      eyebrow="RESEARCH WORKSPACE"
+      eyebrow="Research"
       title="ICP report"
+      actions={<Link className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" href="/leads"><ArrowLeft className="size-3.5" />Back to leads</Link>}
     >
       {profile ? (
         <IcpReport profile={profile} />
       ) : (
-        <SurfaceCard as="section" className="lead-state empty standalone">
-          <CircleDashed />
-          <h2>No ICP report yet</h2>
-          <p>The report appears after market research has produced enough supporting evidence.</p>
-          <ActionLink className="button-primary" href="/leads">Return to leads</ActionLink>
-        </SurfaceCard>
+        <EmptyState icon={<Target />} title="No ICP report yet" description="The profile is written once a campaign's research has enough evidence behind it, usually right after leads are approved." action={<Button asChild variant="outline" size="sm"><Link href="/leads">Back to leads</Link></Button>} />
       )}
     </AppShell>
   );

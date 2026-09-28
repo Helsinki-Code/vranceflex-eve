@@ -12,8 +12,9 @@ export default async function RepliesPage() {
     <AppShell
       activeHref="/replies"
       authConfigured={isAuthConfigured()}
-      eyebrow="HUMAN REVIEW QUEUE"
+      eyebrow="Review queue"
       title="Replies"
+      description="Inbound replies, sorted by what they ask for. Work through them with j and k; nothing is answered automatically."
     >
       <ReplyInbox />
     </AppShell>

@@ -1,43 +1,34 @@
-import { ArrowLeft, Check, KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "../../../components/app-shell";
+import { IntegrationStatusGrid } from "../../../components/integration-status-grid";
 import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
-import { hasDatabaseConfiguration } from "../../../lib/server/database";
-import Link from "next/link";
+import { getIntegrationStatuses } from "../../../lib/server/integration-status";
 
-export const metadata = { title: "API security · VranceFlex" };
+export const metadata = { title: "Platform status · VranceFlex" };
 export const dynamic = "force-dynamic";
 
 export default async function SecurityPage() {
   await requireWorkspacePage();
-  const checks = [
-    ["VranceFlex identity", isAuthConfigured(), "Neon users, sessions and active organizations"],
-    ["PostgreSQL persistence", hasDatabaseConfiguration(), "Durable tenant-scoped product data"],
-    ["Eve bearer verification", isAuthConfigured(), "Opaque session verified before organization scope is stamped"],
-    ["Email OTP delivery", Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL), "Short-lived signup and recovery codes"],
-  ] as const;
 
   return (
     <AppShell
       activeHref="/settings"
       authConfigured={isAuthConfigured()}
-      eyebrow="WORKSPACE CONTROL"
-      title="API security"
+      eyebrow="Workspace settings"
+      title="Platform status"
+      description="Which services this deployment has configured. Only presence is checked; secret values never leave the server."
+      actions={<Link className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" href="/settings"><ArrowLeft className="size-3.5" />All settings</Link>}
     >
-      <Link className="settings-back" href="/settings"><ArrowLeft size={15} /> All settings</Link>
-      <section className="security-panel">
-        <div className="security-copy"><span><KeyRound size={21} /></span><h2>Identity at every boundary.</h2><p>VranceFlex derives user and organization scope from verified sessions—not from form fields, prompts or URLs.</p></div>
-        <div className="security-checks">
-          {checks.map(([name, ready, description]) => (
-            <article key={name}>
-              <span className={ready ? "ready" : ""}>{ready ? <Check size={15} /> : <LockKeyhole size={15} />}</span>
-              <div><strong>{name}</strong><small>{description}</small></div>
-              <em>{ready ? "Ready" : "Configure"}</em>
-            </article>
-          ))}
-        </div>
-      </section>
-      <div className="truth-banner"><ShieldCheck size={18} /><p><strong>Tenant isolation.</strong> Campaign reads and writes use the organization ID from a verified VranceFlex session stored in Neon.</p></div>
+      <div className="space-y-6">
+        <IntegrationStatusGrid integrations={getIntegrationStatuses()} />
+        <section className="grid gap-4 border-t border-rule pt-6 text-sm md:grid-cols-3">
+          <div className="space-y-1"><p className="font-medium">Workspace isolation</p><p className="leading-6 text-muted-foreground">Every read and write is scoped to the workspace on your verified session, never to an ID sent from the browser or a prompt.</p></div>
+          <div className="space-y-1"><p className="font-medium">Agent access</p><p className="leading-6 text-muted-foreground">The AI agents run with your session's workspace stamped on every call and can't see provider keys.</p></div>
+          <div className="space-y-1"><p className="font-medium">Fails closed</p><p className="leading-6 text-muted-foreground">A missing or rejected credential stops that stage with an error instead of reporting a result that didn't happen.</p></div>
+        </section>
+      </div>
     </AppShell>
   );
 }

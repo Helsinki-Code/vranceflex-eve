@@ -14,8 +14,9 @@ export default async function DashboardPage() {
   return (
     <AppShell
       authConfigured={isAuthConfigured()}
-      eyebrow="WORKSPACE OVERVIEW"
+      eyebrow="Workspace"
       title="Campaigns"
+      description="Each campaign turns a product into a researched list of people and an approved sequence. Open one to pick up where it stopped."
     >
       <CampaignDashboard />
     </AppShell>

@@ -48,12 +48,12 @@ export function LedgerStats({ items, className }: { items: LedgerStat[]; classNa
 }
 
 // Five-tick meter. Reads at a glance in a dense table; the number stays alongside for precision.
-export function EvidenceMeter({ value, className }: { value: number; className?: string }) {
+export function EvidenceMeter({ value, className, hideValue = false }: { value: number; className?: string; hideValue?: boolean }) {
   const filled = Math.round(Math.max(0, Math.min(100, value)) / 20);
   const tone = value >= 80 ? "bg-verified" : value >= 60 ? "bg-primary" : "bg-warning";
   return <span className={cn("inline-flex items-center gap-2", className)} aria-label={`${value}% confidence`}>
     <span className="inline-flex gap-[3px]" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <span key={index} className={cn("h-3 w-[5px] rounded-[1px]", index < filled ? tone : "bg-muted")} />)}</span>
-    <span className="font-mono text-xs tabular-nums text-foreground">{value}%</span>
+    {hideValue ? null : <span className="font-mono text-xs tabular-nums text-foreground">{value}%</span>}
   </span>;
 }
 
@@ -115,4 +115,16 @@ export function Notice({ tone = "info", title, children, action, className }: { 
     <div className="min-w-0 space-y-0.5"><p className="text-sm font-medium text-foreground">{title}</p>{children ? <div className="text-sm leading-6 text-muted-foreground">{children}</div> : null}</div>
     {action ? <div className="shrink-0">{action}</div> : null}
   </div>;
+}
+
+export function FormField({ label, hint, children, className }: { label: string; hint?: ReactNode; children: ReactNode; className?: string }) {
+  return <label className={cn("grid gap-1.5 text-sm", className)}>
+    <span className="font-medium text-foreground">{label}</span>
+    {children}
+    {hint ? <span className="text-xs leading-5 text-muted-foreground">{hint}</span> : null}
+  </label>;
+}
+
+export function StatusDot({ on, label }: { on: boolean; label: string }) {
+  return <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"><span aria-hidden="true" className={cn("size-1.5 rounded-full", on ? "bg-verified" : "bg-muted-foreground/40")} />{label}</span>;
 }

@@ -6,7 +6,9 @@ import {
   normalizeEmailAddress,
 } from "./reply-address";
 import { suppressLeadForUnsubscribe } from "./suppression";
-import { getDatabase } from "./database";
+import { getDatabase, hasDatabaseConfiguration } from "./database";
+import { isDemoModeEnabled } from "../auth/config";
+import { demoReplies } from "./demo-replies";
 import {
   auditEvents,
   campaigns,
@@ -214,7 +216,12 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
   };
 }
 
+function usesDemoReplies() {
+  return !hasDatabaseConfiguration() && isDemoModeEnabled();
+}
+
 export async function listInboundReplies(actor: ApiActor) {
+  if (usesDemoReplies()) return demoReplies;
   const database = getDatabase();
   return database
     .select({
@@ -236,6 +243,12 @@ export async function updateReplyReview(
   replyId: string,
   status: "reviewed" | "archived",
 ) {
+  if (usesDemoReplies()) {
+    const row = demoReplies.find((item) => item.reply.id === replyId);
+    if (!row) return null;
+    row.reply.status = status;
+    return { id: row.reply.id, campaignId: row.reply.campaignId };
+  }
   const database = getDatabase();
   const now = new Date();
   return database.transaction(async (transaction) => {
