@@ -3,6 +3,7 @@ import {
   asc,
   count,
   eq,
+  gte,
   inArray,
   lt,
   lte,
@@ -132,7 +133,7 @@ async function reserveDailySendCapacity(input: {
         and(
           eq(usageLedger.organizationId, input.organizationId),
           inArray(usageLedger.kind, [reservedKind, acceptedKind]),
-          sql`${usageLedger.occurredAt} >= ${bounds.start}`,
+          gte(usageLedger.occurredAt, bounds.start),
           lt(usageLedger.occurredAt, bounds.end),
         ),
       );
