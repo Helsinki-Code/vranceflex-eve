@@ -74,8 +74,10 @@ validated against the provider's API on save, and stored encrypted in the
    `stripe listen --forward-to localhost:3000/api/webhooks/stripe` and use
    the `whsec_` it prints.
 5. Test: card `4242 4242 4242 4242` (success), `4000 0025 0000 3155`
-   (3-D Secure), `4000 0000 0000 0341` (attaches, then fails on renewal, which exercises
-   the 7-day grace period and the payment-failed email). Refund a credit pack
+   (3-D Secure). To exercise a failed renewal, subscribe a test-clock
+   customer, switch its card to `4000 0000 0000 0341` in the portal and advance
+   the clock past the period end: the workspace enters the 7-day grace period
+   and admins get the payment-failed email. Refund a credit pack
    from the Dashboard to confirm the unused credits are revoked.
 6. Repeat step 1 with the live key when ready. Turn on
    `STRIPE_AUTOMATIC_TAX=true` only after activating Stripe Tax.
