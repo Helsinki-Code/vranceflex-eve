@@ -16,7 +16,8 @@
     "start": "next start",
     "typecheck": "tsc",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:vercel": "node scripts/migrate-on-deploy.mjs && next build"
   },
   "dependencies": {
     "@radix-ui/react-slot": "1.3.3",
