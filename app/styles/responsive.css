@@ -4,7 +4,7 @@
    widget, and every responsive breakpoint. Depends on the tokens defined
    in marketing.css.
 
-   Fixes applied in this pass:
+   Notes:
    - Every z-index is now var(--z-*) — no more ad hoc 20/30/40/45/80/10000
      scattered with nothing to check against.
    - .mobile-app-header now pads for env(safe-area-inset-top) as well as

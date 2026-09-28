@@ -3,7 +3,7 @@
    Auth pages (sign in / sign up / verify / reset) plus account & team
    settings. Depends on the tokens defined in marketing.css.
 
-   Fixes applied in this pass:
+   Notes:
    - .auth-back now actually has `position` set, so its mobile top/right
      offset (previously dead code) takes effect.
    - .auth-form-success no longer mixes a blue background with green text —

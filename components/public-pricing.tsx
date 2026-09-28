@@ -30,11 +30,11 @@ export function PublicPricing() {
       <div className="pricing-toolbar">
         <div>
           <span className="section-label">Choose your operating scale</span>
-          <p>Start with included verified prospects. Upgrade or add non-expiring top-ups when demand grows.</p>
+          <p>Start with included verified prospects. Upgrade, or add credit packs that last 12 months, when demand grows.</p>
         </div>
         <div className="pricing-toggle public-pricing-toggle" aria-label="Billing interval" role="group">
           <ActionButton aria-pressed={interval === "month"} className={interval === "month" ? "active" : ""} onClick={() => setInterval("month")} type="button">Monthly</ActionButton>
-          <ActionButton aria-pressed={interval === "year"} className={interval === "year" ? "active" : ""} onClick={() => setInterval("year")} type="button">Annual <span>Save 17%</span></ActionButton>
+          <ActionButton aria-pressed={interval === "year"} className={interval === "year" ? "active" : ""} onClick={() => setInterval("year")} type="button">Annual <span>2 months free</span></ActionButton>
         </div>
       </div>
 

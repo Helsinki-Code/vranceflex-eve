@@ -3,13 +3,10 @@
    Leads table, lead detail drawer, ICP (ideal customer profile) views, and
    inbound reply cards. Depends on the tokens defined in marketing.css.
 
-   Scope note: kept to leads/ICP/replies only, matching the filename. If
-   your current repo file also has .settings-back / .settings-intro /
-   .integration-grid in it, those are generic settings chrome, not leads
-   or replies — they belong with the settings system in auth-settings.css
-   rather than living here. Say the word and I'll fold them in there.
+   The dashboard pages now use Tailwind utilities and components/product;
+   these rules remain for the public demo and older markup.
 
-   Fixes applied in this pass:
+   Notes:
    - .lead-detail-backdrop now uses var(--z-overlay) instead of a bare 80.
    - The mobile "card" row labels (.lead-table td::before) were 7px —
      bumped to the same --vf-text-xs floor used for every other small-caps

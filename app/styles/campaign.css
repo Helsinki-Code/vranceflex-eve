@@ -11,7 +11,7 @@
    campaign-execution concerns, not auth or settings, so they live here
    now — this is their one home.
 
-   Fix applied in this pass:
+   Note:
    - No .vf-startup-overlay / .vf-loader-* / .vf-route-loader rules here
      anymore. That entire loading sequence was duplicated byte-for-byte
      between this file and brand.css; brand.css is now the only place it
