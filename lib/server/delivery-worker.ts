@@ -41,6 +41,13 @@ import {
 import { getReplyToAddress } from "./reply-address";
 import type { ScheduleRecurrence } from "../domain/pipeline";
 
+// Twilio needs an absolute public URL; without APP_BASE_URL delivery
+// reports simply aren't requested.
+function twilioStatusCallback(organizationId: string) {
+  const base = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "");
+  return base?.startsWith("https://") ? `${base}/api/webhooks/twilio/${organizationId}` : undefined;
+}
+
 const batchSize = 20;
 const processingTimeoutMs = 10 * 60 * 1_000;
 
@@ -418,6 +425,7 @@ async function processClaimedJob(jobId: string) {
             approved: true,
             doNotContact: false,
             phoneVerified: true,
+            statusCallback: twilioStatusCallback(job.organizationId),
           })
         : await (async () => {
             const resendCredentials = await getOrgResendCredentials(job.organizationId);

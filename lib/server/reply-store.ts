@@ -66,7 +66,52 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
     return { linked: false as const, reason: "sender_mismatch" };
   }
 
-  const classification = classifyReply(input.text);
+  return recordInboundReply(context, {
+    provider: "resend",
+    providerEventId: input.providerEventId,
+    providerReplyId: input.providerReplyId,
+    messageHeaderId: input.messageHeaderId,
+    channel: "email",
+    fromAddress: normalizeEmailAddress(input.from),
+    toAddresses: input.to.map(normalizeEmailAddress),
+    subject: input.subject,
+    text: input.text,
+    html: input.html,
+    receivedAt: input.receivedAt,
+  });
+}
+
+type ReplyContext = {
+  message: typeof outreachMessages.$inferSelect;
+  sequence: typeof outreachSequences.$inferSelect;
+  lead: typeof leads.$inferSelect;
+};
+
+type ReplyRecordInput = {
+  provider: "resend" | "twilio";
+  providerEventId: string | null;
+  providerReplyId: string;
+  messageHeaderId: string | null;
+  channel: "email" | "sms";
+  fromAddress: string;
+  toAddresses: string[];
+  subject: string | null;
+  text: string;
+  html: string | null;
+  receivedAt: Date;
+  /** Carrier-level opt-out (Twilio STOP) — suppress regardless of wording. */
+  forceUnsubscribe?: boolean;
+};
+
+function unsubscribeClassification(): ReturnType<typeof classifyReply> {
+  return { ...classifyReply("unsubscribe"), intent: "UNSUBSCRIBE" };
+}
+
+// Shared by email and SMS: store the reply, pause (or stop) the sequence,
+// cancel pending sends and, for opt-outs, suppress the lead on that channel.
+export async function recordInboundReply(context: ReplyContext, input: ReplyRecordInput) {
+  const database = getDatabase();
+  const classification = input.forceUnsubscribe ? unsubscribeClassification() : classifyReply(input.text);
   const replyId = crypto.randomUUID();
   const now = new Date();
   const suppress = classification.intent === "UNSUBSCRIBE";
@@ -81,12 +126,12 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
         leadId: context.message.leadId,
         sequenceId: context.message.sequenceId,
         outreachMessageId: context.message.id,
-        provider: "resend",
+        provider: input.provider,
         providerReplyId: input.providerReplyId,
         messageHeaderId: input.messageHeaderId,
-        channel: "email",
-        fromAddress: normalizeEmailAddress(input.from),
-        toAddresses: input.to.map(normalizeEmailAddress),
+        channel: input.channel,
+        fromAddress: input.fromAddress,
+        toAddresses: input.toAddresses,
         subject: input.subject,
         text: input.text,
         html: input.html,
@@ -110,7 +155,7 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
         .from(inboundReplies)
         .where(
           and(
-            eq(inboundReplies.provider, "resend"),
+            eq(inboundReplies.provider, input.provider),
             eq(inboundReplies.providerReplyId, input.providerReplyId),
           ),
         )
@@ -170,8 +215,8 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
       await suppressLeadForUnsubscribe(transaction, {
         organizationId: context.message.organizationId,
         leadId: context.lead.id,
-        email: context.lead.email!,
-        source: "resend_inbound",
+        ...(input.channel === "sms" ? { sms: context.lead.phone ?? input.fromAddress } : { email: context.lead.email ?? input.fromAddress }),
+        source: input.provider === "twilio" ? "twilio_inbound" : "resend_inbound",
         campaignId: context.message.campaignId,
         writeAuditEvent: false,
       });
@@ -191,19 +236,21 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
         intent: classification.intent,
       },
     });
-    await transaction
-      .update(providerEvents)
-      .set({
-        organizationId: context.message.organizationId,
-        campaignId: context.message.campaignId,
-        messageId: context.message.id,
-      })
-      .where(
-        and(
-          eq(providerEvents.provider, "resend"),
-          eq(providerEvents.providerEventId, input.providerEventId),
-        ),
-      );
+    if (input.providerEventId) {
+      await transaction
+        .update(providerEvents)
+        .set({
+          organizationId: context.message.organizationId,
+          campaignId: context.message.campaignId,
+          messageId: context.message.id,
+        })
+        .where(
+          and(
+            eq(providerEvents.provider, input.provider),
+            eq(providerEvents.providerEventId, input.providerEventId),
+          ),
+        );
+    }
     return { id: replyId, duplicate: false };
   });
 

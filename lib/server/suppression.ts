@@ -13,14 +13,17 @@ import {
 type Database = ReturnType<typeof getDatabase>;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-export type UnsubscribeSource = "resend_inbound" | "one_click_unsubscribe";
+export type UnsubscribeSource = "resend_inbound" | "one_click_unsubscribe" | "twilio_inbound";
 
 export async function suppressLeadForUnsubscribe(
   db: Database | Transaction,
   input: {
     organizationId: string;
     leadId: string;
-    email: string;
+    /** Email destination to suppress. Ignored when `sms` is given. */
+    email?: string;
+    /** Phone destination (as stored on the lead) for SMS opt-outs. */
+    sms?: string;
     source: UnsubscribeSource;
     campaignId?: string | null;
     writeAuditEvent?: boolean;
@@ -75,18 +78,20 @@ export async function suppressLeadForUnsubscribe(
         inArray(deliveryJobs.status, ["queued", "retry"]),
       ),
     );
-  await db
-    .insert(suppressionEntries)
-    .values({
-      id: crypto.randomUUID(),
-      organizationId: input.organizationId,
-      leadId: input.leadId,
-      channel: "email",
-      destination: normalizeEmailAddress(input.email),
-      reason: "unsubscribe",
-      source: input.source,
-    })
-    .onConflictDoNothing();
+  if (input.sms || input.email) {
+    await db
+      .insert(suppressionEntries)
+      .values({
+        id: crypto.randomUUID(),
+        organizationId: input.organizationId,
+        leadId: input.leadId,
+        channel: input.sms ? "sms" : "email",
+        destination: input.sms ? input.sms.trim() : normalizeEmailAddress(input.email ?? ""),
+        reason: "unsubscribe",
+        source: input.source,
+      })
+      .onConflictDoNothing();
+  }
   if (input.writeAuditEvent ?? true) {
     await db.insert(auditEvents).values({
       id: crypto.randomUUID(),

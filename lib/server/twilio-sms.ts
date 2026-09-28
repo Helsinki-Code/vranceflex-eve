@@ -21,6 +21,8 @@ export type TwilioCredentials = {
 export type TwilioSmsInput = {
   to: string;
   body: string;
+  /** Public URL Twilio posts delivery status updates to. */
+  statusCallback?: string;
 };
 
 // Twilio error codes that indicate the message can never be delivered as
@@ -65,6 +67,7 @@ export async function sendTwilioSms(
       to: input.to.trim(),
       body: input.body,
       messagingServiceSid: credentials.messagingServiceSid,
+      ...(input.statusCallback ? { statusCallback: input.statusCallback } : {}),
     });
 
     // A returned SID means Twilio created the message resource. Even if its

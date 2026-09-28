@@ -12,6 +12,7 @@ export type ApprovedOutreachSms = {
   approved: boolean;
   doNotContact: boolean;
   phoneVerified: boolean;
+  statusCallback?: string;
 };
 
 export async function sendApprovedOutreachSms(
@@ -58,5 +59,6 @@ export async function sendApprovedOutreachSms(
   return sendTwilioSms(credentials, {
     to: input.to.trim(),
     body: input.text,
+    statusCallback: input.statusCallback,
   });
 }
