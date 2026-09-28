@@ -483,7 +483,11 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
         const linkedinUrl = cleanField(output.linkedin_url, 2_000);
         const phone = cleanField(output.contact_number, 50);
         const xHandle = cleanField(output.x_handle, 100);
-        const verified = Boolean(email && linkedinUrl);
+        const companyName = cleanField(output.company, 300);
+        // A reachable channel (email or phone) plus something that ties it to
+        // the right person (LinkedIn profile or employer). Requiring LinkedIn
+        // alone failed people who keep no public profile.
+        const verified = Boolean((email || phone) && (linkedinUrl || companyName));
         if (verified) {
           await consumeProspectCredit({
             organizationId: actor.organizationId,
@@ -501,11 +505,11 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
             phone,
             linkedinUrl,
             xHandle,
-            companyName: cleanField(output.company, 300),
+            companyName,
             jobTitle: cleanField(output.job_title, 300),
             errorMessage: verified
               ? null
-              : "No publicly verifiable email and LinkedIn profile were found.",
+              : "No reachable email or phone tied to a LinkedIn profile or employer was found.",
             updatedAt: new Date(),
           })
           .where(eq(campaignCandidates.id, candidate.id));
@@ -621,18 +625,18 @@ export async function getApprovedLeadsForCampaign(
       ),
     );
   return rows
-    .filter((row) => row.email && row.linkedinUrl)
+    .filter((row) => row.email || row.phone)
     .map((row) => ({
       leadId: row.id,
       personName: row.personName,
       jobTitle: row.jobTitle,
       companyName: row.companyName,
       companyDomain: row.companyDomain,
-      email: row.email!,
-      emailVerified: true,
+      email: row.email,
+      emailVerified: row.emailVerified,
       phone: row.phone,
       phoneVerified: row.phoneVerified,
-      linkedinUrl: row.linkedinUrl!,
+      linkedinUrl: row.linkedinUrl,
     }));
 }
 
@@ -642,11 +646,11 @@ export type ApprovedLead = {
   jobTitle: string;
   companyName: string;
   companyDomain: string | null;
-  email: string;
-  emailVerified: true;
+  email: string | null;
+  emailVerified: boolean;
   phone: string | null;
   phoneVerified: boolean;
-  linkedinUrl: string;
+  linkedinUrl: string | null;
 };
 
 function domainFromUrl(url: string | null) {
@@ -716,8 +720,8 @@ export async function approveCandidates(
 
   await database.transaction(async (transaction) => {
     for (const candidate of selected) {
-      // Every "verified" candidate already has email + linkedinUrl (the
-      // enforced minimum in refreshEnrichment), so these are safe.
+      // Every "verified" candidate has an email or phone plus a LinkedIn
+      // profile or employer (the minimum enforced in refreshEnrichment).
       const leadId = crypto.randomUUID();
       await transaction.insert(leads).values({
         id: leadId,
@@ -729,8 +733,8 @@ export async function approveCandidates(
         companyDomain: domainFromUrl(candidate.url),
         jobTitle: candidate.jobTitle ?? "Unknown",
         personName: candidate.name,
-        email: candidate.email!,
-        emailVerified: true,
+        email: candidate.email,
+        emailVerified: Boolean(candidate.email),
         phone: candidate.phone,
         phoneVerified: Boolean(candidate.phone),
         linkedinUrl: candidate.linkedinUrl,
@@ -752,11 +756,11 @@ export async function approveCandidates(
         jobTitle: candidate.jobTitle ?? "Unknown",
         companyName: candidate.companyName ?? candidate.name,
         companyDomain: domainFromUrl(candidate.url),
-        email: candidate.email!,
-        emailVerified: true,
+        email: candidate.email,
+        emailVerified: Boolean(candidate.email),
         phone: candidate.phone,
         phoneVerified: Boolean(candidate.phone),
-        linkedinUrl: candidate.linkedinUrl!,
+        linkedinUrl: candidate.linkedinUrl,
       });
     }
 
