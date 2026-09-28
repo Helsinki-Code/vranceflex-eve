@@ -6,6 +6,7 @@ const protectedPages = [
   "/campaigns",
   "/leads",
   "/icp",
+  "/replies",
   "/settings",
 ];
 
@@ -13,7 +14,6 @@ const nonIndexablePages = [
   ...protectedPages,
   "/forgot-password",
   "/invites",
-  "/replies",
   "/session-tasks",
   "/sign-in",
   "/sign-up",
