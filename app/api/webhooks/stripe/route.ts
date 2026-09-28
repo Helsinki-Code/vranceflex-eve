@@ -32,7 +32,9 @@ export async function POST(request: Request) {
   try {
     const result = await applyStripeWebhookEvent(event);
     return NextResponse.json(result);
-  } catch {
+  } catch (error) {
+    // A 500 makes Stripe retry with backoff; the reason is kept on provider_events.processing_error.
+    console.error("[stripe-webhook] processing failed", { eventId: event.id, type: event.type, error: error instanceof Error ? error.message : error });
     return NextResponse.json(
       { error: "The Stripe event could not be processed." },
       { status: 500 },

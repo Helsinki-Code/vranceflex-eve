@@ -64,7 +64,7 @@ export const planCatalog: Record<PaidPlanKey, PlanEntitlements> = {
     activeCampaigns: 30,
     discoveryRuns: 100,
     support: "dedicated",
-    selfServe: false,
+    selfServe: true,
   },
   enterprise: {
     key: "enterprise",
@@ -82,7 +82,7 @@ export const planCatalog: Record<PaidPlanKey, PlanEntitlements> = {
   },
 };
 
-export const selfServePlanKeySchema = z.enum(["launch", "growth"]);
+export const selfServePlanKeySchema = z.enum(["launch", "growth", "agency"]);
 export type SelfServePlanKey = z.infer<typeof selfServePlanKeySchema>;
 
 export const topUpPackageKeys = ["credits_100", "credits_500", "credits_2000"] as const;
@@ -104,4 +104,11 @@ export function isPaidPlanKey(value: string | null | undefined): value is PaidPl
 
 export function planEntitlements(value: string | null | undefined) {
   return isPaidPlanKey(value) ? planCatalog[value] : null;
+}
+
+// Days a workspace keeps working after a failed renewal while Stripe retries the card.
+export const PAYMENT_GRACE_DAYS = 7;
+
+export function planRank(key: PaidPlanKey) {
+  return paidPlanKeys.indexOf(key);
 }

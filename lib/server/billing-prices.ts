@@ -109,3 +109,18 @@ export function parseTopUpPackage(value: unknown) {
 export function metadataPlan(value: string | null | undefined) {
   return isPaidPlanKey(value) ? value : null;
 }
+
+// Missing configuration, named by environment variable, for the admin-facing
+// setup notice on the billing page.
+export function billingSetupGaps() {
+  const required = [
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    ...selfServePlanKeySchema.options.flatMap((key) => Object.values(subscriptionPriceVariables[key])),
+    ...Object.values(topUpPriceVariables),
+  ];
+  return required.filter((name) => {
+    if (name === "STRIPE_PRICE_ID_GROWTH_MONTHLY" && process.env.STRIPE_PRICE_ID_PRO?.trim()) return false;
+    return !process.env[name]?.trim();
+  });
+}

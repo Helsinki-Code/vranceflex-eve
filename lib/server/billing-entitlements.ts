@@ -12,6 +12,7 @@ import {
   sql,
 } from "drizzle-orm";
 import {
+  PAYMENT_GRACE_DAYS,
   planCatalog,
   planEntitlements,
   topUpCatalog,
@@ -81,6 +82,16 @@ export function monthlyCreditWindow(anchor: Date, now: Date, subscriptionEnd: Da
   };
 }
 
+// Active subscriptions have access; a failed renewal keeps access for
+// PAYMENT_GRACE_DAYS while Stripe retries so one declined card does not stop
+// in-flight campaigns.
+export function subscriptionGrantsAccess(billing: { status: string; pastDueSince: Date | null }, now = new Date()) {
+  if (billing.status === "active") return true;
+  if (billing.status !== "past_due") return false;
+  const since = billing.pastDueSince ?? now;
+  return now.getTime() - since.getTime() < PAYMENT_GRACE_DAYS * 24 * 60 * 60 * 1_000;
+}
+
 async function activeBilling(organizationId: string) {
   const database = getDatabase();
   const [billing] = await database
@@ -97,7 +108,7 @@ async function activeBilling(organizationId: string) {
     billing?.subscriptionStartedAt ?? billing?.createdAt ?? null;
   if (
     !billing ||
-    billing.status !== "active" ||
+    !subscriptionGrantsAccess(billing) ||
     !entitlements ||
     !billing.stripeSubscriptionId ||
     !subscriptionStartedAt ||
@@ -299,7 +310,13 @@ export async function getBillingOverview(organizationId: string) {
     planKey: (active?.billing.planKey as PaidPlanKey | null) ?? null,
     plan: entitlements,
     billingInterval: active?.billing.billingInterval ?? null,
-    currentPeriodEnd: active?.billing.currentPeriodEnd?.toISOString() ?? null,
+    currentPeriodEnd: (active?.billing.currentPeriodEnd ?? billing?.currentPeriodEnd)?.toISOString() ?? null,
+    cancelAtPeriodEnd: billing?.cancelAtPeriodEnd ?? false,
+    pastDueSince: billing?.pastDueSince?.toISOString() ?? null,
+    graceEndsAt: billing?.status === "past_due" && billing.pastDueSince ? new Date(billing.pastDueSince.getTime() + PAYMENT_GRACE_DAYS * 86_400_000).toISOString() : null,
+    lastPaymentError: billing?.lastPaymentError ?? null,
+    hasCustomer: Boolean(billing?.stripeCustomerId),
+    hasSubscription: Boolean(billing?.stripeSubscriptionId && billing.status !== "canceled"),
     creditWindowStart: window?.start.toISOString() ?? null,
     creditWindowEnd: window?.end.toISOString() ?? null,
     credits: { included, topUp, available: included + topUp },
@@ -710,4 +727,28 @@ export async function assertCampaignCapacity(input: {
 
 export function planForManualProvisioning(key: PaidPlanKey) {
   return planCatalog[key];
+}
+
+export type BillingOverview = Awaited<ReturnType<typeof getBillingOverview>>;
+
+// Shape used when billing data cannot be read (demo mode without a database).
+export function emptyBillingOverview(): BillingOverview {
+  return {
+    active: false,
+    status: "none",
+    planKey: null,
+    plan: null,
+    billingInterval: null,
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    pastDueSince: null,
+    graceEndsAt: null,
+    lastPaymentError: null,
+    hasCustomer: false,
+    hasSubscription: false,
+    creditWindowStart: null,
+    creditWindowEnd: null,
+    credits: { included: 0, topUp: 0, available: 0 },
+    usage: { activeCampaigns: 0, seats: 0, discoveryRuns: 0, discoveryRunLimit: 0 },
+  };
 }

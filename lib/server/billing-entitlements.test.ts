@@ -8,6 +8,7 @@ import {
   requireActivePlan,
   releaseProspectCredits,
   reserveProspectCredits,
+  subscriptionGrantsAccess,
 } from "./billing-entitlements";
 import { getDatabase } from "./database";
 import {
@@ -18,6 +19,22 @@ import {
 } from "./database/schema";
 import { hasTestDatabase, truncateAllTables } from "./test-support/db";
 import { seedCampaign, seedOrganization } from "./test-support/seed";
+
+describe("payment grace period", () => {
+  const now = new Date("2026-09-10T00:00:00Z");
+  it("keeps active subscriptions entitled", () => {
+    expect(subscriptionGrantsAccess({ status: "active", pastDueSince: null }, now)).toBe(true);
+  });
+  it("keeps a past-due workspace working for seven days after the first failure", () => {
+    expect(subscriptionGrantsAccess({ status: "past_due", pastDueSince: new Date("2026-09-04T00:00:01Z") }, now)).toBe(true);
+    expect(subscriptionGrantsAccess({ status: "past_due", pastDueSince: new Date("2026-09-03T00:00:00Z") }, now)).toBe(false);
+  });
+  it("never entitles canceled, incomplete or trialing states", () => {
+    for (const status of ["canceled", "incomplete", "none", "trialing"]) {
+      expect(subscriptionGrantsAccess({ status, pastDueSince: null }, now)).toBe(false);
+    }
+  });
+});
 
 describe("monthly credit windows", () => {
   it("clamps month-end anniversaries without drifting", () => {
@@ -156,7 +173,7 @@ describe.skipIf(!hasTestDatabase)("prospect credit accounting", () => {
     expect(grants.find((grant) => grant.source === "topup")?.remaining).toBe(99);
   });
 
-  it("preserves used credits across upgrades and downgrades, and blocks past-due workspaces", async () => {
+  it("preserves used credits across upgrades and downgrades, and blocks past-due workspaces after the grace period", async () => {
     const paid = await paidCampaign();
     await getBillingOverview(paid.organizationId);
     await getDatabase()
@@ -178,7 +195,13 @@ describe.skipIf(!hasTestDatabase)("prospect credit accounting", () => {
 
     await getDatabase()
       .update(organizationBilling)
-      .set({ status: "past_due" })
+      .set({ status: "past_due", pastDueSince: new Date() })
+      .where(eq(organizationBilling.organizationId, paid.organizationId));
+    await expect(requireActivePlan(paid.organizationId)).resolves.toBeTruthy();
+
+    await getDatabase()
+      .update(organizationBilling)
+      .set({ pastDueSince: new Date(Date.now() - 8 * 86_400_000) })
       .where(eq(organizationBilling.organizationId, paid.organizationId));
     await expect(requireActivePlan(paid.organizationId)).rejects.toMatchObject({ status: 402 });
   });

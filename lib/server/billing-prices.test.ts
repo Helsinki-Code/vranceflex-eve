@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  checkoutConfiguration,
   subscriptionPriceDetails,
   subscriptionPriceId,
   topUpPackageForPrice,
@@ -31,6 +32,15 @@ describe("Stripe price mappings", () => {
       plan: "growth",
       interval: "month",
     });
+  });
+
+  it("offers Agency as a self-serve checkout plan", () => {
+    vi.stubEnv("STRIPE_PRICE_ID_AGENCY_MONTHLY", "price_agency_month");
+    vi.stubEnv("STRIPE_PRICE_ID_AGENCY_YEARLY", "");
+    expect(subscriptionPriceId("agency", "month")).toBe("price_agency_month");
+    const agency = checkoutConfiguration().plans.find((plan) => plan.key === "agency");
+    expect(agency).toMatchObject({ monthlyConfigured: true, annualConfigured: false });
+    expect(checkoutConfiguration().plans.map((plan) => plan.key)).not.toContain("enterprise");
   });
 
   it("maps one-time credit packages", () => {

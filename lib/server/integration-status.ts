@@ -53,6 +53,8 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
         configured("STRIPE_PRICE_ID_LAUNCH_YEARLY") &&
         (configured("STRIPE_PRICE_ID_GROWTH_MONTHLY") || configured("STRIPE_PRICE_ID_PRO")) &&
         configured("STRIPE_PRICE_ID_GROWTH_YEARLY") &&
+        configured("STRIPE_PRICE_ID_AGENCY_MONTHLY") &&
+        configured("STRIPE_PRICE_ID_AGENCY_YEARLY") &&
         configured("STRIPE_PRICE_ID_TOPUP_100") &&
         configured("STRIPE_PRICE_ID_TOPUP_500") &&
         configured("STRIPE_PRICE_ID_TOPUP_2000"),

@@ -560,6 +560,9 @@ export const organizationBilling = pgTable("organization_billing", {
   status: subscriptionStatusEnum("status").default("none").notNull(),
   subscriptionStartedAt: timestamp("subscription_started_at", { withTimezone: true }),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
+  pastDueSince: timestamp("past_due_since", { withTimezone: true }),
+  lastPaymentError: text("last_payment_error"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -11,6 +11,7 @@
     "build:eve": "eve build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "stripe:setup": "node scripts/stripe-setup.ts",
     "dev": "next dev",
     "start": "next start",
     "typecheck": "tsc",
