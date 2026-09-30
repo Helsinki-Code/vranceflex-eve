@@ -59,13 +59,14 @@ export async function POST(request: Request) {
     try {
       const discovery = await discoverCandidates(actor, campaign);
       return NextResponse.json({ campaign, discovery }, { status: 202 });
-    } catch {
+    } catch (discoveryError) {
+      const reason = discoveryError instanceof Error ? discoveryError.message : String(discoveryError);
+      console.error("[discovery] initial search failed", { campaignId: campaign.id, reason });
       return NextResponse.json(
         {
           campaign,
           discovery: null,
-          warning:
-            "Campaign saved, but lead discovery could not start. Retry it from the campaign workspace.",
+          warning: `Campaign saved, but the lead search failed: ${reason} Open the campaign and use Search again.`,
         },
         { status: 202 },
       );

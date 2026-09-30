@@ -1,3 +1,5 @@
+import Parallel, { APIError } from "parallel-web";
+
 const PARALLEL_API_ORIGIN = "https://api.parallel.ai";
 const FINDALL_BETA = "findall-2025-09-15";
 
@@ -66,25 +68,54 @@ export type EntitySearchResult = {
   entities: Array<{ name: string; url?: string | null; description?: string | null }>;
 };
 
-/** Synchronous people/company discovery — returns in ~1-3 seconds. */
+let sdkClient: { key: string; client: Parallel } | null = null;
+
+function parallelSdk() {
+  const key = apiKey();
+  if (!sdkClient || sdkClient.key !== key) {
+    sdkClient = { key, client: new Parallel({ apiKey: key, maxRetries: 2, timeout: 30_000 }) };
+  }
+  return sdkClient.client;
+}
+
+// Parallel's error body explains what was wrong with a request (for example an
+// objective it couldn't parse); keep that text, never the key.
+function describeParallelError(error: unknown) {
+  if (error instanceof APIError) {
+    const status = error.status;
+    if (status === 401 || status === 403) {
+      return new ParallelRequestError("Parallel rejected the API key; verify or rotate PARALLEL_API_KEY.", status, false);
+    }
+    const detail = (error.message || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    return new ParallelRequestError(
+      `Parallel request failed${status ? ` (HTTP ${status})` : ""}${detail ? `: ${detail}` : "."}`,
+      status,
+      status === undefined || status === 408 || status === 429 || status >= 500,
+    );
+  }
+  if (error instanceof ParallelConfigurationError) return error;
+  return new ParallelRequestError(`Parallel could not be reached: ${error instanceof Error ? error.message : String(error)}`);
+}
+
+/**
+ * Synchronous people/company discovery through Parallel's official SDK
+ * (FindAll Entity Search) — the same call the Parallel playground makes.
+ * Returns in a few seconds with a ranked list of name/url/description.
+ */
 export async function entitySearch(input: {
   entityType: "people" | "companies";
   objective: string;
   matchLimit: number;
-}) {
-  // No parallel-beta header here: Parallel's documented Entity Search
-  // contract only requires x-api-key + Content-Type. That beta flag is
-  // specific to the older async findall/runs workflow; sending it on this
-  // endpoint isn't documented and risks the request being interpreted
-  // under the wrong contract.
-  return parallelRequest<EntitySearchResult>("/v1beta/findall/entity-search", {
-    method: "POST",
-    body: JSON.stringify({
+}): Promise<EntitySearchResult> {
+  try {
+    return await parallelSdk().beta.findall.entitySearch({
       entity_type: input.entityType,
       objective: input.objective,
-      match_limit: Math.min(1_000, Math.max(5, input.matchLimit)),
-    }),
-  });
+      match_limit: Math.min(1_000, Math.max(5, Math.round(input.matchLimit))),
+    });
+  } catch (error) {
+    throw describeParallelError(error);
+  }
 }
 
 const enrichmentTaskSpec = {

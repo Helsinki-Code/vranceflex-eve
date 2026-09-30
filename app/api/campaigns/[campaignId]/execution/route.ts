@@ -54,8 +54,13 @@ export async function POST(request: Request, context: RouteContext) {
     if (!approvedLeads.length) {
       // No leads approved yet — this is still the discovery phase, so retry
       // means re-run candidate discovery, not the Eve session.
-      const discovery = await discoverCandidates(actor, campaign);
-      return NextResponse.json({ execution: null, discovery }, { status: 202 });
+      try {
+        const discovery = await discoverCandidates(actor, campaign);
+        return NextResponse.json({ execution: null, discovery }, { status: 202 });
+      } catch (discoveryError) {
+        console.error("[discovery] retry failed", { campaignId, reason: discoveryError instanceof Error ? discoveryError.message : String(discoveryError) });
+        throw discoveryError;
+      }
     }
 
     const currentExecution = await getCampaignExecution(

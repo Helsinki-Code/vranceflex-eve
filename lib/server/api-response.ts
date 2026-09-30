@@ -4,6 +4,7 @@ import { ApiAuthenticationError, ApiConfigurationError } from "./api-actor";
 import { DatabaseConfigurationError } from "./database";
 import { AuthConfigurationError } from "./auth-crypto";
 import { AuthRequestError } from "./auth-errors";
+import { ParallelConfigurationError, ParallelRequestError } from "./parallel-client";
 
 export function apiErrorResponse(error: unknown) {
   if (error instanceof AuthRequestError) {
@@ -19,6 +20,15 @@ export function apiErrorResponse(error: unknown) {
     error instanceof DatabaseConfigurationError ||
     error instanceof AuthConfigurationError
   ) {
+    return NextResponse.json({ error: error.message }, { status: 503 });
+  }
+
+  // Research provider failures carry an actionable reason (bad key, rejected
+  // objective, rate limit); pass it on instead of a generic 500.
+  if (error instanceof ParallelRequestError) {
+    return NextResponse.json({ error: error.message }, { status: error.statusCode === 429 ? 429 : 502 });
+  }
+  if (error instanceof ParallelConfigurationError) {
     return NextResponse.json({ error: error.message }, { status: 503 });
   }
 

@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Clock3,
+  ExternalLink,
   LoaderCircle,
   Mail,
   MessageSquareText,
@@ -90,6 +91,22 @@ function StageCard({ icon, title, children, action, tone = "neutral" }: { icon: 
     <div className="min-w-0 flex-1 space-y-1"><p className="text-sm font-semibold">{title}</p>{children ? <div className="text-sm leading-6 text-muted-foreground">{children}</div> : null}</div>
     {action ? <div className="shrink-0">{action}</div> : null}
   </motion.section>;
+}
+
+// Mirrors the Parallel playground: name linked to the profile, description
+// clamped to two lines with an inline toggle.
+function CandidateSummaryText({ candidate }: { candidate: { name: string; url: string | null; description: string | null } }) {
+  const [expanded, setExpanded] = useState(false);
+  return <span className="min-w-0 flex-1">
+    <span className="flex items-center gap-1.5 text-sm font-medium">
+      {candidate.name}
+      {candidate.url ? <a href={candidate.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="text-muted-foreground hover:text-primary" aria-label={`Open ${candidate.name}'s profile`}><ExternalLink className="size-3.5" /></a> : null}
+    </span>
+    {candidate.description ? <>
+      <span className={cn("block text-xs leading-5 text-muted-foreground", !expanded && "line-clamp-2")}>{candidate.description}</span>
+      {candidate.description.length > 160 ? <button type="button" onClick={(event) => { event.preventDefault(); setExpanded((value) => !value); }} className="mt-0.5 text-xs font-medium text-primary hover:underline">{expanded ? "Show less" : "Show more"}</button> : null}
+    </> : null}
+  </span>;
 }
 
 function Spinner({ busy, icon }: { busy: boolean; icon?: ReactNode }) {
@@ -220,7 +237,7 @@ function CandidateWorkspacePanel({
         {discovered.map((candidate) => <li key={candidate.id} className="border-b border-rule last:border-0">
           <label className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
             <input className={cn(checkboxClass, "mt-0.5")} checked={selectedDiscovered.includes(candidate.id)} onChange={(event) => setSelectedDiscovered((current) => event.target.checked ? [...current, candidate.id] : current.filter((id) => id !== candidate.id))} type="checkbox" />
-            <span className="min-w-0"><span className="block text-sm font-medium">{candidate.name}</span>{candidate.description ? <span className="block text-xs leading-5 text-muted-foreground">{candidate.description}</span> : null}</span>
+            <CandidateSummaryText candidate={candidate} />
           </label>
         </li>)}
       </ul>
@@ -686,7 +703,16 @@ export function CampaignWorkspace({ campaignId }: { campaignId: string }) {
       {approvedLeadCount > 0 ? <p className="text-xs">Your {approvedLeadCount} approved {approvedLeadCount === 1 ? "lead is" : "leads are"} still saved. Trying again only redoes unfinished work.</p> : null}
     </StageCard> : null}
 
-    {!processing && !failed && !cancelled && !showCandidateWorkspace && !readyForEve && sequences.length === 0 ? <StageCard icon={<CircleDashed />} title="Nothing to review yet">Drafted sequences appear here once Eve saves them.</StageCard> : null}
+    {!execution && candidates.length === 0 && sequences.length === 0 ? (() => {
+      const latest = [...(payload.progress ?? [])].reverse().find((event) => event.stage === "researching");
+      const searchFailed = Boolean(latest?.message.startsWith("Lead search failed"));
+      return <StageCard tone={searchFailed ? "danger" : "neutral"} icon={searchFailed ? <AlertCircle /> : <CircleDashed />} title={searchFailed ? "The lead search didn't finish" : "No candidates yet"}
+        action={<Button disabled={busyAction === "rediscover"} onClick={() => void rediscoverCandidates()} type="button"><Spinner busy={busyAction === "rediscover"} icon={<RefreshCw />} />Search again</Button>}>
+        {latest ? latest.message : "Search runs one query per audience line and lists people to choose from. If nothing appears, run the search again."}
+      </StageCard>;
+    })() : null}
+
+    {!processing && !failed && !cancelled && !showCandidateWorkspace && !readyForEve && sequences.length === 0 && (execution || candidates.length > 0) ? <StageCard icon={<CircleDashed />} title="Nothing to review yet">Drafted sequences appear here once Eve saves them.</StageCard> : null}
 
     {sequences.length > 0 ? <>
       <div className="sticky top-14 z-10 flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card/95 p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">

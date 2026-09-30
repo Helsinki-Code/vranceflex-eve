@@ -69,19 +69,66 @@ function mapCandidate(row: typeof campaignCandidates.$inferSelect): CandidateSum
   };
 }
 
-function discoveryObjective(campaign: Campaign) {
-  // Entity Search wants a direct, punchy description of WHO to find —
-  // e.g. "CEOs or Founders of AI startups in USA founded after 2022".
-  // Folding in the seller's own product pitch (what we tried before) turns
-  // this into an over-constrained compound filter that matches almost no
-  // one, since Entity Search has no separate match_conditions array the way
-  // the old FindAll runs did — it's a single freeform objective.
-  const geography = campaign.geography.trim();
+const MAX_PERSONAS = 4;
+
+// Entity Search works best on one short, direct description of who to find
+// ("Tech leads who need to review AI-authored diffs"). Audiences are often
+// written as several personas on separate lines, and gluing them into one
+// objective gives Parallel a compound query it handles poorly, so each
+// persona becomes its own search.
+export function discoveryObjectives(input: { audience: string; geography: string }) {
+  const geography = input.geography.trim();
   const includeGeography =
     geography && !/^(global|worldwide|anywhere|no preference)$/i.test(geography);
-  return [campaign.audience.trim(), includeGeography ? `in ${geography}` : null]
-    .filter(Boolean)
-    .join(", ");
+  const personas = input.audience
+    .split(/\r?\n|;|\u2022|(?:^|\s)[-*]\s+/)
+    .map((part) => part.replace(/^[\s\-*\d.)]+/, "").replace(/\s+/g, " ").trim().replace(/[.,]+$/, ""))
+    .filter((part) => part.length >= 3);
+  const unique = [...new Set(personas.map((part) => part.toLowerCase()))]
+    .map((lower) => personas.find((part) => part.toLowerCase() === lower)!)
+    .slice(0, MAX_PERSONAS);
+  const bases = unique.length ? unique : [input.audience.replace(/\s+/g, " ").trim()];
+  return bases.map((base) => (includeGeography ? `${base}, in ${geography}` : base));
+}
+
+type DiscoveredEntity = { name: string; url?: string | null; description?: string | null };
+
+// Interleaves ranked lists so every persona is represented near the top, and
+// drops people found by more than one search.
+export function mergeEntityLists(lists: DiscoveredEntity[][], limit: number) {
+  const seen = new Set<string>();
+  const merged: DiscoveredEntity[] = [];
+  const longest = Math.max(0, ...lists.map((list) => list.length));
+  for (let index = 0; index < longest && merged.length < limit; index += 1) {
+    for (const list of lists) {
+      const entity = list[index];
+      if (!entity?.name?.trim()) continue;
+      const key = (entity.url?.trim().toLowerCase().replace(/\/+$/, "") || entity.name.trim().toLowerCase());
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(entity);
+      if (merged.length >= limit) break;
+    }
+  }
+  return merged;
+}
+
+export async function searchPersonas(
+  objectives: string[],
+  matchLimit: number,
+  search: typeof entitySearch = entitySearch,
+) {
+  const perSearch = Math.min(1_000, Math.max(25, Math.ceil(matchLimit / objectives.length)));
+  const settled = await Promise.allSettled(
+    objectives.map((objective) => search({ entityType: "people", objective, matchLimit: perSearch })),
+  );
+  const lists = settled.flatMap((result) => (result.status === "fulfilled" ? [result.value.entities ?? []] : []));
+  if (!lists.length) {
+    const first = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    throw first?.reason instanceof Error ? first.reason : new Error("Lead search failed.");
+  }
+  const failures = settled.filter((result) => result.status === "rejected").length;
+  return { entities: mergeEntityLists(lists, matchLimit), failures };
 }
 
 async function requireCampaign(actor: ApiActor, campaignId: string) {
@@ -120,15 +167,18 @@ export async function discoverCandidates(actor: ApiActor, campaign: Campaign) {
     message: `Searching the public web for people matching your audience (up to ${matchLimit} candidates)…`,
   });
 
-  let result: Awaited<ReturnType<typeof entitySearch>>;
+  let result: Awaited<ReturnType<typeof searchPersonas>>;
   try {
-    result = await entitySearch({
-      entityType: "people",
-      objective: discoveryObjective(campaign),
-      matchLimit,
-    });
+    result = await searchPersonas(discoveryObjectives(campaign), matchLimit);
   } catch (error) {
     await releaseDiscoveryRun(discoveryReservation.id);
+    const reason = error instanceof Error ? error.message : String(error);
+    await recordCampaignProgress(database, {
+      organizationId: actor.organizationId,
+      campaignId: campaign.id,
+      stage: "researching",
+      message: `Lead search failed: ${reason.slice(0, 300)} Use Search again to retry.`,
+    }).catch(() => undefined);
     throw error;
   }
 
@@ -157,7 +207,7 @@ export async function discoverCandidates(actor: ApiActor, campaign: Campaign) {
     campaignId: campaign.id,
     stage: "researching",
     message: rows.length
-      ? `Found ${rows.length} potential ${rows.length === 1 ? "person" : "people"}. Choose who to verify.`
+      ? `Found ${rows.length} potential ${rows.length === 1 ? "person" : "people"}${result.failures ? ` (${result.failures} of the audience searches failed)` : ""}. Choose who to verify.`
       : "No matching people were found. Adjust the audience or geography and retry discovery.",
   });
 
