@@ -604,11 +604,21 @@ export const sendingMailboxes = pgTable(
 );
 
 export type DomainMailProvider = "google" | "microsoft" | "other";
+export type MailReceiver = {
+  key: "google" | "microsoft" | "zoho" | "fastmail" | "proton" | "cloudflare_routing" | "other" | "none";
+  label: string;
+  /** False for forward-only services like Cloudflare Email Routing. */
+  canSend: boolean;
+};
 export type DnsRecordCheck = {
   kind: "mx" | "spf" | "dkim" | "dmarc";
   status: "pass" | "warn" | "fail";
   summary: string;
   found: string[];
+  /** On the MX check: who receives this domain's mail. */
+  receiver?: MailReceiver;
+  /** On the DKIM check: the selector the key was found under. */
+  selector?: string;
 };
 
 export const sendingDomains = pgTable(

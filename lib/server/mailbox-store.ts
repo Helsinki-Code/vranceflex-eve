@@ -24,6 +24,7 @@ import {
   sendingMailboxes,
   type DnsRecordCheck,
   type DomainMailProvider,
+  type MailReceiver,
 } from "./database/schema";
 import { checkDomainHealth, expectedRecords, type ExpectedRecord } from "./dns-health";
 import { verifyImap } from "./mailbox-imap";
@@ -211,9 +212,17 @@ export async function refreshDomainHealth(domainId: string) {
   const now = new Date();
   await database
     .update(sendingDomains)
-    .set({ lastCheck: health.checks, status: health.status, lastCheckedAt: now, updatedAt: now })
+    .set({
+      lastCheck: health.checks,
+      status: health.status,
+      // Remember where DKIM actually lives and which provider's rules apply.
+      dkimSelector: health.dkimSelector,
+      provider: health.provider,
+      lastCheckedAt: now,
+      updatedAt: now,
+    })
     .where(eq(sendingDomains.id, row.id));
-  return { ...row, lastCheck: health.checks, status: health.status, lastCheckedAt: now };
+  return { ...row, lastCheck: health.checks, status: health.status, dkimSelector: health.dkimSelector, provider: health.provider, lastCheckedAt: now };
 }
 
 export async function addSendingDomain(actor: ApiActor, input: SendingDomainInput) {
@@ -318,6 +327,8 @@ export type DomainSummary = {
   lastCheckedAt: string | null;
   records: ExpectedRecord[];
   mailboxCount: number;
+  /** Who receives this domain's mail, from the last MX check. */
+  receivedBy: MailReceiver | null;
 };
 
 export type SendingOverview = {
@@ -389,8 +400,9 @@ export async function getSendingOverview(organizationId: string): Promise<Sendin
       status: row.status,
       checks: row.lastCheck,
       lastCheckedAt: row.lastCheckedAt?.toISOString() ?? null,
-      records: expectedRecords(row.domain, row.provider, row.dkimSelector),
+      records: expectedRecords(row.domain, row.provider, row.dkimSelector, row.lastCheck.find((check) => check.kind === "mx")?.receiver),
       mailboxCount: mailboxRows.filter((mailbox) => emailDomain(mailbox.email) === row.domain).length,
+      receivedBy: row.lastCheck.find((check) => check.kind === "mx")?.receiver ?? null,
     })),
     emailTransport: settings?.emailTransport ?? "auto",
     resendConnected: Boolean(resend),

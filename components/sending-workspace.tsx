@@ -60,14 +60,16 @@ export function SendingWorkspace({ initial, isAdmin }: { initial: SendingOvervie
   const sentToday = overview.mailboxes.reduce((sum, mailbox) => sum + mailbox.sentToday, 0);
   const sentWeek = overview.mailboxes.reduce((sum, mailbox) => sum + mailbox.sentWeek, 0);
   const bouncedWeek = overview.mailboxes.reduce((sum, mailbox) => sum + mailbox.bouncedWeek, 0);
-  const verified = overview.domains.filter((domain) => domain.status === "verified").length;
+  // Only domains with a connected mailbox affect deliverability today.
+  const sendingDomains = overview.domains.filter((domain) => domain.mailboxCount > 0);
+  const verified = sendingDomains.filter((domain) => domain.status === "verified").length;
   const usingMailboxes = overview.emailTransport !== "resend" || !overview.resendConnected;
 
   return <div className="space-y-6">
     <LedgerStats items={[
       { label: "Active mailboxes", value: active.length, note: overview.mailboxes.length > active.length ? `${overview.mailboxes.length - active.length} paused or need attention` : "in rotation" },
       { label: "Sent today", value: sentToday, note: `of ${capacity.toLocaleString()} mailbox capacity` },
-      { label: "Domains authenticated", value: verified, note: `of ${overview.domains.length} sending domain${overview.domains.length === 1 ? "" : "s"}`, tone: overview.domains.length && verified === overview.domains.length ? "verified" : "default" },
+      { label: "Domains authenticated", value: verified, note: sendingDomains.length ? `of ${sendingDomains.length} domain${sendingDomains.length === 1 ? "" : "s"} you send from` : "no mailbox on your own domain yet", tone: sendingDomains.length && verified === sendingDomains.length ? "verified" : "default" },
       { label: "Bounce rate · 7 days", value: sentWeek ? (bouncedWeek / sentWeek) * 100 : 0, format: "percent", note: `${bouncedWeek} of ${sentWeek} sends`, tone: sentWeek && bouncedWeek / sentWeek >= 0.05 ? "danger" : "default" },
     ]} />
 
@@ -314,7 +316,9 @@ function CheckIcon({ status }: { status: "pass" | "warn" | "fail" }) {
 }
 
 function DomainRow({ domain, isAdmin, onChange }: { domain: DomainSummary; isAdmin: boolean; onChange: () => Promise<void> }) {
-  const [open, setOpen] = useState(domain.status !== "verified");
+  const usedForSending = domain.mailboxCount > 0;
+  // Unused domains stay folded: their records don't affect any mailbox yet.
+  const [open, setOpen] = useState(usedForSending && domain.status !== "verified");
   const { busy, run } = useBusy();
   const recheck = () => void run("check", async () => {
     await requestJson(`/api/settings/domains/${domain.id}/check`, { method: "POST" });
@@ -325,28 +329,33 @@ function DomainRow({ domain, isAdmin, onChange }: { domain: DomainSummary; isAdm
     await requestJson(`/api/settings/domains/${domain.id}`, { method: "DELETE" });
     await onChange();
   }, "Couldn't remove the domain.");
-  const tone = domain.status === "verified" ? "verified" : domain.status === "partial" ? "warning" : "danger";
+  const tone = !usedForSending ? "neutral" : domain.status === "verified" ? "verified" : domain.status === "partial" ? "warning" : "danger";
+  const statusLabel = !usedForSending ? "Not used for sending" : domain.status === "verified" ? "Authenticated" : domain.status === "partial" ? "Partly set up" : "Not set up";
+  const forwardOnly = domain.receivedBy?.canSend === false;
   const byKind = new Map(domain.checks.map((check) => [check.kind, check]));
 
   return <li>
     <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="flex w-full flex-col gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/30 sm:flex-row sm:items-center">
       <span className="flex min-w-0 flex-1 items-center gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface-raised text-muted-foreground"><Globe className="size-4" /></span>
-        <span className="min-w-0"><span className="block truncate font-mono text-sm">{domain.domain}</span><span className="block text-xs text-muted-foreground">{domain.provider === "google" ? "Google Workspace" : domain.provider === "microsoft" ? "Microsoft 365" : "Other provider"} · {domain.mailboxCount} mailbox{domain.mailboxCount === 1 ? "" : "es"} · checked {ago(domain.lastCheckedAt)}</span></span>
+        <span className="min-w-0"><span className="block truncate font-mono text-sm">{domain.domain}</span><span className="block text-xs text-muted-foreground">Mail handled by {domain.receivedBy?.label ?? (domain.provider === "google" ? "Google Workspace" : domain.provider === "microsoft" ? "Microsoft 365" : "unknown")} · {domain.mailboxCount} mailbox{domain.mailboxCount === 1 ? "" : "es"} · checked {ago(domain.lastCheckedAt)}</span></span>
       </span>
       <span className="flex flex-wrap items-center gap-1.5">
         {(["mx", "spf", "dkim", "dmarc"] as const).map((kind) => { const check = byKind.get(kind); return <span key={kind} className="inline-flex h-6 items-center gap-1 rounded-full border border-border px-2 text-xs font-medium">{check ? <CheckIcon status={check.status} /> : <span className="size-1.5 rounded-full bg-muted-foreground/40" />}{checkLabels[kind]}</span>; })}
-        <Chip tone={tone}>{domain.status === "verified" ? "Authenticated" : domain.status === "partial" ? "Partly set up" : "Not set up"}</Chip>
+        <Chip tone={tone}>{statusLabel}</Chip>
         <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </span>
     </button>
     <AnimatePresence initial={false}>
       {open ? <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: ledgerEase }} className="overflow-hidden">
         <div className="grid gap-4 border-t border-rule bg-muted/20 px-5 py-4">
+          {!usedForSending ? <p className="rounded-md border border-border bg-card px-3 py-2 text-sm leading-6 text-muted-foreground">
+            <span className="font-medium text-foreground">Nothing to fix for now.</span> No connected mailbox uses this domain, so these records don&apos;t affect your sending.{forwardOnly ? " It receives mail through a forwarding service, which can't send. To send from an address on this domain, set up mailboxes with Google Workspace or Zoho Mail first, then connect them here." : " Connect a mailbox on this domain and the checks below start to matter."}
+          </p> : forwardOnly ? <p className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-sm leading-6 text-muted-foreground">This domain&apos;s mail goes to a forwarding service that can&apos;t send. Move it to a mailbox provider (Google Workspace, Zoho Mail) and use the records it gives you.</p> : null}
           {domain.checks.length ? <ul className="grid gap-2">
             {domain.checks.map((check) => <li key={check.kind} className="flex items-start gap-2 text-sm"><span className="mt-0.5"><CheckIcon status={check.status} /></span><span className="min-w-0"><span className="font-medium">{checkLabels[check.kind]}</span> <span className="text-muted-foreground">{check.summary}</span>{check.found.length ? <code className="mt-1 block truncate font-mono text-xs text-muted-foreground">{check.found.join(" · ")}</code> : null}</span></li>)}
           </ul> : <p className="text-sm text-muted-foreground">Not checked yet.</p>}
-          {domain.status !== "verified" ? <div className="grid gap-3">
+          {domain.status !== "verified" && usedForSending ? <div className="grid gap-3">
             <p className="text-sm font-medium">Add these records at your DNS provider</p>
             {domain.records.filter((record) => byKind.get(record.kind)?.status !== "pass").map((record) => <RecordRow key={`${record.kind}-${record.host}`} record={record} />)}
           </div> : null}

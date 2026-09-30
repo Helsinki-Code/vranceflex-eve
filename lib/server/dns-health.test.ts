@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDkim, checkDmarc, checkDomainHealth, checkMx, checkSpf, expectedRecords, type DnsLookup } from "./dns-health";
+import { checkDkim, checkDmarc, checkDomainHealth, checkMx, checkSpf, detectMailProvider, expectedRecords, type DnsLookup } from "./dns-health";
 
 function notFound() {
   return Object.assign(new Error("not found"), { code: "ENOTFOUND" });
@@ -66,5 +66,46 @@ describe("dns health", () => {
     const records = expectedRecords("getacme.com", "google", "google");
     expect(records.find((record) => record.kind === "spf")?.value).toBe("v=spf1 include:_spf.google.com ~all");
     expect(records.find((record) => record.kind === "dmarc")?.host).toBe("_dmarc");
+  });
+
+  it("finds DKIM under a different selector and flags Cloudflare Email Routing as forward-only", async () => {
+    // vranceflex.online as it was set up: Cloudflare Email Routing, selector typed as "cloudflare".
+    const health = await checkDomainHealth("vranceflex.online", "other", "cloudflare", fakeDns({
+      mx: [{ exchange: "route2.mx.cloudflare.net", priority: 2 }, { exchange: "route1.mx.cloudflare.net", priority: 1 }],
+      txt: {
+        "vranceflex.online": ["v=spf1 include:_spf.mx.cloudflare.net ~all"],
+        "cf2024-1._domainkey.vranceflex.online": ["v=DKIM1; h=sha256; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAiweykoi"],
+        "_dmarc.vranceflex.online": ["v=DMARC1; p=none; pct=100; rua=mailto:dmarcreports@lovable.dev"],
+      },
+    }));
+    const [mx, spf, dkim, dmarc] = health.checks;
+    expect(health.receiver).toMatchObject({ key: "cloudflare_routing", canSend: false });
+    expect(mx?.status).toBe("warn");
+    expect(mx?.summary).toMatch(/only forwards/);
+    expect(spf?.status).toBe("warn");
+    expect(dkim).toMatchObject({ status: "pass", selector: "cf2024-1" });
+    expect(dkim?.summary).toMatch(/cf2024-1\._domainkey/);
+    expect(dmarc?.status).toBe("pass");
+    expect(health.dkimSelector).toBe("cf2024-1");
+    expect(health.status).toBe("partial");
+    expect(expectedRecords("vranceflex.online", "other", "cf2024-1", health.receiver)[0]?.note).toMatch(/only forwards/);
+  });
+
+  it("checks an 'other' domain whose MX is Google by Google's rules", async () => {
+    const health = await checkDomainHealth("getacme.com", "other", "default", fakeDns({
+      mx: [{ exchange: "smtp.google.com", priority: 1 }],
+      txt: { "getacme.com": ["v=spf1 include:mailgun.org ~all"] },
+    }));
+    expect(health.provider).toBe("google");
+    expect(health.checks[1]?.summary).toMatch(/_spf\.google\.com/);
+    expect(health.checks[2]?.summary).toMatch(/any common selector/);
+    expect(health.dkimSelector).toBe("default");
+  });
+
+  it("names the provider behind common MX hosts", () => {
+    expect(detectMailProvider(["mx.zoho.com"]).key).toBe("zoho");
+    expect(detectMailProvider(["in1-smtp.messagingengine.com"]).key).toBe("fastmail");
+    expect(detectMailProvider(["mail.example.net"])).toMatchObject({ key: "other", label: "mail.example.net" });
+    expect(detectMailProvider([]).key).toBe("none");
   });
 });
