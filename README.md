@@ -7,13 +7,14 @@ approves it — schedules and delivers real email (and, when configured, SMS)
 outreach with reply handling and suppression built in.
 
 Stack: Next.js 15 (App Router) + the [eve](https://eve.dev/docs) agent
-framework, Drizzle ORM on PostgreSQL, [Resend](https://resend.com) for email,
+framework, Drizzle ORM on PostgreSQL, customer-owned mailboxes (SMTP/IMAP) or
+[Resend](https://resend.com) for email,
 [Twilio](https://www.twilio.com) for SMS, [Stripe](https://stripe.com) for
 billing, deployed on Vercel.
 
 **Outreach sending is BYOK (bring-your-own-key), strict, per workspace.** Every
-client organization connects its *own* Resend account (for email) and Twilio
-account (for SMS) from Settings → Integrations before it can schedule anything
+client organization connects its *own* mailboxes (Settings → Sending) or Resend
+account for email, and its own Twilio account for SMS, before it can schedule anything
 on that channel — there is no shared/platform fallback for outreach, and
 scheduling is blocked with a clear error until a workspace connects. The
 platform's own `RESEND_API_KEY` is used **only** for auth OTPs and team-invite
@@ -57,6 +58,30 @@ Each client workspace's own Resend and Twilio credentials are **not** environmen
 variables — they're connected per-organization from `/settings/integrations`,
 validated against the provider's API on save, and stored encrypted in the
 `organization_channel_credentials` table (see `lib/server/channel-credentials.ts`).
+Sending mailboxes work the same way from `/settings/sending`: the SMTP and IMAP
+login is tested on save and the password is encrypted in `sending_mailboxes`.
+
+### Mailbox sending (cold outreach)
+
+Transactional providers (Resend included) don't allow cold email, so outreach
+normally goes out from mailboxes the customer owns, Instantly-style:
+
+- **Connect**: Google Workspace/Gmail with an App Password (2-Step Verification
+  required), or any SMTP + IMAP mailbox. Microsoft 365 needs OAuth (not yet built).
+- **Rotation** (`lib/server/mailbox-rotation.ts`): each lead sticks to the
+  mailbox that first emailed them, and follow-ups thread under step 1 via
+  `In-Reply-To`/`References`. Each mailbox has a daily cap with optional ramp-up
+  (10/day + 5/day) and 2–6 minutes between sends. The workspace-wide
+  `daily_email_limit` still applies on top.
+- **Replies and bounces** (`lib/server/mailbox-poller.ts`): the once-a-minute eve
+  schedule reads each mailbox's INBOX over IMAP at most every 5 minutes. It only
+  downloads messages that thread onto one of our sends (`Message-ID:
+  <vf-<messageId>@domain>`) or bounce one. Hard bounces suppress the address, and a
+  mailbox with ≥8% bounces over 7 days pauses itself.
+- **DNS health** (`lib/server/dns-health.ts`): MX/SPF/DKIM/DMARC checks against
+  public resolvers, with copy-ready records. Rechecked daily.
+- **Transport**: `organization_sending_settings.email_transport` (`auto` uses
+  mailboxes whenever any are connected, otherwise Resend).
 
 ### Stripe launch checklist
 
@@ -150,9 +175,9 @@ a webhook was missed.
 ## What's scaffolded vs. production-ready
 
 - **Email delivery, scheduling, replies, suppression**: production-ready —
-  real per-workspace Resend integration, retries, daily caps, CAN-SPAM
-  unsubscribe headers/links. Requires the workspace to connect its own Resend
-  account first (strict BYOK, no shared fallback).
+  mailbox rotation or per-workspace Resend, retries, daily caps, CAN-SPAM
+  unsubscribe headers/links. Requires the workspace to connect a mailbox or its
+  own Resend account first (strict BYOK, no shared fallback).
 - **SMS delivery**: production-ready once a workspace connects its own Twilio
   account from `/settings/integrations`. Until then, SMS sequences can be
   drafted but scheduling is blocked with a clear error.

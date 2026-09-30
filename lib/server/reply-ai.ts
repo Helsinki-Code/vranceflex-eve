@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 import { generateText, Output } from "ai";
-import { after } from "next/server";
 import { z } from "zod";
 import { replyIntents } from "../domain/pipeline";
 import { getDatabase } from "./database";
@@ -75,9 +74,9 @@ export function scheduleReplyRefinement(input: Parameters<typeof refineReplyClas
   const task = () => refineReplyClassification(input).catch((error) => {
     console.error("[reply-ai] refinement failed", { replyId: input.replyId, error: error instanceof Error ? error.message : error });
   });
-  try {
-    after(task);
-  } catch {
-    void task();
-  }
+  // Loaded lazily: this module also runs inside the eve dispatcher, where
+  // next/server isn't resolvable and there is no request to defer past.
+  void import("next/server")
+    .then(({ after }) => after(task))
+    .catch(() => void task());
 }

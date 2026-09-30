@@ -13,7 +13,7 @@ import {
 type Database = ReturnType<typeof getDatabase>;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-export type UnsubscribeSource = "resend_inbound" | "one_click_unsubscribe" | "twilio_inbound";
+export type UnsubscribeSource = "resend_inbound" | "one_click_unsubscribe" | "twilio_inbound" | "mailbox_inbound" | "mailbox_bounce";
 
 export async function suppressLeadForUnsubscribe(
   db: Database | Transaction,
@@ -27,6 +27,8 @@ export async function suppressLeadForUnsubscribe(
     source: UnsubscribeSource;
     campaignId?: string | null;
     writeAuditEvent?: boolean;
+    /** Why the destination is suppressed; defaults to an unsubscribe. */
+    reason?: "unsubscribe" | "hard_bounce";
   },
 ) {
   const now = new Date();
@@ -55,7 +57,7 @@ export async function suppressLeadForUnsubscribe(
     .update(outreachMessages)
     .set({
       status: "cancelled",
-      lastError: "All future outreach stopped after an unsubscribe request.",
+      lastError: input.reason === "hard_bounce" ? "All future outreach stopped after the address bounced." : "All future outreach stopped after an unsubscribe request.",
       updatedAt: now,
     })
     .where(
@@ -87,7 +89,7 @@ export async function suppressLeadForUnsubscribe(
         leadId: input.leadId,
         channel: input.sms ? "sms" : "email",
         destination: input.sms ? input.sms.trim() : normalizeEmailAddress(input.email ?? ""),
-        reason: "unsubscribe",
+        reason: input.reason ?? "unsubscribe",
         source: input.source,
       })
       .onConflictDoNothing();
@@ -98,7 +100,7 @@ export async function suppressLeadForUnsubscribe(
       organizationId: input.organizationId,
       actorId: null,
       campaignId: input.campaignId ?? null,
-      action: "reply.unsubscribe_received",
+      action: input.reason === "hard_bounce" ? "delivery.hard_bounce" : "reply.unsubscribe_received",
       entityType: "lead",
       entityId: input.leadId,
       metadata: { source: input.source },

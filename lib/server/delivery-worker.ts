@@ -20,6 +20,9 @@ import {
   sendApprovedOutreachSms,
 } from "./outreach-sms";
 import { TwilioDeliveryError } from "./twilio-sms";
+import { MailboxDeliveryError } from "./mailbox-smtp";
+import { claimMailboxSlot, resolveEmailTransport, type SendingMailbox } from "./mailbox-rotation";
+import { decryptMailboxSecret, markMailboxError } from "./mailbox-store";
 import { getOrgResendCredentials, getOrgTwilioCredentials } from "./channel-credentials";
 import { getDatabase } from "./database";
 import {
@@ -332,6 +335,34 @@ async function processClaimedJob(jobId: string) {
     return "cancelled" as const;
   }
 
+  // Mailbox rotation: book a slot on one of the workspace's mailboxes, or put
+  // the job back until one frees up. Waiting doesn't count as an attempt.
+  let mailbox: SendingMailbox | null = null;
+  if (channel === "email" && (await resolveEmailTransport(job.organizationId)) === "mailboxes") {
+    const claim = await claimMailboxSlot({
+      organizationId: job.organizationId,
+      stickyMailboxId: sequence.senderMailboxId,
+      timezone,
+    });
+    if (!claim.mailbox) {
+      await releaseDailySendCapacity(channel, capacity.reservationKey);
+      await database
+        .update(deliveryJobs)
+        .set({
+          status: "retry",
+          availableAt: claim.waitUntil,
+          lockedAt: null,
+          attemptCount: sql`greatest(${deliveryJobs.attemptCount} - 1, 0)`,
+          lastError: claim.reason,
+          updatedAt: new Date(),
+        })
+        .where(eq(deliveryJobs.id, job.id));
+      return "limited" as const;
+    }
+    mailbox = claim.mailbox;
+  }
+  const settlesOnAccept = channel === "sms" || mailbox !== null;
+
   const occurrenceKey = `${job.idempotencyKey}/${job.scheduledFor.toISOString()}`;
   const [dispatch] = await database
     .insert(deliveryDispatches)
@@ -429,11 +460,18 @@ async function processClaimedJob(jobId: string) {
             statusCallback: twilioStatusCallback(job.organizationId),
           })
         : await (async () => {
-            const resendCredentials = await getOrgResendCredentials(job.organizationId);
+            const resendCredentials = mailbox ? null : await getOrgResendCredentials(job.organizationId);
             return sendApprovedOutreachEmail(
-              resendCredentials
-                ? { apiKey: resendCredentials.apiKey, fromEmail: resendCredentials.fromEmail }
-                : null,
+              mailbox
+                ? {
+                    kind: "mailbox",
+                    secret: decryptMailboxSecret(mailbox),
+                    mailbox: { id: mailbox.id, email: mailbox.email, fromName: mailbox.fromName, provider: mailbox.provider },
+                    threadMessageId: sequence.senderMailboxId === mailbox.id ? sequence.threadMessageId : null,
+                  }
+                : resendCredentials
+                  ? { kind: "resend", credentials: { apiKey: resendCredentials.apiKey, fromEmail: resendCredentials.fromEmail } }
+                  : null,
               {
                 to: normalizedDestination,
                 subject: message.subject ?? "",
@@ -470,18 +508,25 @@ async function processClaimedJob(jobId: string) {
       await transaction
         .update(outreachMessages)
         .set({
-          status: nextRunAt ? "scheduled" : channel === "sms" ? "sent" : "sending",
+          status: nextRunAt ? "scheduled" : settlesOnAccept ? "sent" : "sending",
           scheduledFor: nextRunAt ?? message.scheduledFor,
           providerMessageId: result.providerMessageId,
           attemptCount: job.attemptCount,
           lastError: null,
-          sentAt: channel === "sms" ? now : message.sentAt,
+          sentAt: settlesOnAccept ? now : message.sentAt,
+          ...(mailbox ? { senderMailboxId: mailbox.id, rfcMessageId: "rfcMessageId" in result ? result.rfcMessageId : null } : {}),
           // Once any send used a signed link, unsigned links stop working.
           ...("unsubscribeSigned" in result && result.unsubscribeSigned ? { unsubscribeSigned: true } : {}),
           updatedAt: now,
         })
         .where(eq(outreachMessages.id, message.id));
-      if (channel === "sms") {
+      if (mailbox && sequence.senderMailboxId !== mailbox.id) {
+        await transaction
+          .update(outreachSequences)
+          .set({ senderMailboxId: mailbox.id, threadMessageId: "rfcMessageId" in result ? result.rfcMessageId : null, updatedAt: now })
+          .where(eq(outreachSequences.id, sequence.id));
+      }
+      if (settlesOnAccept) {
         await transaction
           .update(outreachSequences)
           .set({ status: "active", updatedAt: now })
@@ -523,7 +568,12 @@ async function processClaimedJob(jobId: string) {
     return "accepted" as const;
   } catch (error) {
     const ambiguous =
-      error instanceof TwilioDeliveryError && error.ambiguous;
+      (error instanceof TwilioDeliveryError && error.ambiguous) ||
+      (error instanceof MailboxDeliveryError && error.ambiguous);
+    if (mailbox && error instanceof MailboxDeliveryError && error.authFailed) {
+      // Take the mailbox out of rotation; the retry goes out from another one.
+      await markMailboxError(mailbox.id, error.message);
+    }
     if (ambiguous) {
       // Conservatively count an ambiguous Twilio request against the daily
       // cap: the provider may have accepted it even though the response was
@@ -541,6 +591,7 @@ async function processClaimedJob(jobId: string) {
       error instanceof OutreachSmsPolicyError ||
       (error instanceof ResendDeliveryError && !error.retryable) ||
       (error instanceof TwilioDeliveryError && !error.retryable) ||
+      (error instanceof MailboxDeliveryError && !error.retryable) ||
       job.attemptCount >= job.maxAttempts;
     const now = new Date();
     await database.transaction(async (transaction) => {
@@ -567,7 +618,9 @@ async function processClaimedJob(jobId: string) {
           availableAt: terminal ? job.availableAt : retryAt(job.attemptCount),
           lockedAt: null,
           lastError: ambiguous
-            ? "Twilio may have accepted this SMS; automatic replay was blocked to prevent a duplicate send."
+            ? mailbox
+              ? "The mail server may have accepted this email; automatic replay was blocked to prevent a duplicate send."
+              : "Twilio may have accepted this SMS; automatic replay was blocked to prevent a duplicate send."
             : errorMessage(error),
           completedAt: terminal ? now : null,
           updatedAt: now,

@@ -1,4 +1,7 @@
 import { findUnresolvedPlaceholders } from "./message-placeholders";
+import type { MailboxSecret } from "../domain/mailboxes";
+import { appendToSent } from "./mailbox-imap";
+import { rfcMessageId, sendViaMailbox } from "./mailbox-smtp";
 import { sendResendEmail, type ResendSendCredentials } from "./resend-email";
 import { signUnsubscribeToken } from "./unsubscribe-token";
 
@@ -50,13 +53,24 @@ function tagValue(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 256);
 }
 
+/** Where an outreach email goes out from: the workspace's Resend account, or one of its mailboxes. */
+export type OutreachEmailSender =
+  | { kind: "resend"; credentials: ResendSendCredentials }
+  | {
+      kind: "mailbox";
+      secret: MailboxSecret;
+      mailbox: { id: string; email: string; fromName: string | null; provider: "google" | "smtp" };
+      /** Message-ID of the first email to this lead, so follow-ups thread under it. */
+      threadMessageId?: string | null;
+    };
+
 export async function sendApprovedOutreachEmail(
-  credentials: ResendSendCredentials | null,
+  sender: OutreachEmailSender | null,
   input: ApprovedOutreachEmail,
 ) {
-  if (!credentials) {
+  if (!sender) {
     throw new OutreachEmailPolicyError(
-      "Connect a Resend account for this workspace before sending outreach email.",
+      "Connect a sending mailbox or a Resend account for this workspace before sending outreach email.",
     );
   }
 
@@ -93,13 +107,38 @@ export async function sendApprovedOutreachEmail(
 
   const { url: unsubscribe, signed: unsubscribeSigned } = unsubscribeUrl(input.messageId);
 
-  const result = await sendResendEmail(credentials, {
+  const text = unsubscribe ? withComplianceFooter(input.text, unsubscribe) : input.text;
+  const html = input.html && unsubscribe ? withComplianceFooterHtml(input.html, unsubscribe) : input.html;
+  const unsubscribeHeaders = unsubscribe
+    ? { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+    : undefined;
+
+  if (sender.kind === "mailbox") {
+    const messageId = rfcMessageId(input.messageId, sender.mailbox.email);
+    const sent = await sendViaMailbox(sender.secret, {
+      fromEmail: sender.mailbox.email,
+      fromName: sender.mailbox.fromName,
+      to: input.to.trim(),
+      subject: input.subject.trim(),
+      text,
+      html,
+      // Replies come straight back to the mailbox; its inbox is polled.
+      messageId,
+      inReplyTo: sender.threadMessageId,
+      headers: unsubscribeHeaders,
+    });
+    // Gmail files SMTP sends in Sent itself; other servers need a copy.
+    if (sender.mailbox.provider !== "google") {
+      await appendToSent(sender.secret, sent.raw).catch(() => undefined);
+    }
+    return { providerMessageId: messageId, rfcMessageId: messageId, unsubscribeSigned };
+  }
+
+  const result = await sendResendEmail(sender.credentials, {
     to: input.to.trim(),
     subject: input.subject.trim(),
-    text: unsubscribe ? withComplianceFooter(input.text, unsubscribe) : input.text,
-    html: input.html && unsubscribe
-      ? withComplianceFooterHtml(input.html, unsubscribe)
-      : input.html,
+    text,
+    html,
     replyTo: input.replyTo,
     tags: [
       { name: "category", value: "outreach" },
@@ -108,14 +147,7 @@ export async function sendApprovedOutreachEmail(
       { name: "message_id", value: tagValue(input.messageId) },
     ],
     idempotencyKey: input.idempotencyKey,
-    ...(unsubscribe
-      ? {
-          headers: {
-            "List-Unsubscribe": `<${unsubscribe}>`,
-            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-          },
-        }
-      : {}),
+    ...(unsubscribeHeaders ? { headers: unsubscribeHeaders } : {}),
   });
-  return { ...result, unsubscribeSigned };
+  return { ...result, rfcMessageId: null, unsubscribeSigned };
 }

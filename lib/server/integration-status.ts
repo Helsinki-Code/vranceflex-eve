@@ -29,7 +29,7 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
     {
       id: "email",
       name: "Resend email (platform account)",
-      description: "Authentication OTPs and team-invite email only. Outreach email uses each client's own connected Resend account below.",
+      description: "Authentication OTPs and team-invite email only. Outreach email goes out from each workspace's own mailboxes or Resend account.",
       configured:
         configured("RESEND_API_KEY") &&
         configured("RESEND_FROM_EMAIL"),
@@ -63,7 +63,7 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
     {
       id: "encryption",
       name: "Credential encryption",
-      description: "Encrypts each workspace's Resend and Twilio keys at rest",
+      description: "Encrypts each workspace's mailbox passwords and Resend and Twilio keys at rest",
       configured: configured("CREDENTIALS_ENCRYPTION_KEY"),
       required: true,
     },

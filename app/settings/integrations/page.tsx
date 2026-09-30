@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "../../../components/app-shell";
 import { ChannelConnectionsPanel } from "../../../components/channel-connections-panel";
+import { Notice } from "../../../components/product/kit";
 import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 import { getChannelConnectionSummary } from "../../../lib/server/channel-credentials";
@@ -19,10 +20,11 @@ export default async function IntegrationsPage() {
       authConfigured={isAuthConfigured()}
       eyebrow="Workspace settings"
       title="Delivery providers"
-      description="Outreach goes out from your own Resend and Twilio accounts, so deliverability, sender reputation and provider costs stay yours. A channel can't be scheduled until it's connected here."
+      description="Texts go out from your own Twilio account. Resend suits opt-in email; for cold outreach, connect mailboxes in Sending instead, since Resend's terms don't allow it."
       actions={<Link className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" href="/settings"><ArrowLeft className="size-3.5" />All settings</Link>}
     >
       <div className="space-y-6">
+        <Notice tone="info" title="Sending cold email?" action={<Link href="/settings/sending" className="text-sm font-medium text-primary hover:underline">Set up mailboxes</Link>}>Rotate across mailboxes you own, with daily limits and DNS checks, in Settings → Sending.</Notice>
         <ChannelConnectionsPanel
           initialResend={connections.resend}
           initialTwilio={connections.twilio}

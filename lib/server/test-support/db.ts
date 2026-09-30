@@ -36,6 +36,8 @@ const tablesToTruncate = [
   "organization_invites",
   "organization_billing",
   "organization_sending_settings",
+  "sending_mailboxes",
+  "sending_domains",
   "auth_sessions",
   "auth_challenges",
   "organization_memberships",

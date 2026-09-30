@@ -69,7 +69,7 @@ describe.skipIf(!hasTestDatabase)("scheduling-store BYOK gating", () => {
         ...scheduleInput,
         sequenceIds: [sequenceId],
       }),
-    ).rejects.toThrow(/connect this workspace's resend account/i);
+    ).rejects.toThrow(/connect a sending mailbox/i);
   });
 
   it("allows scheduling once Resend is connected", async () => {

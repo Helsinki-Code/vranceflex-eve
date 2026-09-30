@@ -82,14 +82,14 @@ export async function persistInboundEmailReply(input: InboundEmailInput) {
   });
 }
 
-type ReplyContext = {
+export type ReplyContext = {
   message: typeof outreachMessages.$inferSelect;
   sequence: typeof outreachSequences.$inferSelect;
   lead: typeof leads.$inferSelect;
 };
 
 type ReplyRecordInput = {
-  provider: "resend" | "twilio";
+  provider: "resend" | "twilio" | "mailbox";
   providerEventId: string | null;
   providerReplyId: string;
   messageHeaderId: string | null;
@@ -217,7 +217,7 @@ export async function recordInboundReply(context: ReplyContext, input: ReplyReco
         organizationId: context.message.organizationId,
         leadId: context.lead.id,
         ...(input.channel === "sms" ? { sms: context.lead.phone ?? input.fromAddress } : { email: context.lead.email ?? input.fromAddress }),
-        source: input.provider === "twilio" ? "twilio_inbound" : "resend_inbound",
+        source: input.provider === "twilio" ? "twilio_inbound" : input.provider === "mailbox" ? "mailbox_inbound" : "resend_inbound",
         campaignId: context.message.campaignId,
         writeAuditEvent: false,
       });

@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   index,
   integer,
@@ -465,6 +466,12 @@ export const outreachSequences = pgTable(
       .default("awaiting_approval")
       .notNull(),
     version: integer("version").default(1).notNull(),
+    // Every email step to a lead goes out from the same mailbox, threaded
+    // under the first message.
+    senderMailboxId: uuid("sender_mailbox_id").references((): AnyPgColumn => sendingMailboxes.id, {
+      onDelete: "set null",
+    }),
+    threadMessageId: text("thread_message_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -516,6 +523,11 @@ export const outreachMessages = pgTable(
     // True once this message went out with a signed unsubscribe link; older
     // messages keep accepting their unsigned link.
     unsubscribeSigned: boolean("unsubscribe_signed").default(false).notNull(),
+    senderMailboxId: uuid("sender_mailbox_id").references((): AnyPgColumn => sendingMailboxes.id, {
+      onDelete: "set null",
+    }),
+    // RFC 5322 Message-ID we set on mailbox sends; replies quote it back.
+    rfcMessageId: text("rfc_message_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -536,6 +548,8 @@ export const outreachMessages = pgTable(
       table.status,
       table.scheduledFor,
     ),
+    index("outreach_messages_rfc_message_id_idx").on(table.rfcMessageId),
+    index("outreach_messages_sender_sent_idx").on(table.senderMailboxId, table.sentAt),
   ],
 );
 
@@ -553,6 +567,67 @@ export const organizationChannelCredentials = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.provider] })],
+);
+
+export type MailboxProvider = "google" | "smtp";
+export type MailboxStatus = "active" | "paused" | "error";
+
+export const sendingMailboxes = pgTable(
+  "sending_mailboxes",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    // Stored lowercased.
+    email: text("email").notNull(),
+    fromName: text("from_name"),
+    provider: text("provider").$type<MailboxProvider>().notNull(),
+    encryptedPayload: text("encrypted_payload").notNull(),
+    status: text("status").$type<MailboxStatus>().default("active").notNull(),
+    statusReason: text("status_reason"),
+    dailyLimit: integer("daily_limit").default(30).notNull(),
+    rampUp: boolean("ramp_up").default(true).notNull(),
+    rampStartedAt: timestamp("ramp_started_at", { withTimezone: true }).defaultNow().notNull(),
+    nextSendAt: timestamp("next_send_at", { withTimezone: true }).defaultNow().notNull(),
+    imapUidValidity: bigint("imap_uid_validity", { mode: "number" }),
+    imapLastUid: bigint("imap_last_uid", { mode: "number" }),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("sending_mailboxes_org_email_unique").on(table.organizationId, table.email),
+    index("sending_mailboxes_status_idx").on(table.status, table.lastPolledAt),
+  ],
+);
+
+export type DomainMailProvider = "google" | "microsoft" | "other";
+export type DnsRecordCheck = {
+  kind: "mx" | "spf" | "dkim" | "dmarc";
+  status: "pass" | "warn" | "fail";
+  summary: string;
+  found: string[];
+};
+
+export const sendingDomains = pgTable(
+  "sending_domains",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    provider: text("provider").$type<DomainMailProvider>().default("other").notNull(),
+    dkimSelector: text("dkim_selector").default("google").notNull(),
+    lastCheck: jsonb("last_check").$type<DnsRecordCheck[]>().default([]).notNull(),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    status: text("status").$type<"verified" | "partial" | "unverified">().default("unverified").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("sending_domains_org_domain_unique").on(table.organizationId, table.domain)],
 );
 
 export const organizationBilling = pgTable("organization_billing", {
@@ -642,6 +717,8 @@ export const organizationSendingSettings = pgTable(
     timezone: text("timezone").default("UTC").notNull(),
     dailyEmailLimit: integer("daily_email_limit").default(100).notNull(),
     dailySmsLimit: integer("daily_sms_limit").default(0).notNull(),
+    // auto: rotate across connected mailboxes when any are active, else Resend.
+    emailTransport: text("email_transport").$type<"auto" | "mailboxes" | "resend">().default("auto").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

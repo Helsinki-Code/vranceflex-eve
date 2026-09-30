@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpen, Check, ChevronsUpDown, CreditCard, LoaderCircle, LogOut, Menu, MessageSquareText, Plus, Search, Settings2, Target, Users } from "lucide-react";
+import { BarChart3, BookOpen, Check, ChevronsUpDown, CreditCard, LoaderCircle, LogOut, Mail, Menu, MessageSquareText, Plus, Search, Settings2, Target, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -270,6 +270,7 @@ export function AppChrome({ children, title, eyebrow, description, actions, acco
               <CommandItem onSelect={() => navigate("/campaigns/new")}><Plus />New campaign<CommandShortcut>⌘⇧N</CommandShortcut></CommandItem>
               <CommandItem onSelect={() => navigate("/settings/billing")}><CreditCard />Plans & credits</CommandItem>
               <CommandItem onSelect={() => navigate("/settings/team")}><Users />Invite teammates</CommandItem>
+              <CommandItem onSelect={() => navigate("/settings/sending")}><Mail />Connect a sending mailbox</CommandItem>
               <CommandItem onSelect={() => navigate("/settings/integrations")}><Settings2 />Connect Resend or Twilio</CommandItem>
             </CommandGroup>
           </CommandList>

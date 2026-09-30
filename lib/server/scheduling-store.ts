@@ -6,7 +6,8 @@ import {
   scheduleSequencesSchema,
   updateScheduleSchema,
 } from "../domain/pipeline";
-import { getOrgResendCredentials, getOrgTwilioCredentials } from "./channel-credentials";
+import { getOrgTwilioCredentials } from "./channel-credentials";
+import { resolveEmailTransport } from "./mailbox-rotation";
 import type { ApiActor } from "./api-actor";
 import { AuthRequestError } from "./auth-errors";
 import { getDatabase } from "./database";
@@ -107,9 +108,9 @@ export async function scheduleCampaignSequences(
     }
     const hasEmailSequences = selected.some(({ sequence }) => sequence.channel === "email");
     const hasSmsSequences = selected.some(({ sequence }) => sequence.channel === "sms");
-    if (hasEmailSequences && !(await getOrgResendCredentials(actor.organizationId))) {
+    if (hasEmailSequences && !(await resolveEmailTransport(actor.organizationId))) {
       throw new AuthRequestError(
-        "Connect this workspace's Resend account in Settings → Integrations before scheduling email outreach.",
+        "Connect a sending mailbox (or Resend) in Settings → Sending before scheduling email outreach.",
         409,
       );
     }
