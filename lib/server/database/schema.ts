@@ -1319,6 +1319,9 @@ export const voiceCalls = pgTable(
     // "completed" is still on its way (a call is charged once both have arrived).
     jobMetadata: jsonb("job_metadata").$type<Record<string, unknown>>(),
     heldReport: jsonb("held_report").$type<Record<string, unknown>>(),
+    // What the call used (model tokens, characters spoken, seconds of audio heard), as reported by
+    // the worker, so margins can be checked against real calls.
+    usage: jsonb("usage").$type<{ llmInputTokens: number; llmOutputTokens: number; ttsCharacters: number; sttSeconds: number }>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

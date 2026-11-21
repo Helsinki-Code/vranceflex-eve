@@ -7,6 +7,9 @@ import { ParticipantKind, type RemoteParticipant } from "@livekit/rtc-node";
 import { z } from "zod";
 import { AMD_NO_SPEECH_MS, amdDecision, GreetingGate, hasCallEnded, isCallAnswered, type ParticipantLine } from "./answer-gate.js";
 import { CallState, STOP_ACKNOWLEDGEMENT, WRAP_UP_PROMPT } from "./call-state.js";
+import { resolveJobMetadata } from "./job-metadata.js";
+import { voiceModelsFromEnv } from "./models.js";
+import { summarizeUsage } from "./usage.js";
 import { sendReport } from "./report.js";
 
 /**
@@ -28,17 +31,6 @@ import { sendReport } from "./report.js";
  * while the phone is still ringing. "Answered" is therefore decided in
  * answer-gate.ts, never by the participant merely existing.
  */
-
-const metadataSchema = z.object({
-  callId: z.string().uuid(),
-  level: z.enum(["meetings", "qualify", "sell"]),
-  instructions: z.string().min(1),
-  openingLine: z.string().min(1),
-  maxSeconds: z.number().int().positive(),
-  reportUrl: z.string().url(),
-  // A Twilio-line call has already been checked for voicemail by Twilio before it reached us.
-  lineType: z.enum(["twilio", "sip"]).default("sip"),
-});
 
 const WRAP_UP_BEFORE_END_SECONDS = 45;
 /** How long the phone may ring (the app rings for 30s) before the worker gives up waiting. */
@@ -105,7 +97,7 @@ export default defineAgent({
   },
 
   entry: async (ctx: JobContext) => {
-    const metadata = metadataSchema.parse(JSON.parse(ctx.job.metadata));
+    const metadata = resolveJobMetadata(ctx.job.metadata);
     const secret = requiredEnv("VOICE_WORKER_SECRET");
     const report = (payload: Record<string, unknown>) => sendReport({ url: metadata.reportUrl, secret, payload });
 
@@ -131,6 +123,7 @@ export default defineAgent({
       if (finished) return;
       finished = true;
       if (error) state.recordError(error);
+      state.setUsage(summarizeUsage(session.usage.modelUsage));
       await report(state.buildReport());
       ctx.shutdown("call finished");
     };
@@ -157,14 +150,15 @@ export default defineAgent({
       instructions: metadata.instructions,
       tools: { record_outcome: recordOutcomeTool },
     });
-    const session = new voice.AgentSession({
-      vad: ctx.proc.userData.vad as silero.VAD,
-      stt: new deepgram.STT(),
-      llm: new openai.LLM({ model: process.env.VOICE_LLM_MODEL?.trim() || "gpt-4o-mini" }),
-      tts: new openai.TTS({ voice: (process.env.VOICE_TTS_VOICE?.trim() || "alloy") as "alloy" }),
-      // The model must not start a reply of its own before the disclosure has been said.
-      preemptiveGeneration: false,
-    });
+    const models = voiceModelsFromEnv();
+    const vad = ctx.proc.userData.vad as silero.VAD;
+    const session = new voice.AgentSession(
+      models.mode === "inference"
+        ? // LiveKit Inference: no separate speech or model keys. The descriptors are plain strings.
+          // The model must not start a reply of its own before the disclosure has been said.
+          { vad, stt: models.stt as never, llm: models.llm as never, tts: models.tts as never, preemptiveGeneration: false }
+        : { vad, stt: new deepgram.STT(), llm: new openai.LLM({ model: models.llm }), tts: new openai.TTS({ voice: models.ttsVoice as "alloy" }), preemptiveGeneration: false },
+    );
 
     // Lets the person's first words ("Hello?") finish before the disclosure goes out.
     const gate = new GreetingGate(Date.now());

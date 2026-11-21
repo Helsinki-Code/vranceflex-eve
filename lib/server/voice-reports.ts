@@ -36,6 +36,13 @@ export const transcriptTurnSchema = z.object({
   at: z.string().max(40).optional(),
 });
 
+export const callUsageSchema = z.object({
+  llmInputTokens: z.number().int().min(0).max(100_000_000),
+  llmOutputTokens: z.number().int().min(0).max(100_000_000),
+  ttsCharacters: z.number().int().min(0).max(100_000_000),
+  sttSeconds: z.number().int().min(0).max(100_000),
+});
+
 export const workerReportSchema = z.discriminatedUnion("event", [
   z.object({ event: z.literal("answered"), callId: z.string().uuid(), answeredAt: z.string().datetime().optional() }),
   z.object({
@@ -48,6 +55,7 @@ export const workerReportSchema = z.discriminatedUnion("event", [
     answeredAt: z.string().datetime().optional(),
     endedAt: z.string().datetime().optional(),
     transcript: z.array(transcriptTurnSchema).max(600).default([]),
+    usage: callUsageSchema.optional(),
     error: z.string().max(1_000).optional(),
   }),
 ]);
@@ -83,6 +91,7 @@ export type FinalizeInput = {
   error?: string | null;
   /** What the carrier says the call lasted. The charge is never more than this. */
   providerDurationSeconds?: number | null;
+  usage?: z.infer<typeof callUsageSchema> | null;
   now?: Date;
 };
 
@@ -148,6 +157,7 @@ export async function finalizeCall(input: FinalizeInput) {
       flags,
       error: input.error?.slice(0, 1_000) ?? null,
       heldReport: null,
+      ...(input.usage ? { usage: input.usage } : {}),
       updatedAt: now,
     })
     .where(eq(voiceCalls.id, call.id));
@@ -270,6 +280,7 @@ export function finalizeInputFromReport(report: CompletedReport, extra: { provid
     answeredAt: report.answeredAt ? new Date(report.answeredAt) : null,
     endedAt: report.endedAt ? new Date(report.endedAt) : null,
     error: report.error ?? null,
+    usage: report.usage ?? null,
     providerDurationSeconds: extra.providerDurationSeconds ?? null,
     now: extra.now,
   };

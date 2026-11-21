@@ -1,7 +1,7 @@
 # The VranceFlex voice worker. Build from the repository root so the shared call
 # rules in lib/domain are included:
 #   docker build -f voice-worker/Dockerfile -t vranceflex-voice-worker .
-FROM node:22-slim
+FROM node:24-slim
 WORKDIR /app
 COPY voice-worker/package.json voice-worker/package-lock.json ./voice-worker/
 RUN cd voice-worker && npm ci --omit=dev

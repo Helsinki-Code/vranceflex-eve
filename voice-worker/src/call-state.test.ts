@@ -155,3 +155,13 @@ describe("sendReport", () => {
     expect(post).toHaveBeenCalledTimes(3);
   });
 });
+
+describe("CallState usage", () => {
+  it("includes what the call used in the report, once it is known", () => {
+    const call = state();
+    call.addProspectTurn("Hello?");
+    expect(call.buildReport()).not.toHaveProperty("usage");
+    call.setUsage({ llmInputTokens: 3_500, llmOutputTokens: 195, ttsCharacters: 600, sttSeconds: 60 });
+    expect(call.buildReport().usage).toEqual({ llmInputTokens: 3_500, llmOutputTokens: 195, ttsCharacters: 600, sttSeconds: 60 });
+  });
+});

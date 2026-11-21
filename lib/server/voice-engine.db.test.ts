@@ -432,6 +432,17 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       }
     });
 
+    it("keeps what the call used, as reported by the worker, and rejects nonsense", async () => {
+      const { workerReportSchema, applyWorkerReport } = await import("./voice-reports");
+      const { callId } = await liveCall({ answeredSecondsAgo: 125 });
+      const usage = { llmInputTokens: 3_500, llmOutputTokens: 195, ttsCharacters: 600, sttSeconds: 60 };
+      const report = workerReportSchema.parse({ event: "completed", callId, outcome: "not_interested", transcript: [], usage, answeredAt: new Date(NOW.getTime() - 125_000).toISOString(), endedAt: NOW.toISOString() });
+      await applyWorkerReport(report, NOW);
+      expect((await calls())[0]!.usage).toEqual(usage);
+      expect(workerReportSchema.safeParse({ event: "completed", callId, outcome: "failed", usage: { ...usage, sttSeconds: -1 } }).success).toBe(false);
+      expect(workerReportSchema.safeParse({ event: "completed", callId, outcome: "failed" }).success).toBe(true);
+    });
+
     it("ends the campaign once its last lead is finished", async () => {
       const { callId } = await liveCall();
       await finish(callId, { outcome: "not_interested" });

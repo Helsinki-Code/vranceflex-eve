@@ -1,4 +1,5 @@
 import { allowedOutcome, callOutcomes, isStopRequest, outcomesForLevel, type CallOutcome, type VoiceLevel } from "../../lib/domain/voice";
+import type { CallUsage } from "./usage";
 
 /**
  * Everything the worker decides about a call that doesn't need a phone or a
@@ -18,6 +19,7 @@ export type CallReport = {
   answeredAt: string;
   endedAt: string;
   transcript: Turn[];
+  usage?: CallUsage;
   error?: string;
 };
 
@@ -35,6 +37,7 @@ export class CallState {
   private callbackAt: string | undefined;
   private stopHeard = false;
   private error: string | undefined;
+  private usage: CallUsage | undefined;
 
   constructor(
     readonly callId: string,
@@ -76,6 +79,11 @@ export class CallState {
     this.callbackAt = when && !Number.isNaN(when.getTime()) ? when.toISOString() : undefined;
   }
 
+  /** What the call used. Set just before the report is built. */
+  setUsage(usage: CallUsage) {
+    this.usage = usage;
+  }
+
   recordError(message: string) {
     this.error = message.slice(0, 500);
   }
@@ -111,6 +119,7 @@ export class CallState {
       answeredAt: this.answeredAt.toISOString(),
       endedAt: this.clock().toISOString(),
       transcript: this.turns,
+      ...(this.usage ? { usage: this.usage } : {}),
       ...(this.error ? { error: this.error } : {}),
     };
   }
