@@ -37,6 +37,13 @@ describe("reply classification prompt", () => {
     expect(prompt.split(open)).toHaveLength(3);
   });
 
+  it("passes the seller's offer as a plain line outside the fences", () => {
+    const prompt = buildReplyPrompt({ channel: "email", text: "yes", subject: null, leadName: "Sam", companyName: "Acme", offer: "A written plan" }, fixed);
+    const offerLine = prompt.split("\n").find((line) => line.includes("A written plan"));
+    expect(offerLine).toMatch(/^The free offer in the first email/);
+    expect(prompt.split(open)).toHaveLength(3);
+  });
+
   it("gives the model the rule about fenced content", () => {
     expect(REPLY_SYSTEM_PROMPT).toContain(UNTRUSTED_RULE);
   });
@@ -110,6 +117,12 @@ describe("campaign execution prompt", () => {
       const token = closing.slice(2, -1);
       expect(prompt.split(`<${token} `)).toHaveLength(2);
     }
+  });
+
+  it("tells the agent the offer, or null when there isn't one", () => {
+    const withOffer = executionPrompt({ ...campaign, offer: "A written plan for getting you onto page one" } as Campaign, leads);
+    expect(withOffer).toContain('"offer": "A written plan for getting you onto page one"');
+    expect(executionPrompt(campaign, leads)).toContain('"offer": null');
   });
 
   it("keeps the lead data parseable by the agent, with ids intact", () => {

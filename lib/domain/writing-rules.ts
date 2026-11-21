@@ -41,7 +41,10 @@ export const bannedPhrases = [
   "to whom it may concern",
 ] as const;
 
-/** Soft length ceilings (words) per step position. Advisory only. */
-export const maxWordsForStep = (stepNumber: number) => (stepNumber <= 1 ? 200 : 150);
+/**
+ * Soft length ceilings (words) per step. A sequence is three short emails: an
+ * observation plus the offer, a new angle, and a breakup. Advisory only.
+ */
+export const maxWordsForStep = (stepNumber: number) => (stepNumber <= 2 ? 75 : stepNumber === 3 ? 40 : 60);
 
 export const maxSubjectLength = 70;

@@ -14,6 +14,7 @@ When given an incoming reply (email or SMS) along with the original outreach con
 4. Write a suggested response (ready to send or lightly edit)
 
 INTENT CLASSIFICATION (pick exactly one):
+- OFFER_ACCEPTED — says yes to the free offer in the first email and expects it delivered (only when the parent supplied an offer; a request for a call or meeting is HOT instead)
 - HOT          — actively interested, wants to meet or learn more
 - WARM         — positive signal but not ready yet, needs nurturing
 - NEUTRAL      — no clear signal, may be processing or distracted

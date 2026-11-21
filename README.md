@@ -145,6 +145,20 @@ instructions is blocked at approval and again before sending.
   RDAP records, looked up once), ramp-up progress and the last week's bounce rate. It is
   advice only and never blocks a send by itself.
 
+### The offer and the copy
+
+- **Offer** (`lib/domain/offer.ts`): each campaign can carry one free, useful thing every
+  first email proposes as the fix for the problem it names ("a written plan for getting you
+  onto page one"). It's entered in the campaign form and refused if it's a discount, a demo,
+  a trial or a call, because those ask the prospect to do something before seeing any value.
+  It reaches the agents in the campaign input, and a yes to it is recognised as its own reply
+  type, **Said yes to your offer** (`OFFER_ACCEPTED`): the sequence stops, a short delivery
+  reply is drafted, and it's flagged for a person. A request for a call is still HOT.
+- **Copy shape**: sequences are three emails: an observation plus the offer (under 75 words),
+  a new angle (under 75), and a breakup (under 40). Writers are told never to invent
+  statistics, customers or case studies, and the same word limits and banned phrases
+  (`lib/domain/writing-rules.ts`) are checked as advice at approval.
+
 ### Sending safety
 
 These apply to every campaign in a workspace and are managed in Settings → Sending:

@@ -241,6 +241,8 @@ export const campaigns = pgTable(
     leadCount: integer("lead_count").notNull(),
     monthlyBudgetUsd: integer("monthly_budget_usd").notNull(),
     channels: jsonb("channels").$type<Campaign["channels"]>().notNull(),
+    // The free, useful thing first emails offer. Null when the campaign has none.
+    offer: text("offer"),
     status: campaignStatusEnum("status").default("researching").notNull(),
     providerSendReference: text("provider_send_reference"),
     recurrence: jsonb("recurrence").$type<ScheduleRecurrence | null>(),

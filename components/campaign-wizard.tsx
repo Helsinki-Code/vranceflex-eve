@@ -10,6 +10,7 @@ import { NativeTextarea } from "./design-system";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { FormField, Notice, SelectField } from "./product/kit";
+import { offerExamples, offerProblem } from "../lib/domain/offer";
 
 type Mode = "website" | "idea";
 type FormState = {
@@ -26,6 +27,7 @@ type FormState = {
   leadCount: CampaignCreateInput["leadCount"];
   monthlyBudgetUsd: number;
   channels: Array<"email" | "sms">;
+  offer: string;
 };
 
 const initialForm: FormState = {
@@ -42,6 +44,7 @@ const initialForm: FormState = {
   leadCount: 25,
   monthlyBudgetUsd: 500,
   channels: ["email"],
+  offer: "",
 };
 
 const stepNames = ["Product", "Audience", "Run settings", "Review"];
@@ -123,7 +126,8 @@ export function CampaignWizard({
         sourceReady &&
         form.businessName.trim().length >= 2 &&
         form.productName.trim().length >= 2 &&
-        form.productSummary.trim().length >= 30
+        form.productSummary.trim().length >= 30 &&
+        !offerProblem(form.offer)
       );
     }
     if (step === 1) return form.audience.trim().length >= 10 && form.geography.trim().length >= 2;
@@ -176,6 +180,7 @@ export function CampaignWizard({
       leadCount: form.leadCount,
       monthlyBudgetUsd: form.monthlyBudgetUsd,
       channels: form.channels,
+      offer: form.offer.trim() || undefined,
     };
 
     try {
@@ -217,11 +222,17 @@ export function CampaignWizard({
     </motion.section>;
   }
 
+  const offerProblemText = offerProblem(form.offer);
+  const offerHint = offerProblemText
+    ? <span className="text-destructive">{offerProblemText}</span>
+    : "Every first email names one thing we found about the prospect, then offers one free, useful thing as the fix. Pick something you can deliver this week that's valuable even if they never buy. Not a discount, a demo or a call.";
+
   const reviewRows: Array<[string, ReactNode]> = [
     ["Product", <>{form.productName}<span className="block text-xs text-muted-foreground">{mode === "website" ? form.websiteUrl : `${form.ideaName} · ${form.ideaStage}`}</span></>],
     ["Audience", <>{form.audience}<span className="block text-xs text-muted-foreground">{form.geography}</span></>],
     ["Goal", { book_meetings: "Book qualified meetings", validate_demand: "Validate demand", build_waitlist: "Build a waitlist", sell_product: "Generate sales opportunities" }[form.goal]],
     ["Verified leads", <><span className="font-mono tabular-nums">up to {form.leadCount}</span><span className="block text-xs text-muted-foreground">{creditBalance.toLocaleString()} credits available on {planName}. Credits are only used when a lead verifies.</span></>],
+    ["Offer", form.offer.trim() || <span className="text-muted-foreground">None. Emails will describe the problem without offering a specific fix.</span>],
     ["Channels", form.channels.map((channel) => channel === "sms" ? "SMS" : "Email").join(" and ")],
     ["Sending", "Only after you approve the sequence and pick a schedule"],
   ];
@@ -259,6 +270,15 @@ export function CampaignWizard({
                   <FormField className="sm:col-span-2" label="Describe the idea" hint={`${form.ideaDescription.trim().length}/30 characters minimum`}><NativeTextarea value={form.ideaDescription} onChange={(event) => update("ideaDescription", event.target.value)} placeholder="What it does, who needs it, and the problem it removes." rows={4} /></FormField>
                 </div>}
               <FormField label="What customers get" hint={`${form.productSummary.trim().length}/30 characters minimum. The outcome, and why your approach is different.`}><NativeTextarea value={form.productSummary} onChange={(event) => update("productSummary", event.target.value)} placeholder="e.g. Finance teams close the month in two days instead of eight because reconciliation runs continuously." rows={4} /></FormField>
+              <FormField
+                label="Your offer (optional, recommended)"
+                hint={offerHint}
+              >
+                <NativeTextarea value={form.offer} onChange={(event) => update("offer", event.target.value)} placeholder="e.g. A written plan for getting you onto page one" rows={2} />
+              </FormField>
+              <div className="flex flex-wrap gap-1.5" aria-label="Offer ideas">
+                {offerExamples.map((example) => <button key={example} type="button" onClick={() => update("offer", example)} className="rounded-md border border-border px-2.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:border-input hover:text-foreground">{example}</button>)}
+              </div>
             </> : null}
 
             {step === 1 ? <>

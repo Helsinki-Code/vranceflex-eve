@@ -35,6 +35,7 @@ type ReplyRow = {
 type Filter = "open" | "attention" | ReplyIntent | "archived";
 
 const intentMeta: Record<ReplyIntent, { label: string; tone: "verified" | "info" | "warning" | "danger" | "neutral" }> = {
+  OFFER_ACCEPTED: { label: "Said yes to your offer", tone: "verified" },
   HOT: { label: "Hot", tone: "verified" },
   WARM: { label: "Warm", tone: "info" },
   NEUTRAL: { label: "Neutral", tone: "neutral" },
@@ -47,6 +48,7 @@ const intentMeta: Record<ReplyIntent, { label: string; tone: "verified" | "info"
 const filters: Array<[Filter, string]> = [
   ["open", "Open"],
   ["attention", "Needs you"],
+  ["OFFER_ACCEPTED", "Said yes"],
   ["HOT", "Hot"],
   ["WARM", "Warm"],
   ["OBJECTION", "Objections"],
@@ -139,7 +141,7 @@ export function ReplyInbox() {
     <LedgerStats items={[
       { label: "Open replies", value: open.length, note: "Sequences pause on any reply" },
       { label: "Needs you", value: attention, note: "Meetings, objections, questions", tone: attention ? "warning" : "default" },
-      { label: "Hot", value: open.filter(({ reply }) => reply.intent === "HOT").length, note: "Asked for a next step", tone: "verified" },
+      { label: "Hot", value: open.filter(({ reply }) => reply.intent === "HOT" || reply.intent === "OFFER_ACCEPTED").length, note: "Asked for a next step or took your offer", tone: "verified" },
       { label: "Unsubscribed", value: rows.filter(({ reply }) => reply.intent === "UNSUBSCRIBE").length, note: "Suppressed automatically" },
     ]} />
 

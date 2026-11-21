@@ -170,3 +170,55 @@ describe.skipIf(!hasTestDatabase)("out-of-office and automatic replies", () => {
     expect(await jobTimes(ids.jobs)).toEqual(once);
   });
 });
+
+describe.skipIf(!hasTestDatabase)("replies to an offer", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await truncateAllTables();
+  });
+
+  async function seed(offer: string | null) {
+    const { organizationId, userId } = await seedOrganization();
+    const campaignId = await seedCampaign(organizationId, userId);
+    const { campaigns, leads, outreachMessages, outreachSequences } = await schema();
+    const database = await db();
+    await database.update(campaigns).set({ offer }).where(eq(campaigns.id, campaignId));
+    const leadId = await seedLead(organizationId, campaignId, { companyDomain: "acme.example" });
+    const job = await seedDeliveryJob({ organizationId, campaignId, leadId, channel: "email" });
+    const [message] = await database.select().from(outreachMessages).where(eq(outreachMessages.id, job.messageId));
+    const [sequence] = await database.select().from(outreachSequences).where(eq(outreachSequences.id, job.sequenceId));
+    const [lead] = await database.select().from(leads).where(eq(leads.id, leadId));
+    return { leadId, sequenceId: job.sequenceId, context: { message, sequence, lead } };
+  }
+  async function record(context: Awaited<ReturnType<typeof seed>>["context"], text: string) {
+    const { recordInboundReply } = await import("./reply-store");
+    return recordInboundReply(context, {
+      provider: "mailbox", providerEventId: null, providerReplyId: `r-${crypto.randomUUID()}`, messageHeaderId: null,
+      channel: "email", fromAddress: "x@example.com", toAddresses: [], subject: "Re: hello", text, html: null, receivedAt: new Date(),
+    });
+  }
+
+  it("marks a yes as taking the offer, flags it for delivery and stops the follow-ups", async () => {
+    const { context, leadId, sequenceId } = await seed("A written plan for getting you onto page one");
+    const result = await record(context, "Yes please, send it over");
+    expect(result.intent).toBe("OFFER_ACCEPTED");
+
+    const { inboundReplies, outreachSequences } = await schema();
+    const [reply] = await (await db()).select().from(inboundReplies).where(eq(inboundReplies.leadId, leadId));
+    expect(reply).toMatchObject({ intent: "OFFER_ACCEPTED", flagForHuman: true, nextAction: "escalate_to_human" });
+    expect(reply.flagReason).toMatch(/deliver it/);
+    expect(reply.suggestedResponse).toMatch(/put that together/);
+    const [sequence] = await (await db()).select().from(outreachSequences).where(eq(outreachSequences.id, sequenceId));
+    expect(sequence.status).toBe("paused");
+  });
+
+  it("does not treat the same words as taking an offer when the campaign has none", async () => {
+    const { context } = await seed(null);
+    expect((await record(context, "Yes please, send it over")).intent).not.toBe("OFFER_ACCEPTED");
+  });
+
+  it("still treats a request for a call as hot", async () => {
+    const { context } = await seed("A written plan for getting you onto page one");
+    expect((await record(context, "Yes, let's talk Thursday")).intent).toBe("HOT");
+  });
+});

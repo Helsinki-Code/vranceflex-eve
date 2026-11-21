@@ -134,7 +134,14 @@ function unsubscribeClassification(): ReturnType<typeof classifyReply> {
 // cancel pending sends and, for opt-outs, suppress the lead on that channel.
 export async function recordInboundReply(context: ReplyContext, input: ReplyRecordInput) {
   const database = getDatabase();
-  const baseClassification = input.forceUnsubscribe ? unsubscribeClassification() : classifyReply(input.text, { autoReply: input.autoReply });
+  const [campaignRow] = await database
+    .select({ offer: campaigns.offer })
+    .from(campaigns)
+    .where(eq(campaigns.id, context.message.campaignId))
+    .limit(1);
+  const baseClassification = input.forceUnsubscribe
+    ? unsubscribeClassification()
+    : classifyReply(input.text, { autoReply: input.autoReply, hasOffer: Boolean(campaignRow?.offer) });
   // An out-of-office is not a conversation: nothing is cancelled, the waiting
   // follow-ups just move past the return date.
   const outOfOffice = baseClassification.intent === "OUT_OF_OFFICE";
@@ -306,6 +313,7 @@ export async function recordInboundReply(context: ReplyContext, input: ReplyReco
       leadName: context.lead.personName,
       companyName: context.lead.companyName,
       regexIntent: classification.intent,
+      offer: campaignRow?.offer ?? null,
     });
   }
 

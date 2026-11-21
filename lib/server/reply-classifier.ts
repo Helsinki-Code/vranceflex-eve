@@ -51,6 +51,23 @@ const OUT_OF_OFFICE_PHRASES = [
 ];
 const OUT_OF_OFFICE = new RegExp(`(?<![a-z])(?:${OUT_OF_OFFICE_PHRASES.join("|")})(?![a-z])`, "i");
 
+// A clear "yes" to the free offer in the first email ("Yes please, send it
+// over"). Only considered when the campaign has an offer, and never when the
+// reply also asks for a meeting, questions the offer, or hedges.
+const ACCEPTANCE_START =
+  /^(?:yes|yeah|yep|yup|sure|absolutely|definitely|please do|please send|go ahead|that would be (?:great|helpful|amazing|awesome)|i(?:'d| would) (?:love|like) (?:that|to|it|this)|send it (?:over|through)|would love (?:that|to)|love that|do it)\b/;
+const ACCEPTANCE_BLOCKERS =
+  /\?|\b(?:but|however|unless|not now|later|next (?:month|quarter|year)|tell me more|more (?:info|information|details)|how much|price|cost|who are you|what is|what are|why|talk|call|meeting|schedule|calendar|book|demo)\b/;
+
+function stripGreeting(text: string) {
+  return text.replace(/^(?:hi|hello|hey|dear|good (?:morning|afternoon|evening))(?: [a-z'-]+)?[,!.]?\s*/, "");
+}
+
+export function looksLikeAcceptance(normalized: string) {
+  const body = stripGreeting(normalized).slice(0, 240);
+  return ACCEPTANCE_START.test(body) && !ACCEPTANCE_BLOCKERS.test(body);
+}
+
 /** Lowercase, straighten quotes, drop accents and collapse whitespace. */
 export function normalizeForClassification(text: string) {
   return text
@@ -94,7 +111,7 @@ function outOfOfficeClassification(reasoning: string): ReplyClassification {
   };
 }
 
-export function classifyReply(text: string, options: { autoReply?: boolean } = {}): ReplyClassification {
+export function classifyReply(text: string, options: { autoReply?: boolean; hasOffer?: boolean } = {}): ReplyClassification {
   const normalized = normalizeForClassification(text);
   // The headers say a machine wrote this. Believe them over the wording: an
   // auto-responder's footer often says "to unsubscribe click here".
@@ -126,6 +143,19 @@ export function classifyReply(text: string, options: { autoReply?: boolean } = {
       suggestedResponse: "Thanks for letting me know. I appreciate the clarity.",
       flagForHuman: true,
       flagReason: "Confirm whether the lead should be archived or reassigned.",
+    };
+  }
+  if (options.hasOffer && looksLikeAcceptance(normalized)) {
+    return {
+      intent: "OFFER_ACCEPTED",
+      sentimentScore: 10,
+      confidence: "medium",
+      reasoning: "They said yes to the free offer in the first email.",
+      nextAction: "escalate_to_human",
+      actionDetail: "Deliver what you offered, then reply to them with it.",
+      suggestedResponse: "Great, I'll put that together and send it over shortly.",
+      flagForHuman: true,
+      flagReason: "Said yes to your offer: deliver it.",
     };
   }
   if (HOT_SIGNAL.test(withoutNegatedPhrases(normalized))) {

@@ -155,6 +155,52 @@ describe("classifyReply", () => {
     });
   });
 
+  describe("saying yes to the offer", () => {
+    const yes = [
+      "Yes please, send it over",
+      "Yes!",
+      "Sure, go ahead",
+      "Hi Sam, absolutely. Please do.",
+      "That would be great, thank you",
+      "I'd love that",
+      "Yeah, send it through when it's ready",
+    ];
+    it.each(yes)("classifies %j as OFFER_ACCEPTED when the campaign has an offer", (text) => {
+      const result = classifyReply(text, { hasOffer: true });
+      expect(result.intent).toBe("OFFER_ACCEPTED");
+      expect(result.flagForHuman).toBe(true);
+      expect(result.flagReason).toMatch(/deliver it/);
+    });
+
+    it("does nothing special when the campaign has no offer", () => {
+      expect(classifyReply("Yes please, send it over").intent).not.toBe("OFFER_ACCEPTED");
+      expect(classifyReply("Yes please, send it over", { hasOffer: false }).intent).not.toBe("OFFER_ACCEPTED");
+    });
+
+    it.each([
+      "Yes, let's talk Thursday",
+      "Sure, can you call me tomorrow?",
+      "Yes, book a meeting for next week",
+      "Sure, but not now",
+      "Yes but how much does it cost?",
+      "Sure, tell me more first",
+      "Yeah, who are you again?",
+      "Yes, though maybe next quarter",
+    ])("does not read %j as taking the offer", (text) => {
+      expect(classifyReply(text, { hasOffer: true }).intent).not.toBe("OFFER_ACCEPTED");
+    });
+
+    it("still treats a meeting request as HOT", () => {
+      expect(classifyReply("Yes, let's talk Thursday", { hasOffer: true }).intent).toBe("HOT");
+    });
+
+    it("keeps refusals, opt-outs and auto-replies ahead of it", () => {
+      expect(classifyReply("Yes, not interested", { hasOffer: true }).intent).toBe("NOT_FIT");
+      expect(classifyReply("Yes, unsubscribe me", { hasOffer: true }).intent).toBe("UNSUBSCRIBE");
+      expect(classifyReply("Yes please", { hasOffer: true, autoReply: true }).intent).toBe("OUT_OF_OFFICE");
+    });
+  });
+
   it("falls back to NEUTRAL with human review required for ambiguous text", () => {
     const result = classifyReply("ok");
     expect(result.intent).toBe("NEUTRAL");

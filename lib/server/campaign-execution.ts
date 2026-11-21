@@ -49,6 +49,7 @@ export function executionPrompt(
         leadCount: campaign.leadCount,
         monthlyBudgetUsd: campaign.monthlyBudgetUsd,
         channels: campaign.channels,
+        offer: campaign.offer ?? null,
       },
       "campaign input",
     ),

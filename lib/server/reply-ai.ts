@@ -27,14 +27,15 @@ const classificationSchema = z.object({
 });
 
 export const REPLY_SYSTEM_PROMPT = `${UNTRUSTED_RULE}\n\nYou classify replies to B2B cold outreach (email or SMS) for a sales team.
-Intents: HOT (asks for a meeting, pricing or next step), WARM (interested, wants info), NEUTRAL, OBJECTION (timing, budget, incumbent vendor), NOT_FIT, OUT_OF_OFFICE, UNSUBSCRIBE (any request to stop contact).
+Intents: OFFER_ACCEPTED (says yes to the free offer in the first email and expects it delivered; only when an offer is given below), HOT (asks for a meeting, pricing or next step), WARM (interested, wants info), NEUTRAL, OBJECTION (timing, budget, incumbent vendor), NOT_FIT, OUT_OF_OFFICE, UNSUBSCRIBE (any request to stop contact).
 Write reasoning in one sentence that quotes or paraphrases the reply. The suggested response must be short, specific to what they said, written for a human to send from their own inbox, and contain no placeholders. For UNSUBSCRIBE, OUT_OF_OFFICE and NOT_FIT the suggested response may be empty.
 Flag for a human whenever money, legal terms, a complaint, a meeting time, or an ambiguous opt-out is involved.`;
 
 /** The model call's prompt. Everything that came from outside is fenced as untrusted. */
-export function buildReplyPrompt(input: { channel: "email" | "sms"; text: string; subject: string | null; leadName: string; companyName: string }, randomHex?: () => string) {
+export function buildReplyPrompt(input: { channel: "email" | "sms"; text: string; subject: string | null; leadName: string; companyName: string; offer?: string | null }, randomHex?: () => string) {
   return [
     `Channel: ${input.channel}`,
+    input.offer ? `The free offer in the first email (written by the seller): ${input.offer}` : null,
     fence(`${input.leadName} at ${input.companyName}`, "sender name and company", randomHex),
     input.subject ? fence(input.subject, "reply subject", randomHex) : null,
     fence(input.text.slice(0, 4_000), "reply body", randomHex),
@@ -63,7 +64,7 @@ export function isReplyModelConfigured() {
   return Boolean(process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim());
 }
 
-export async function refineReplyClassification(input: { replyId: string; channel: "email" | "sms"; text: string; subject: string | null; leadName: string; companyName: string; regexIntent: string }) {
+export async function refineReplyClassification(input: { replyId: string; channel: "email" | "sms"; text: string; subject: string | null; leadName: string; companyName: string; regexIntent: string; offer?: string | null }) {
   if (!isReplyModelConfigured() || !input.text.trim()) return { refined: false as const };
   const { output } = await generateText({
     model: MODEL,

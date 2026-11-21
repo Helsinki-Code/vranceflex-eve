@@ -49,6 +49,7 @@ export const deliveryJobStatuses = [
 export const deliveryJobStatusSchema = z.enum(deliveryJobStatuses);
 
 export const replyIntents = [
+  "OFFER_ACCEPTED",
   "HOT",
   "WARM",
   "NEUTRAL",
