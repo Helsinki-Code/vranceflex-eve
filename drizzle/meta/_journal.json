@@ -169,6 +169,13 @@
       "when": 1795234736415,
       "tag": "0023_voice_twilio_line",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795235175611,
+      "tag": "0024_voice_drop_trunk_id",
+      "breakpoints": true
     }
   ]
 }

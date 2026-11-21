@@ -1,17 +1,18 @@
-import { ConnectTwilioCallRequest_TwilioCallDirection, JobRestartPolicy, RoomAgentDispatch, SIPTransport } from "@livekit/protocol";
+import { ConnectTwilioCallRequest_TwilioCallDirection, JobRestartPolicy, RoomAgentDispatch, SIPOutboundConfig, SIPTransport } from "@livekit/protocol";
 import { AgentDispatchClient, ConnectorClient, RoomServiceClient, SipClient } from "livekit-server-sdk";
 
 /**
  * The boundary with LiveKit. Everything above this file works with a plain
  * interface, so call scheduling, billing and review are tested without a phone.
  *
- * A call is: create a room, dispatch the voice agent into it with the call's
- * context, then have LiveKit dial the number over the customer's Twilio SIP
- * trunk and wait until it's answered (or fails).
+ * A call on a SIP line is: create a room, dispatch the voice agent into it with the call's
+ * context, then have LiveKit dial the number over the customer's SIP trunk and wait until it's
+ * answered (or fails). The trunk's details travel with each call (LiveKit's "inline trunk"),
+ * so there is nothing to create, store or clean up on LiveKit for a workspace.
  */
 
 export type SipConnection = {
-  /** The Twilio termination URI, for example "acme.pstn.twilio.com". */
+  /** The carrier's SIP host, for example "acme.pstn.twilio.com" or "sip.telnyx.com". */
   address: string;
   username: string;
   password: string;
@@ -28,24 +29,44 @@ export type CallJobMetadata = {
   maxSeconds: number;
   /** Where the worker reports results. */
   reportUrl: string;
+  /** How the call is placed. A SIP line has no voicemail detection before the agent, so the agent does it. */
+  lineType: "twilio" | "sip";
 };
 
 export type DialRequest = {
   callId: string;
   to: string;
   sip: SipConnection;
-  trunkId: string;
   metadata: CallJobMetadata;
   ringSeconds: number;
+  /** ISO 3166-1 alpha-2, so LiveKit can route the call in the right region. Optional. */
+  destinationCountry?: string;
 };
 
 export type DialResult =
   | { status: "answered"; room: string }
-  | { status: "not_answered"; room: string; reason: string };
+  | {
+      status: "not_answered";
+      room: string;
+      reason: string;
+      /** "line_failure": the carrier refused or couldn't carry the call (bad credentials, outage), not the person. */
+      kind: "no_answer" | "line_failure";
+      sipStatus?: number;
+    };
+
+/**
+ * What a SIP response code means for us. 486 (busy), 603 (declined), 480/408 (unavailable, no
+ * answer) and the like are about the person. 5xx and authentication refusals (401, 403, 407) are
+ * about the line: the same call would fail for everyone until the customer fixes it.
+ */
+export function classifySipStatus(status: number | undefined): "no_answer" | "line_failure" {
+  if (status === undefined) return "no_answer";
+  // 5xx is the carrier failing; 6xx (600 busy everywhere, 603 declined, 604 doesn't exist) is the person.
+  if ((status >= 500 && status < 600) || status === 401 || status === 402 || status === 403 || status === 407) return "line_failure";
+  return "no_answer";
+}
 
 export interface VoiceDialer {
-  /** Creates (or replaces) the LiveKit outbound trunk for a workspace's SIP connection. */
-  ensureTrunk(input: { organizationId: string; sip: SipConnection; existingTrunkId?: string | null }): Promise<string>;
   dial(request: DialRequest): Promise<DialResult>;
   /** Ends a call in progress, for example when the caller asked to stop. */
   hangUp(room: string): Promise<void>;
@@ -71,17 +92,6 @@ export function createLiveKitDialer(config: LiveKitConfig): VoiceDialer {
   const rooms = new RoomServiceClient(config.url, config.apiKey, config.apiSecret);
 
   return {
-    async ensureTrunk({ organizationId, sip: connection, existingTrunkId }) {
-      // A trunk can't be edited in place when credentials change; replace it.
-      if (existingTrunkId) await sip.deleteSipTrunk(existingTrunkId).catch(() => undefined);
-      const trunk = await sip.createSipOutboundTrunk(`vranceflex-${organizationId}`, connection.address, [connection.callerNumber], {
-        transport: SIPTransport.SIP_TRANSPORT_AUTO,
-        authUsername: connection.username,
-        authPassword: connection.password,
-      });
-      return trunk.sipTrunkId;
-    },
-
     async dial(request) {
       const room = roomNameForCall(request.callId);
       // Never restart the agent if it crashes: a restarted agent would say the AI disclosure a
@@ -91,20 +101,34 @@ export function createLiveKitDialer(config: LiveKitConfig): VoiceDialer {
         restartPolicy: JobRestartPolicy.JRP_NEVER,
       });
       try {
-        await sip.createSipParticipant(request.trunkId, request.to, room, {
-          participantIdentity: `callee-${request.callId}`,
-          participantName: "Prospect",
-          waitUntilAnswered: true,
-          ringingTimeout: request.ringSeconds,
-          // LiveKit ends the call at the cap, so a call can never run past the minutes available.
-          maxCallDuration: request.metadata.maxSeconds,
-          krispEnabled: true,
-        });
+        await sip.createSipParticipant(
+          "", // no stored trunk: this call carries its own trunk details
+          request.to,
+          room,
+          {
+            participantIdentity: `callee-${request.callId}`,
+            participantName: "Prospect",
+            fromNumber: request.sip.callerNumber,
+            waitUntilAnswered: true,
+            ringingTimeout: request.ringSeconds,
+            // LiveKit ends the call at the cap, so a call can never run past the minutes available.
+            maxCallDuration: request.metadata.maxSeconds,
+            krispEnabled: true,
+          },
+          new SIPOutboundConfig({
+            hostname: request.sip.address,
+            transport: SIPTransport.SIP_TRANSPORT_AUTO,
+            authUsername: request.sip.username,
+            authPassword: request.sip.password,
+            ...(request.destinationCountry ? { destinationCountry: request.destinationCountry } : {}),
+          }),
+        );
         return { status: "answered", room };
       } catch (error) {
-        // Not answered, busy, rejected or timed out: the room is no use any more.
+        // Not answered, busy, rejected, timed out, or the line refused it: the room is no use any more.
         await rooms.deleteRoom(room).catch(() => undefined);
-        return { status: "not_answered", room, reason: error instanceof Error ? error.message : "The call was not answered." };
+        const sipStatus = typeof (error as { sipStatusCode?: unknown })?.sipStatusCode === "number" ? (error as { sipStatusCode: number }).sipStatusCode : undefined;
+        return { status: "not_answered", room, reason: error instanceof Error ? error.message : "The call was not answered.", kind: classifySipStatus(sipStatus), sipStatus };
       }
     },
 
@@ -154,7 +178,7 @@ export function getVoiceConnector(env: Record<string, string | undefined> = proc
 /** A dialer for environments with no LiveKit: every call fails clearly instead of hanging. */
 export function unconfiguredDialer(): VoiceDialer {
   const fail = () => Promise.reject(new Error("Voice calling isn't configured on this deployment (LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET are missing)."));
-  return { ensureTrunk: fail, dial: fail, hangUp: fail };
+  return { dial: fail, hangUp: fail };
 }
 
 export function getVoiceDialer(env: Record<string, string | undefined> = process.env): VoiceDialer {

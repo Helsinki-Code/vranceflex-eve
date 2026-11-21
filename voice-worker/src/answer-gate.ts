@@ -59,3 +59,27 @@ export class GreetingGate {
     return now - this.startedAt >= GREETING_WAIT_MS;
   }
 }
+
+/**
+ * What to do with LiveKit's voicemail-detection result (used on a SIP line, where nothing has
+ * listened for voicemail before the agent does). A person, a menu we can't navigate, or a
+ * greeting it couldn't classify all go on as a normal call: hanging up on a real person is worse
+ * than a brief message to a machine. A recorded greeting or an unreachable mailbox ends the call
+ * without a word, so the disclosure is never played into voicemail.
+ */
+export type AmdDecision = "continue" | "voicemail" | "unreachable";
+
+export function amdDecision(category: string): AmdDecision {
+  switch (category) {
+    case "machine-vm":
+      return "voicemail";
+    case "machine-unavailable":
+      return "unreachable";
+    default:
+      // human, machine-ivr (the Node SDK can't navigate menus), uncertain, or anything new.
+      return "continue";
+  }
+}
+
+/** How long to listen for a first word before treating a silent line as a person. */
+export const AMD_NO_SPEECH_MS = 4_000;

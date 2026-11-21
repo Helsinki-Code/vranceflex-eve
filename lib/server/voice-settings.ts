@@ -6,7 +6,7 @@ import { decryptCredentialPayload, encryptCredentialPayload } from "./credential
 import { getDatabase } from "./database";
 import { auditEvents, voiceSettings } from "./database/schema";
 import { toE164 } from "./voice-consent";
-import type { SipConnection, VoiceDialer } from "./voice-dialer";
+import type { SipConnection } from "./voice-dialer";
 import { callingWindowProblem, DEFAULT_CALLING_WINDOW, type CallingWindow } from "./voice-scheduling";
 import { TwilioLineError, verifyTwilioLine, type TwilioLine, type TwilioLineVerifier } from "./voice-twilio";
 
@@ -22,7 +22,6 @@ export type VoiceSettings = {
   lineType: "twilio" | "sip";
   sipAddress: string | null;
   callerNumber: string | null;
-  livekitTrunkId: string | null;
   /** The Twilio account the line belongs to. The key is never returned. */
   twilioAccountSid: string | null;
 };
@@ -38,7 +37,6 @@ const DEFAULTS: VoiceSettings = {
   lineType: "twilio",
   sipAddress: null,
   callerNumber: null,
-  livekitTrunkId: null,
   twilioAccountSid: null,
 };
 
@@ -56,12 +54,11 @@ export function voiceSettingsFromRow(row: Row | undefined | null): VoiceSettings
     telephonyConnected: Boolean(
       row.telephonyConnectedAt &&
         row.callerNumber &&
-        (row.lineType === "twilio" ? row.twilioAccountSid && row.encryptedTwilioKey : row.livekitTrunkId && row.encryptedSipCredentials),
+        (row.lineType === "twilio" ? row.twilioAccountSid && row.encryptedTwilioKey : row.sipAddress && row.encryptedSipCredentials),
     ),
     lineType: row.lineType,
     sipAddress: row.sipAddress,
     callerNumber: row.callerNumber,
-    livekitTrunkId: row.livekitTrunkId,
     twilioAccountSid: row.twilioAccountSid,
   };
 }
@@ -156,46 +153,42 @@ export async function resumeVoice(actor: ApiActor) {
   return getVoiceSettings(actor.organizationId);
 }
 
-// ---- The customer's own Twilio SIP trunk -------------------------------------
+// ---- A SIP trunk (another carrier, or Twilio Elastic SIP) -----------------------------------
+
+const SIP_HOST = /^(?=.{4,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 export const telephonyInputSchema = z
   .object({
-    // The Twilio Elastic SIP Trunk's termination URI, like "acme.pstn.twilio.com".
+    // The carrier's SIP host, like "acme.pstn.twilio.com" or "sip.telnyx.com".
     sipAddress: z
       .string()
       .trim()
       .toLowerCase()
-      .transform((value) => value.replace(/^sips?:/, "").replace(/\/.*$/, ""))
-      .refine((value) => /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.pstn\.twilio\.com$/.test(value), "Enter your Twilio termination URI, like yourname.pstn.twilio.com."),
+      .transform((value) => value.replace(/^sips?:/, "").replace(/[/:].*$/, ""))
+      .refine((value) => SIP_HOST.test(value), "Enter your carrier's SIP host, like yourname.pstn.twilio.com."),
     username: z.string().trim().min(1).max(128),
     password: z.string().min(1).max(256),
-    callerNumber: z.string().trim().refine((value) => toE164(value) !== null, "Enter the Twilio number to call from in international format, like +14155550100."),
+    callerNumber: z.string().trim().refine((value) => toE164(value) !== null, "Enter the number to call from in international format, like +14155550100."),
   })
   .strict();
 
-export async function connectTelephony(actor: ApiActor, input: z.infer<typeof telephonyInputSchema>, dialer: VoiceDialer) {
+export async function connectTelephony(actor: ApiActor, input: z.infer<typeof telephonyInputSchema>) {
   requireAdmin(actor);
   const callerNumber = toE164(input.callerNumber)!;
-  const connection: SipConnection = { address: input.sipAddress, username: input.username, password: input.password, callerNumber };
-  const [existing] = await getDatabase().select({ trunk: voiceSettings.livekitTrunkId }).from(voiceSettings).where(eq(voiceSettings.organizationId, actor.organizationId)).limit(1);
-  let trunkId: string;
-  try {
-    trunkId = await dialer.ensureTrunk({ organizationId: actor.organizationId, sip: connection, existingTrunkId: existing?.trunk });
-  } catch (error) {
-    throw new AuthRequestError(`The phone line couldn't be set up: ${error instanceof Error ? error.message : "unknown error"}.`, 502);
-  }
+  const current = await getVoiceSettings(actor.organizationId);
   await upsert(actor.organizationId, {
     lineType: "sip",
-    sipAddress: connection.address,
+    sipAddress: input.sipAddress,
     callerNumber,
     // The password is stored encrypted and never returned.
-    encryptedSipCredentials: encryptCredentialPayload({ username: connection.username, password: connection.password }),
-    livekitTrunkId: trunkId,
+    encryptedSipCredentials: encryptCredentialPayload({ username: input.username, password: input.password }),
     twilioAccountSid: null,
     encryptedTwilioKey: null,
     telephonyConnectedAt: new Date(),
+    // Reconnecting after the line was refusing calls lifts that pause.
+    ...(current.voicePaused && current.pausedReason?.startsWith(LINE_PAUSE_PREFIX) ? { voicePaused: false, pausedReason: null, pausedAt: null } : {}),
   });
-  await audit(actor, "voice.telephony_connected", { sipAddress: connection.address, callerNumber });
+  await audit(actor, "voice.telephony_connected", { lineType: "sip", sipAddress: input.sipAddress, callerNumber });
   return getVoiceSettings(actor.organizationId);
 }
 
@@ -205,7 +198,6 @@ export async function disconnectTelephony(actor: ApiActor) {
     sipAddress: null,
     callerNumber: null,
     encryptedSipCredentials: null,
-    livekitTrunkId: null,
     twilioAccountSid: null,
     encryptedTwilioKey: null,
     telephonyConnectedAt: null,
@@ -227,6 +219,7 @@ export const twilioLineInputSchema = z
   .strict();
 
 const CREDENTIAL_PAUSE_PREFIX = "Twilio rejected";
+export const LINE_PAUSE_PREFIX = "Your phone line is rejecting calls";
 
 export async function connectTwilioLine(actor: ApiActor, input: z.infer<typeof twilioLineInputSchema>, verify: TwilioLineVerifier = verifyTwilioLine) {
   requireAdmin(actor);
@@ -247,7 +240,6 @@ export async function connectTwilioLine(actor: ApiActor, input: z.infer<typeof t
     callerNumber,
     sipAddress: null,
     encryptedSipCredentials: null,
-    livekitTrunkId: null,
     telephonyConnectedAt: new Date(),
     // A working key clears a pause that was caused by a rejected one.
     ...(current.voicePaused && current.pausedReason?.startsWith(CREDENTIAL_PAUSE_PREFIX) ? { voicePaused: false, pausedReason: null, pausedAt: null } : {}),
@@ -275,10 +267,29 @@ export async function pauseVoiceForRejectedKey(organizationId: string) {
   });
 }
 
+/** Stops calling because the SIP line keeps refusing calls (not because people didn't answer). */
+export async function pauseVoiceForFailingLine(organizationId: string) {
+  await upsert(organizationId, {
+    voicePaused: true,
+    pausedReason: `${LINE_PAUSE_PREFIX}. Check your SIP trunk's address, username and password, then reconnect it to continue.`,
+    pausedAt: new Date(),
+  });
+  await getDatabase().insert(auditEvents).values({
+    id: crypto.randomUUID(),
+    organizationId,
+    actorId: null,
+    campaignId: null,
+    action: "voice.paused",
+    entityType: "voice_settings",
+    entityId: organizationId,
+    metadata: { reason: "The SIP line refused several calls in a row" },
+  });
+}
+
 /** The phone line a call will be placed on. Server-side only: it holds decrypted credentials. */
 export type PhoneLine =
   | { type: "twilio"; twilio: TwilioLine }
-  | { type: "sip"; sip: SipConnection & { trunkId: string } };
+  | { type: "sip"; sip: SipConnection };
 
 export async function getPhoneLine(organizationId: string): Promise<PhoneLine | null> {
   const [row] = await getDatabase().select().from(voiceSettings).where(eq(voiceSettings.organizationId, organizationId)).limit(1);
@@ -293,9 +304,9 @@ export async function getPhoneLine(organizationId: string): Promise<PhoneLine | 
 }
 
 /** The decrypted SIP connection. Server-side only: never sent to a browser. */
-export async function getSipConnection(organizationId: string): Promise<(SipConnection & { trunkId: string }) | null> {
+export async function getSipConnection(organizationId: string): Promise<SipConnection | null> {
   const [row] = await getDatabase().select().from(voiceSettings).where(eq(voiceSettings.organizationId, organizationId)).limit(1);
-  if (!row?.sipAddress || !row.callerNumber || !row.encryptedSipCredentials || !row.livekitTrunkId) return null;
+  if (!row?.sipAddress || !row.callerNumber || !row.encryptedSipCredentials) return null;
   const { username, password } = decryptCredentialPayload<{ username: string; password: string }>(row.encryptedSipCredentials);
-  return { address: row.sipAddress, callerNumber: row.callerNumber, username, password, trunkId: row.livekitTrunkId };
+  return { address: row.sipAddress, callerNumber: row.callerNumber, username, password };
 }

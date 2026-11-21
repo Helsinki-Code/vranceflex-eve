@@ -1110,7 +1110,6 @@ export const voiceSettings = pgTable("voice_settings", {
   sipAddress: text("sip_address"),
   callerNumber: text("caller_number"),
   encryptedSipCredentials: text("encrypted_sip_credentials"),
-  livekitTrunkId: text("livekit_trunk_id"),
   // A Twilio line: the account SID, plus a restricted API key (SID and secret) kept encrypted.
   twilioAccountSid: text("twilio_account_sid"),
   encryptedTwilioKey: text("encrypted_twilio_key"),

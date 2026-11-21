@@ -205,12 +205,6 @@ describe.skipIf(!hasTestDatabase)("voice settings", () => {
   beforeEach(async () => {
     await truncateAllTables();
   });
-  const fakeDialer = (): VoiceDialer & { ensureTrunk: ReturnType<typeof vi.fn> } => ({
-    ensureTrunk: vi.fn(async () => "ST_trunk_1"),
-    dial: vi.fn(),
-    hangUp: vi.fn(),
-  });
-
   it("starts with safe defaults and no phone line", async () => {
     const { organizationId } = await seedOrganization();
     const { getVoiceSettings } = await import("./voice-settings");
@@ -238,48 +232,49 @@ describe.skipIf(!hasTestDatabase)("voice settings", () => {
     expect(saved).toMatchObject({ window: { days: [2, 4], start: "08:30", end: "20:00" }, maxConcurrentCalls: 5 });
   });
 
-  it("connects a Twilio SIP trunk, stores the password encrypted, and never returns it", async () => {
+  it("connects a SIP trunk, stores the password encrypted, and never returns it", async () => {
     const { organizationId, userId } = await seedOrganization();
     const { connectTelephony, telephonyInputSchema, getSipConnection, getVoiceSettings } = await import("./voice-settings");
-    const dialer = fakeDialer();
     const input = telephonyInputSchema.parse({ sipAddress: "sip:Acme.PSTN.twilio.com/", username: "caller", password: "s3cret-pass", callerNumber: "+1 415 555 0100" });
     expect(input.sipAddress).toBe("acme.pstn.twilio.com");
-    const saved = await connectTelephony(actorFor(organizationId, userId), input, dialer);
+    const saved = await connectTelephony(actorFor(organizationId, userId), input);
 
-    expect(saved).toMatchObject({ telephonyConnected: true, sipAddress: "acme.pstn.twilio.com", callerNumber: "+14155550100", livekitTrunkId: "ST_trunk_1" });
+    expect(saved).toMatchObject({ telephonyConnected: true, lineType: "sip", sipAddress: "acme.pstn.twilio.com", callerNumber: "+14155550100" });
     expect(JSON.stringify(saved)).not.toContain("s3cret-pass");
     const { voiceSettings } = await schema();
     const [row] = await (await db()).select().from(voiceSettings).where(eq(voiceSettings.organizationId, organizationId));
     expect(row.encryptedSipCredentials).not.toContain("s3cret-pass");
-    expect(await getSipConnection(organizationId)).toEqual({ address: "acme.pstn.twilio.com", callerNumber: "+14155550100", username: "caller", password: "s3cret-pass", trunkId: "ST_trunk_1" });
-    expect(dialer.ensureTrunk).toHaveBeenCalledWith({ organizationId, sip: expect.objectContaining({ address: "acme.pstn.twilio.com" }), existingTrunkId: undefined });
+    expect(await getSipConnection(organizationId)).toEqual({ address: "acme.pstn.twilio.com", callerNumber: "+14155550100", username: "caller", password: "s3cret-pass" });
     expect((await getVoiceSettings(organizationId)).telephonyConnected).toBe(true);
   });
 
-  it("replaces the trunk when reconnecting, and rejects non-Twilio or malformed details", async () => {
+  it("replaces the details when reconnecting, accepts any carrier's SIP host, and rejects malformed details", async () => {
     const { organizationId, userId } = await seedOrganization();
-    const { connectTelephony, telephonyInputSchema } = await import("./voice-settings");
-    const dialer = fakeDialer();
+    const { connectTelephony, telephonyInputSchema, getSipConnection } = await import("./voice-settings");
     const admin = actorFor(organizationId, userId);
-    const good = telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" });
-    await connectTelephony(admin, good, dialer);
-    await connectTelephony(admin, good, dialer);
-    expect(dialer.ensureTrunk).toHaveBeenLastCalledWith(expect.objectContaining({ existingTrunkId: "ST_trunk_1" }));
+    await connectTelephony(admin, telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" }));
+    const telnyx = telephonyInputSchema.parse({ sipAddress: "sip.telnyx.com", username: "u2", password: "p2", callerNumber: "+14155550100" });
+    expect(telnyx.sipAddress).toBe("sip.telnyx.com");
+    await connectTelephony(admin, telnyx);
+    expect(await getSipConnection(organizationId)).toMatchObject({ address: "sip.telnyx.com", username: "u2" });
 
     for (const bad of [
-      { sipAddress: "sip.example.com", username: "u", password: "p", callerNumber: "+14155550100" },
+      { sipAddress: "nodots", username: "u", password: "p", callerNumber: "+14155550100" },
+      { sipAddress: "bad host.example.com", username: "u", password: "p", callerNumber: "+14155550100" },
       { sipAddress: "acme.pstn.twilio.com", username: "", password: "p", callerNumber: "+14155550100" },
       { sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "4155550100" },
     ]) expect(telephonyInputSchema.safeParse(bad).success).toBe(false);
   });
 
-  it("reports a LiveKit failure plainly and saves nothing", async () => {
+  it("switches between a Twilio account and a SIP trunk, forgetting the other's credentials", async () => {
     const { organizationId, userId } = await seedOrganization();
-    const { connectTelephony, telephonyInputSchema, getVoiceSettings } = await import("./voice-settings");
-    const dialer = { ...fakeDialer(), ensureTrunk: vi.fn(async () => { throw new Error("unauthorized"); }) };
-    const input = telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" });
-    await expect(connectTelephony(actorFor(organizationId, userId), input, dialer)).rejects.toThrow(/couldn't be set up: unauthorized/);
-    expect((await getVoiceSettings(organizationId)).telephonyConnected).toBe(false);
+    const settings = await import("./voice-settings");
+    const admin = actorFor(organizationId, userId);
+    await settings.connectTwilioLine(admin, settings.twilioLineInputSchema.parse({ accountSid: `AC${"a".repeat(32)}`, keySid: `SK${"b".repeat(32)}`, keySecret: "secret-secret-secret-1234", callerNumber: "+14155550100" }), async () => undefined);
+    expect(await settings.getPhoneLine(organizationId)).toMatchObject({ type: "twilio" });
+    await settings.connectTelephony(admin, settings.telephonyInputSchema.parse({ sipAddress: "sip.telnyx.com", username: "u", password: "p", callerNumber: "+14155550100" }));
+    expect(await settings.getPhoneLine(organizationId)).toMatchObject({ type: "sip", sip: { address: "sip.telnyx.com" } });
+    expect(await settings.getVoiceSettings(organizationId)).toMatchObject({ lineType: "sip", twilioAccountSid: null });
   });
 
   it("pauses and resumes voice, and disconnects the line", async () => {
@@ -288,7 +283,7 @@ describe.skipIf(!hasTestDatabase)("voice settings", () => {
     const admin = actorFor(organizationId, userId);
     expect(await pauseVoice(admin, "Reviewing scripts")).toMatchObject({ voicePaused: true, pausedReason: "Reviewing scripts" });
     expect(await resumeVoice(admin)).toMatchObject({ voicePaused: false, pausedReason: null });
-    await connectTelephony(admin, telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" }), fakeDialer());
-    expect(await disconnectTelephony(admin)).toMatchObject({ telephonyConnected: false, sipAddress: null, livekitTrunkId: null });
+    await connectTelephony(admin, telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" }));
+    expect(await disconnectTelephony(admin)).toMatchObject({ telephonyConnected: false, sipAddress: null });
   });
 });

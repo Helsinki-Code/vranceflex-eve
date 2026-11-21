@@ -1,0 +1,1 @@
+ALTER TABLE "voice_settings" DROP COLUMN "livekit_trunk_id";

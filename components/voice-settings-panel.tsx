@@ -82,13 +82,12 @@ export function VoiceSettingsPanel({ initial, balance, offer, isAdmin }: { initi
           <Button type="submit" className="justify-self-start" disabled={busy !== null}>{busy === "connect" ? <LoaderCircle className="animate-spin" /> : <Phone />}Connect phone line</Button>
         </form> : <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void run("connect", async () => { apply(await requestJson<VoiceSettings>("/api/voice/settings/telephony", { method: "POST", body: JSON.stringify(line) })); setLine({ sipAddress: "", username: "", password: "", callerNumber: "" }); toast.success("Phone line connected."); }, "Couldn't connect the phone line."); }}>
           <ol className="list-decimal space-y-1 pl-5 text-xs leading-5 text-muted-foreground">
-            <li>In Twilio, create an Elastic SIP Trunk and give it a termination URI (like <span className="font-mono">yourname.pstn.twilio.com</span>).</li>
-            <li>Add a credential list (a username and password) to the trunk&apos;s termination settings.</li>
-            <li>Add the Twilio phone number you want to call from to the trunk.</li>
-            <li>Voicemail isn&apos;t detected on a trunk before the agent speaks, so the Twilio account option above is the better fit for most teams.</li>
+            <li>With your carrier (Twilio Elastic SIP Trunking, Telnyx, Plivo and others), create an outbound SIP trunk and note its SIP host (like <span className="font-mono">yourname.pstn.twilio.com</span>).</li>
+            <li>Give it a username and password, and add the number you want to call from.</li>
+            <li>On a SIP trunk the agent listens for voicemail itself, so the Twilio account option above, where Twilio detects it first, is the better fit when you use Twilio.</li>
           </ol>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Termination URI"><Input required value={line.sipAddress} onChange={(event) => setLine({ ...line, sipAddress: event.target.value })} placeholder="yourname.pstn.twilio.com" /></FormField>
+            <FormField label="SIP host"><Input required value={line.sipAddress} onChange={(event) => setLine({ ...line, sipAddress: event.target.value })} placeholder="sip.yourcarrier.com" /></FormField>
             <FormField label="Number to call from" hint="International format."><Input required value={line.callerNumber} onChange={(event) => setLine({ ...line, callerNumber: event.target.value })} placeholder="+14155550100" /></FormField>
             <FormField label="SIP username"><Input required autoComplete="off" value={line.username} onChange={(event) => setLine({ ...line, username: event.target.value })} /></FormField>
             <FormField label="SIP password" hint="Stored encrypted. Never shown again."><Input required type="password" autoComplete="new-password" value={line.password} onChange={(event) => setLine({ ...line, password: event.target.value })} /></FormField>

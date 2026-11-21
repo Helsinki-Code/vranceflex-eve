@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GREETING_MAX_MS, GREETING_WAIT_MS, GreetingGate, hasCallEnded, isCallAnswered } from "./answer-gate";
+import { amdDecision, GREETING_MAX_MS, GREETING_WAIT_MS, GreetingGate, hasCallEnded, isCallAnswered } from "./answer-gate";
 
 describe("isCallAnswered", () => {
   it("is not answered while a SIP call is still dialing or ringing", () => {
@@ -50,5 +50,15 @@ describe("GreetingGate", () => {
     const gate = new GreetingGate(0);
     gate.speechEnded(100);
     expect(gate.ready(100)).toBe(false);
+  });
+});
+
+describe("amdDecision", () => {
+  it("carries on with a person, a menu we can't navigate, or a greeting it couldn't classify", () => {
+    for (const category of ["human", "machine-ivr", "uncertain", "something-new"]) expect(amdDecision(category)).toBe("continue");
+  });
+  it("ends the call quietly on a recorded greeting or an unreachable mailbox", () => {
+    expect(amdDecision("machine-vm")).toBe("voicemail");
+    expect(amdDecision("machine-unavailable")).toBe("unreachable");
   });
 });

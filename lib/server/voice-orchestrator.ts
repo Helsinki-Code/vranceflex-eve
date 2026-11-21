@@ -9,7 +9,7 @@ import { hasCallConsent, isNumberBlocked, toE164 } from "./voice-consent";
 import { getVoiceAddon, maxSecondsForNextCall } from "./voice-credits";
 import type { CallJobMetadata, VoiceDialer } from "./voice-dialer";
 import { finalizeCall, reapStaleCalls } from "./voice-reports";
-import { getPhoneLine, getVoiceSettings, pauseVoiceForRejectedKey, type PhoneLine } from "./voice-settings";
+import { getPhoneLine, getVoiceSettings, LINE_PAUSE_PREFIX, pauseVoiceForFailingLine, pauseVoiceForRejectedKey, type PhoneLine } from "./voice-settings";
 import { classifyTwilioError, createTwilioCaller, twilioCallbackUrls, type TwilioCaller } from "./voice-twilio";
 
 /**
@@ -234,6 +234,7 @@ async function placeCall(input: {
     const playbook = playbookSchema.parse(voiceCampaign.playbook);
     const metadata: CallJobMetadata = {
       callId,
+      lineType: input.line.type,
       level: voiceCampaign.level,
       instructions: buildVoiceInstructions({
         level: voiceCampaign.level,
@@ -254,7 +255,6 @@ async function placeCall(input: {
       callId,
       to: input.phone,
       sip: { address: sip.address, username: sip.username, password: sip.password, callerNumber: sip.callerNumber },
-      trunkId: sip.trunkId,
       metadata,
       ringSeconds: RING_SECONDS,
     });
@@ -268,6 +268,13 @@ async function placeCall(input: {
       return "dialed";
     }
     await database.update(voiceCalls).set({ room: result.room }).where(eq(voiceCalls.id, callId));
+    if (result.kind === "line_failure") {
+      // The carrier refused the call, not the person: record it as a failure, and if the line has
+      // refused several calls in a row, stop calling rather than burn through the whole list.
+      await finalizeCall({ callId, outcome: "failed", error: `${LINE_PAUSE_PREFIX} (SIP ${result.sipStatus ?? "error"}): ${result.reason}`.slice(0, 300), now });
+      await pauseIfLineKeepsFailing(input.organizationId);
+      return "failed";
+    }
     await finalizeCall({ callId, outcome: "no_answer", summary: result.reason.slice(0, 300), now });
     return "unanswered";
   } catch (error) {
@@ -315,5 +322,20 @@ async function placeTwilioCall(input: {
       await database.update(voiceCallTargets).set({ status: "skipped", skipReason: failure.message, updatedAt: new Date() }).where(eq(voiceCallTargets.id, input.target.id));
     }
     return "failed";
+  }
+}
+
+/** How many refused calls in a row it takes to conclude the line itself is broken. */
+export const LINE_FAILURES_BEFORE_PAUSE = 3;
+
+async function pauseIfLineKeepsFailing(organizationId: string) {
+  const recent = await getDatabase()
+    .select({ outcome: voiceCalls.outcome, error: voiceCalls.error })
+    .from(voiceCalls)
+    .where(and(eq(voiceCalls.organizationId, organizationId), eq(voiceCalls.lineType, "sip")))
+    .orderBy(desc(voiceCalls.startedAt))
+    .limit(LINE_FAILURES_BEFORE_PAUSE);
+  if (recent.length === LINE_FAILURES_BEFORE_PAUSE && recent.every((call) => call.outcome === "failed" && call.error?.startsWith(LINE_PAUSE_PREFIX))) {
+    await pauseVoiceForFailingLine(organizationId);
   }
 }

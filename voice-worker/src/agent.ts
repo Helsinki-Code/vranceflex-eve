@@ -5,7 +5,7 @@ import * as openai from "@livekit/agents-plugin-openai";
 import * as silero from "@livekit/agents-plugin-silero";
 import { ParticipantKind, type RemoteParticipant } from "@livekit/rtc-node";
 import { z } from "zod";
-import { GreetingGate, hasCallEnded, isCallAnswered, type ParticipantLine } from "./answer-gate.js";
+import { AMD_NO_SPEECH_MS, amdDecision, GreetingGate, hasCallEnded, isCallAnswered, type ParticipantLine } from "./answer-gate.js";
 import { CallState, STOP_ACKNOWLEDGEMENT, WRAP_UP_PROMPT } from "./call-state.js";
 import { sendReport } from "./report.js";
 
@@ -36,6 +36,8 @@ const metadataSchema = z.object({
   openingLine: z.string().min(1),
   maxSeconds: z.number().int().positive(),
   reportUrl: z.string().url(),
+  // A Twilio-line call has already been checked for voicemail by Twilio before it reached us.
+  lineType: z.enum(["twilio", "sip"]).default("sip"),
 });
 
 const WRAP_UP_BEFORE_END_SECONDS = 45;
@@ -200,8 +202,29 @@ export default defineAgent({
     // Recording is off: the only record of the call is the transcript the app stores.
     await session.start({ agent, room: ctx.room, record: false });
 
-    // The person speaks first ("Hello?"), then the disclosure: fixed words, never interrupted.
-    while (!finished && !gate.ready(Date.now())) await sleep(100);
+    if (metadata.lineType === "sip") {
+      // On a SIP line nothing has listened for voicemail yet, so listen to the greeting here and
+      // say nothing until we know: the disclosure must never play into a recording.
+      session._roomIO?.setParticipant?.(participant.identity);
+      const detector = new voice.AMD(session, { participantIdentity: participant.identity, noSpeechTimeoutMs: AMD_NO_SPEECH_MS });
+      try {
+        const result = await detector.execute();
+        const decision = amdDecision(result.category);
+        if (decision !== "continue") {
+          state.recordOutcome({
+            outcome: "voicemail",
+            summary: decision === "voicemail" ? "Reached voicemail, so the call was ended without leaving a message." : "The mailbox was full or unavailable, so the call was ended.",
+          });
+          await finish();
+          return;
+        }
+      } finally {
+        await detector.aclose();
+      }
+    } else {
+      // The person speaks first ("Hello?"), then the disclosure: fixed words, never interrupted.
+      while (!finished && !gate.ready(Date.now())) await sleep(100);
+    }
     if (finished) return;
     await session.say(metadata.openingLine, { allowInterruptions: false });
     agent.disclosed = true;

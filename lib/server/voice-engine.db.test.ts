@@ -21,7 +21,7 @@ async function db() { return (await import("./database")).getDatabase(); }
 
 type Dialer = VoiceDialer & { dial: ReturnType<typeof vi.fn> };
 function fakeDialer(handler: (request: DialRequest) => DialResult | Promise<DialResult> = (request) => ({ status: "answered", room: `call-${request.callId}` })): Dialer {
-  return { ensureTrunk: vi.fn(async () => "ST_trunk_1"), dial: vi.fn(async (request: DialRequest) => handler(request)), hangUp: vi.fn() } as Dialer;
+  return { dial: vi.fn(async (request: DialRequest) => handler(request)), hangUp: vi.fn() } as Dialer;
 }
 
 describe.skipIf(!hasTestDatabase)("voice engine", () => {
@@ -41,7 +41,7 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
     await credits.setVoiceAddon({ organizationId, active: true, monthlySeconds: (options.minutes ?? 100) * 60, periodStart: new Date(NOW.getTime() - 2 * DAY), periodEnd: new Date(NOW.getTime() + 28 * DAY) });
     const settings = await import("./voice-settings");
     await settings.attestCallConsent(actor);
-    await settings.connectTelephony(actor, settings.telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "caller", password: "pw", callerNumber: "+14155550100" }), fakeDialer());
+    await settings.connectTelephony(actor, settings.telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "caller", password: "pw", callerNumber: "+14155550100" }));
     return { organizationId, userId, actor, campaignId };
   }
 
@@ -103,7 +103,7 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       expect(await tick(dialer)).toMatchObject({ dialed: 1, unanswered: 0, failed: 0 });
       const request = dialer.dial.mock.calls[0]![0] as DialRequest;
       expect(request.to).toBe("+14155550111");
-      expect(request.trunkId).toBe("ST_trunk_1");
+      expect(request.metadata.lineType).toBe("sip");
       expect(request.sip).toMatchObject({ address: "acme.pstn.twilio.com", username: "caller", password: "pw", callerNumber: "+14155550100" });
       expect(request.ringSeconds).toBe(30);
       expect(request.metadata.reportUrl).toBe(REPORT_URL);
@@ -199,7 +199,7 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       await settings.resumeVoice(ws.actor);
       await settings.disconnectTelephony(ws.actor);
       expect(await tick(fakeDialer())).toMatchObject({ dialed: 0 });
-      await settings.connectTelephony(ws.actor, settings.telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" }), fakeDialer());
+      await settings.connectTelephony(ws.actor, settings.telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" }));
       await m.pauseVoiceCampaign(ws.actor, id);
       const dialer = fakeDialer();
       expect(await tick(dialer)).toMatchObject({ dialed: 0 });
@@ -306,7 +306,7 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       const ws = await workspace();
       await lead(ws, "+14155550111");
       await campaign(ws);
-      const dialer = fakeDialer(() => ({ status: "not_answered", room: "r", reason: "busy" }));
+      const dialer = fakeDialer(() => ({ status: "not_answered", room: "r", reason: "busy", kind: "no_answer" as const, sipStatus: 486 }));
       expect(await tick(dialer)).toMatchObject({ dialed: 0, unanswered: 1 });
 
       const [call] = await calls();
@@ -323,7 +323,7 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       const ws = await workspace();
       await lead(ws, "+14155550111");
       await campaign(ws, { maxAttempts: 2 });
-      const dialer = fakeDialer(() => ({ status: "not_answered", room: "r", reason: "no answer" }));
+      const dialer = fakeDialer(() => ({ status: "not_answered", room: "r", reason: "no answer", kind: "no_answer" as const }));
       await tick(dialer);
       const { voiceCallTargets } = await schema();
       await (await db()).update(voiceCallTargets).set({ nextAttemptAt: NOW });
@@ -332,6 +332,42 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       expect((await targets())[0]).toMatchObject({ status: "done", attempts: 2, lastOutcome: "no_answer" });
       const { voiceCampaigns } = await schema();
       expect((await (await db()).select().from(voiceCampaigns))[0]!.status).toBe("completed");
+    });
+
+    it("records a call the carrier refused as a failure, not as no answer", async () => {
+      const ws = await workspace();
+      await lead(ws, "+14155550111");
+      await campaign(ws);
+      const dialer = fakeDialer(() => ({ status: "not_answered", room: "r", reason: "403 Forbidden", kind: "line_failure" as const, sipStatus: 403 }));
+      expect(await tick(dialer)).toMatchObject({ dialed: 0, unanswered: 0, failed: 1 });
+      const [call] = await calls();
+      expect(call).toMatchObject({ status: "failed", outcome: "failed", billedSeconds: 0 });
+      expect(call.error).toMatch(/Your phone line is rejecting calls \(SIP 403\)/);
+    });
+
+    it("pauses calling once the line has refused three calls in a row, and lifts the pause when it is reconnected", async () => {
+      const ws = await workspace();
+      for (let index = 0; index < 4; index += 1) await lead(ws, `+1415555030${index}`, { name: `Lead ${index}` });
+      await campaign(ws);
+      const settings = await import("./voice-settings");
+      await settings.updateVoiceSettings(ws.actor, { maxConcurrentCalls: 10 });
+      const dialer = fakeDialer(() => ({ status: "not_answered", room: "r", reason: "401 Unauthorized", kind: "line_failure" as const, sipStatus: 401 }));
+      await tick(dialer);
+      expect(await settings.getVoiceSettings(ws.organizationId)).toMatchObject({ voicePaused: true });
+      expect((await settings.getVoiceSettings(ws.organizationId)).pausedReason).toMatch(/phone line is rejecting calls/);
+      expect(await tick(dialer)).toMatchObject({ dialed: 0, failed: 0 });
+      await settings.connectTelephony(ws.actor, settings.telephonyInputSchema.parse({ sipAddress: "acme.pstn.twilio.com", username: "u", password: "p", callerNumber: "+14155550100" }));
+      expect(await settings.getVoiceSettings(ws.organizationId)).toMatchObject({ voicePaused: false, pausedReason: null });
+    });
+
+    it("doesn't pause the line when people simply don't answer", async () => {
+      const ws = await workspace();
+      for (let index = 0; index < 4; index += 1) await lead(ws, `+1415555040${index}`, { name: `Lead ${index}` });
+      await campaign(ws);
+      const settings = await import("./voice-settings");
+      await settings.updateVoiceSettings(ws.actor, { maxConcurrentCalls: 10 });
+      await tick(fakeDialer(() => ({ status: "not_answered", room: "r", reason: "busy", kind: "no_answer" as const, sipStatus: 486 })));
+      expect(await settings.getVoiceSettings(ws.organizationId)).toMatchObject({ voicePaused: false });
     });
 
     it("records a dial error as a failed call and tries again", async () => {
