@@ -5,12 +5,13 @@ import { SendingWorkspace } from "../../../components/sending-workspace";
 import { Notice } from "../../../components/product/kit";
 import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
+import { DEFAULT_SENDING_SAFETY } from "../../../lib/server/sending-settings";
 import { getSendingOverview, type SendingOverview } from "../../../lib/server/mailbox-store";
 
 export const metadata = { title: "Sending · VranceFlex" };
 export const dynamic = "force-dynamic";
 
-const emptyOverview: SendingOverview = { mailboxes: [], domains: [], emailTransport: "auto", resendConnected: false, orgDailyEmailLimit: 100, timezone: "UTC" };
+const emptyOverview: SendingOverview = { mailboxes: [], domains: [], emailTransport: "auto", resendConnected: false, orgDailyEmailLimit: 100, timezone: "UTC", safety: DEFAULT_SENDING_SAFETY };
 
 export default async function SendingPage() {
   const actor = await requireWorkspacePage();

@@ -45,6 +45,9 @@ import {
 import { getReplyToAddress } from "./reply-address";
 import type { ScheduleRecurrence } from "../domain/pipeline";
 import { isSmsEnabled } from "./feature-flags";
+import { allowedLinkDomains, blockingIssues, checkOutreachContent } from "./send-gate";
+import { DEFAULT_SEND_WINDOW, isInsideSendWindow, nextWindowOpening, type SendWindow } from "./send-window";
+import { assertValidTimezone } from "./timezone";
 
 // Twilio needs an absolute public URL; without APP_BASE_URL delivery
 // reports simply aren't requested.
@@ -173,6 +176,38 @@ async function releaseDailySendCapacity(channel: DeliveryChannel, reservationKey
     );
 }
 
+const PAUSED_RECHECK_MS = 15 * 60_000;
+const WINDOW_JITTER_MS = 10 * 60_000;
+
+/** The zone if it is a real IANA zone, otherwise the fallback. */
+function validZoneOr(zone: string | null | undefined, fallback: string) {
+  if (!zone) return fallback;
+  try {
+    assertValidTimezone(zone);
+    return zone;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Puts a claimed job back in the queue for later. Waiting is not a failure, so
+ * the attempt the claim counted is handed back.
+ */
+async function deferJob(jobId: string, availableAt: Date, reason: string) {
+  await getDatabase()
+    .update(deliveryJobs)
+    .set({
+      status: "retry",
+      availableAt,
+      lockedAt: null,
+      attemptCount: sql`greatest(${deliveryJobs.attemptCount} - 1, 0)`,
+      lastError: reason,
+      updatedAt: new Date(),
+    })
+    .where(eq(deliveryJobs.id, jobId));
+}
+
 async function cancelUnsafeJob(
   jobId: string,
   messageId: string,
@@ -279,6 +314,49 @@ async function processClaimedJob(jobId: string) {
     .where(eq(organizationSendingSettings.organizationId, job.organizationId))
     .limit(1);
   const timezone = settings?.timezone ?? sequence.timezone ?? "UTC";
+
+  // Workspace kill switch: keep every job queued, without counting an attempt,
+  // until someone resumes sending.
+  if (settings?.sendingPaused) {
+    await deferJob(job.id, new Date(Date.now() + PAUSED_RECHECK_MS), "Sending is paused for this workspace.");
+    return "limited" as const;
+  }
+
+  // The same copy check a reviewer passes at approval, repeated at the last
+  // moment: link domains and settings can change after approval.
+  if (channel === "email") {
+    const blocked = blockingIssues(
+      checkOutreachContent({
+        stepNumber: message.stepNumber,
+        subject: message.subject,
+        subjectVariant: message.subjectVariant,
+        content: message.content,
+        allowedLinkDomains: allowedLinkDomains({ linkDomains: settings?.linkDomains ?? [], campaignSource: campaign.source }),
+        recipient: { personName: lead.personName, companyDomain: lead.companyDomain },
+      }),
+    );
+    if (blocked.length) {
+      await cancelUnsafeJob(job.id, message.id, `Blocked by the send safety check: ${blocked.map((issue) => issue.message).join(" ")}`);
+      return "cancelled" as const;
+    }
+  }
+
+  // Only send inside the recipient's working hours.
+  const sendWindow: SendWindow = settings
+    ? { days: settings.sendDays, start: settings.windowStart, end: settings.windowEnd }
+    : DEFAULT_SEND_WINDOW;
+  const recipientZone = settings?.useRecipientTimezone === false ? timezone : validZoneOr(lead.timezone, timezone);
+  const checkedAt = new Date();
+  if (!isInsideSendWindow(checkedAt, recipientZone, sendWindow)) {
+    const opening = nextWindowOpening(checkedAt, recipientZone, sendWindow);
+    // A little jitter so a whole batch does not fire in the opening second.
+    await deferJob(
+      job.id,
+      new Date(opening.getTime() + Math.floor(Math.random() * WINDOW_JITTER_MS)),
+      "Waiting for the recipient's sending window.",
+    );
+    return "limited" as const;
+  }
   const dailyLimit =
     channel === "sms"
       ? (settings?.dailySmsLimit ?? 0)

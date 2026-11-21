@@ -430,6 +430,8 @@ export const leads = pgTable(
     confidence: integer("confidence").notNull(),
     status: leadStatusEnum("status").default("new").notNull(),
     doNotContact: boolean("do_not_contact").default(false).notNull(),
+    // IANA zone for the recipient when it is known; otherwise the workspace zone is used.
+    timezone: text("timezone"),
     buyingSignals: jsonb("buying_signals").$type<Lead["buyingSignals"]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -443,6 +445,7 @@ export const leads = pgTable(
     index("leads_org_campaign_idx").on(table.organizationId, table.campaignId),
     index("leads_org_confidence_idx").on(table.organizationId, table.confidence),
     index("leads_org_status_idx").on(table.organizationId, table.status),
+    index("leads_org_company_domain_idx").on(table.organizationId, table.companyDomain),
   ],
 );
 
@@ -729,6 +732,19 @@ export const organizationSendingSettings = pgTable(
     dailySmsLimit: integer("daily_sms_limit").default(0).notNull(),
     // auto: rotate across connected mailboxes when any are active, else Resend.
     emailTransport: text("email_transport").$type<"auto" | "mailboxes" | "resend">().default("auto").notNull(),
+    // Sending window, in the recipient's local time (ISO weekdays 1 = Mon … 7 = Sun).
+    sendDays: jsonb("send_days").$type<number[]>().default([1, 2, 3, 4, 5]).notNull(),
+    windowStart: text("window_start").default("08:00").notNull(),
+    windowEnd: text("window_end").default("17:00").notNull(),
+    useRecipientTimezone: boolean("use_recipient_timezone").default(true).notNull(),
+    // When anyone at a company replies, pause everyone else at that company.
+    stopCompanyOnReply: boolean("stop_company_on_reply").default(true).notNull(),
+    // Workspace-wide kill switch. Trips by hand or when bounces spike.
+    sendingPaused: boolean("sending_paused").default(false).notNull(),
+    pausedReason: text("paused_reason"),
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    // Extra domains outreach copy may link to (the seller's own sites, booking pages).
+    linkDomains: jsonb("link_domains").$type<string[]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -28,6 +28,7 @@ import {
   enrichmentGroups,
   leads,
 } from "./database/schema";
+import { timezoneForLocation } from "./lead-timezone";
 
 const DEFAULT_LEAD_CONFIDENCE = 80;
 
@@ -789,6 +790,9 @@ export async function approveCandidates(
         phoneVerified: Boolean(candidate.phone),
         linkedinUrl: candidate.linkedinUrl,
         confidence: DEFAULT_LEAD_CONFIDENCE,
+        // Only when the campaign targets one place in one zone; otherwise the
+        // workspace zone is used when the send window is applied.
+        timezone: timezoneForLocation(campaign.geography),
         status: "approved",
         doNotContact: false,
         buyingSignals: [],

@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ConfirmAction } from "./product-ui";
+import { SendingSafetyPanel } from "./sending-safety-panel";
 import { Chip, EmptyState, FormField, LedgerStats, Notice, Panel, SelectField, StatusDot } from "./product/kit";
 import { ledgerEase, Stagger, StaggerItem } from "./product/motion";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,8 @@ export function SendingWorkspace({ initial, isAdmin }: { initial: SendingOvervie
       { label: "Domains authenticated", value: verified, note: sendingDomains.length ? `of ${sendingDomains.length} domain${sendingDomains.length === 1 ? "" : "s"} you send from` : "no mailbox on your own domain yet", tone: sendingDomains.length && verified === sendingDomains.length ? "verified" : "default" },
       { label: "Bounce rate · 7 days", value: sentWeek ? (bouncedWeek / sentWeek) * 100 : 0, format: "percent", note: `${bouncedWeek} of ${sentWeek} sends`, tone: sentWeek && bouncedWeek / sentWeek >= 0.05 ? "danger" : "default" },
     ]} />
+
+    <SendingSafetyPanel key={JSON.stringify(overview.safety)} safety={overview.safety} isAdmin={isAdmin} onChange={refresh} />
 
     {overview.resendConnected && overview.mailboxes.length ? <TransportChoice value={overview.emailTransport} isAdmin={isAdmin} onChange={refresh} /> : null}
     {capacity > overview.orgDailyEmailLimit && usingMailboxes ? <Notice tone="info" title={`The workspace-wide cap of ${overview.orgDailyEmailLimit} emails a day still applies`}>Your mailboxes could send {capacity} today. Raise the workspace limit in scheduling settings if you want to use all of it.</Notice> : null}

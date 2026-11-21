@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pinClock, unpinClock } from "./test-support/clock";
 import { hasTestDatabase, truncateAllTables } from "./test-support/db";
 import {
   seedCampaign,
@@ -39,7 +40,12 @@ describe.skipIf(!hasTestDatabase)("delivery-worker", () => {
   beforeEach(async () => {
     vi.unstubAllEnvs();
     vi.clearAllMocks();
+    pinClock();
     await truncateAllTables();
+  });
+
+  afterEach(() => {
+    unpinClock();
   });
 
   async function jobStatus(jobId: string) {

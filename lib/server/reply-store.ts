@@ -5,6 +5,7 @@ import {
   messageIdFromRecipients,
   normalizeEmailAddress,
 } from "./reply-address";
+import { pauseColleagueOutreach } from "./company-stop";
 import { suppressLeadForUnsubscribe } from "./suppression";
 import { getDatabase, hasDatabaseConfiguration } from "./database";
 import { isDemoModeEnabled } from "../auth/config";
@@ -220,6 +221,17 @@ export async function recordInboundReply(context: ReplyContext, input: ReplyReco
         source: input.provider === "twilio" ? "twilio_inbound" : input.provider === "mailbox" ? "mailbox_inbound" : "resend_inbound",
         campaignId: context.message.campaignId,
         writeAuditEvent: false,
+      });
+    }
+    // A person replied, so stop the rest of their company too, unless this is
+    // just an automatic out-of-office notice.
+    if (classification.intent !== "OUT_OF_OFFICE") {
+      await pauseColleagueOutreach(transaction, {
+        organizationId: context.message.organizationId,
+        repliedLeadId: context.lead.id,
+        companyDomain: context.lead.companyDomain,
+        campaignId: context.message.campaignId,
+        replyId,
       });
     }
     await transaction.insert(auditEvents).values({

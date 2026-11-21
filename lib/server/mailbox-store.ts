@@ -30,6 +30,7 @@ import { checkDomainHealth, expectedRecords, type ExpectedRecord } from "./dns-h
 import { verifyImap } from "./mailbox-imap";
 import { MailboxDeliveryError, sendViaMailbox, verifySmtp } from "./mailbox-smtp";
 import { localDayBounds } from "./timezone";
+import { safetyFromRow, type SendingSafetySettings } from "./sending-settings";
 
 function requireAdmin(actor: ApiActor) {
   if (actor.organizationRole !== "admin") {
@@ -338,6 +339,8 @@ export type SendingOverview = {
   resendConnected: boolean;
   orgDailyEmailLimit: number;
   timezone: string;
+  /** Send window, pause switch and link rules (see sending-settings.ts). */
+  safety: SendingSafetySettings;
 };
 
 export async function getSendingOverview(organizationId: string): Promise<SendingOverview> {
@@ -408,5 +411,6 @@ export async function getSendingOverview(organizationId: string): Promise<Sendin
     resendConnected: Boolean(resend),
     orgDailyEmailLimit: settings?.dailyEmailLimit ?? 100,
     timezone,
+    safety: safetyFromRow(settings),
   };
 }

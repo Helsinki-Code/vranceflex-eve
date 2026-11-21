@@ -58,6 +58,9 @@ export async function seedLead(
     phoneVerified: boolean;
     doNotContact: boolean;
     status: "new" | "suppressed";
+    personName: string;
+    companyDomain: string | null;
+    timezone: string | null;
   }> = {},
 ) {
   const database = getDatabase();
@@ -69,7 +72,9 @@ export async function seedLead(
     sourceProvider: "test",
     sourceLeadId: leadId,
     companyName: "Prospect Co",
-    personName: "Jamie Prospect",
+    companyDomain: overrides.companyDomain ?? null,
+    timezone: overrides.timezone ?? null,
+    personName: overrides.personName ?? "Jamie Prospect",
     jobTitle: "Head of Operations",
     email: overrides.email ?? `lead-${leadId}@example.com`,
     emailVerified: overrides.emailVerified ?? true,
@@ -90,6 +95,14 @@ export async function seedDeliveryJob(input: {
   scheduledFor?: Date;
   availableAt?: Date;
   maxAttempts?: number;
+  /** Defaults to a short, harmless test message. */
+  content?: string;
+  subject?: string;
+  stepNumber?: number;
+  sequenceStatus?: "active" | "scheduled" | "approved" | "paused" | "awaiting_approval";
+  messageStatus?: "scheduled" | "approved" | "draft";
+  /** Skips creating the delivery job, for tests that only need drafted copy. */
+  skipJob?: boolean;
 }) {
   const database = getDatabase();
   const sequenceId = crypto.randomUUID();
@@ -104,7 +117,7 @@ export async function seedDeliveryJob(input: {
     leadId: input.leadId,
     channel: input.channel,
     name: "Sequence",
-    status: "active",
+    status: input.sequenceStatus ?? "active",
   });
   await database.insert(outreachMessages).values({
     id: messageId,
@@ -113,15 +126,15 @@ export async function seedDeliveryJob(input: {
     sequenceId,
     leadId: input.leadId,
     channel: input.channel,
-    stepNumber: 1,
+    stepNumber: input.stepNumber ?? 1,
     dayOffset: 0,
-    subject: input.channel === "email" ? "Quick question" : null,
-    content: "Hello, this is a test outreach message.",
-    status: "scheduled",
+    subject: input.channel === "email" ? (input.subject ?? "Quick question") : null,
+    content: input.content ?? "Hello, this is a test outreach message.",
+    status: input.messageStatus ?? "scheduled",
     idempotencyKey: `message/${messageId}`,
     scheduledFor: now,
   });
-  await database.insert(deliveryJobs).values({
+  if (!input.skipJob) await database.insert(deliveryJobs).values({
     id: jobId,
     organizationId: input.organizationId,
     campaignId: input.campaignId,

@@ -83,6 +83,34 @@ normally goes out from mailboxes the customer owns, Instantly-style:
 - **Transport**: `organization_sending_settings.email_transport` (`auto` uses
   mailboxes whenever any are connected, otherwise Resend).
 
+### Sending safety
+
+These apply to every campaign in a workspace and are managed in Settings → Sending:
+
+- **Sending window** (`lib/server/send-window.ts`): email only goes out on the
+  chosen days (default Mon–Fri) and hours (default 08:00–17:00) in the
+  *recipient's* time zone when known (`leads.timezone`, derived from a campaign
+  that targets a single-zone place), otherwise the workspace zone. Anything due
+  outside the window is re-queued for the next opening without using a retry.
+- **Company-wide stop** (`lib/server/company-stop.ts`): when anyone at a company
+  replies, everyone else at that domain is paused (not stopped), across all
+  campaigns. Out-of-office replies don't count; shared mail domains such as
+  gmail.com are ignored. Switchable per workspace.
+- **Workspace pause switch** (`lib/server/sending-settings.ts`): one button
+  stops all sending, and it trips automatically when 5% or more of the last 7
+  days' email bounced (minimum 40 sends). Admins are emailed. Replies and
+  bounces are still read while paused.
+- **Content gate** (`lib/server/send-gate.ts`): at approval and again just
+  before sending, copy is blocked for unfilled placeholders, links to domains
+  not on the workspace's list (the campaign's own website is always allowed),
+  echoed instructions, and a greeting for the wrong person. Templated phrases,
+  long copy and shouting subjects are advisory only.
+- **SMS is off** unless `VRANCEFLEX_SMS_ENABLED=true` (cold texting carries real
+  legal exposure). Replies like STOP to texts already sent are always honored.
+
+DB-backed delivery tests pin the clock with `lib/server/test-support/clock.ts`
+so they don't depend on the time of day they run.
+
 ### Stripe launch checklist
 
 1. Run the setup script with a **test-mode** key first:
