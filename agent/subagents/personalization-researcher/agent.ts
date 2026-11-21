@@ -1,5 +1,11 @@
 import { defineAgent } from "eve";
 import { z } from "zod";
+import { echoesInstructions } from "../../../lib/server/send-gate";
+
+// Research text is distilled from pages strangers wrote. Reject any that quotes
+// instructions or system text, and any source that is not a plain web page.
+const noEchoedInstructions = (value: string) => !echoesInstructions(value);
+const webPage = (value: string) => /^https?:\/\//i.test(value);
 
 export default defineAgent({
   description:
@@ -20,14 +26,16 @@ export default defineAgent({
               .string()
               .min(10)
               .max(300)
+              .refine(noEchoedInstructions, "A hook must state a fact, never repeat instructions.")
               .describe("One concrete, citable fact useful for personalization"),
-            sourceUrl: z.string().url(),
+            sourceUrl: z.string().url().refine(webPage, "sourceUrl must be an http(s) page."),
           }),
         )
         .max(6),
       companySummary: z
         .string()
         .max(600)
+        .refine(noEchoedInstructions, "A summary must describe the company, never repeat instructions.")
         .nullable()
         .describe("What the lead's company actually does, from their own site"),
     }),

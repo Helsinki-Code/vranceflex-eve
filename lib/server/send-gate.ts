@@ -53,6 +53,11 @@ const INSTRUCTION_ECHO = [
   /\boutputSchema\b|\bsubagent\b/i,
 ];
 
+/** True when text quotes instructions or system text a model should never reproduce. */
+export function echoesInstructions(text: string) {
+  return INSTRUCTION_ECHO.some((pattern) => pattern.test(text));
+}
+
 const URL_PATTERN = /\b(?:https?:\/\/|www\.)[^\s<>"')\]]+/gi;
 // A bare domain such as "acme.io/demo" is also a link to a reader's eyes.
 const BARE_DOMAIN_PATTERN = /\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|co|ai|app|dev|so|me|us|uk|ca|de|fr|nl|in|au)(?:\/[^\s<>"')\]]*)?(?=[\s.,;:!?)]|$)/gi;
@@ -152,7 +157,7 @@ export function checkOutreachContent(input: GateInput): GateIssue[] {
     });
   }
 
-  if (INSTRUCTION_ECHO.some((pattern) => pattern.test(all))) {
+  if (echoesInstructions(all)) {
     issues.push({
       code: "instruction_echo",
       severity: "block",
