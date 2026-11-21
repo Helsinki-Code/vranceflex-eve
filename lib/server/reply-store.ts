@@ -5,7 +5,9 @@ import {
   messageIdFromRecipients,
   normalizeEmailAddress,
 } from "./reply-address";
+import { followUpResumeTime } from "./auto-reply";
 import { pauseColleagueOutreach } from "./company-stop";
+import { deferPendingOutreach } from "./outreach-defer";
 import { suppressLeadForUnsubscribe } from "./suppression";
 import { getDatabase, hasDatabaseConfiguration } from "./database";
 import { isDemoModeEnabled } from "../auth/config";
@@ -103,7 +105,26 @@ type ReplyRecordInput = {
   receivedAt: Date;
   /** Carrier-level opt-out (Twilio STOP) — suppress regardless of wording. */
   forceUnsubscribe?: boolean;
+  /** The message's headers say a machine wrote it (out-of-office, vacation responder). */
+  autoReply?: boolean;
 };
+
+/**
+ * Says what will happen to an out-of-office reply: follow-ups resume the day
+ * after the stated return date, or a week later (and a person is asked to look)
+ * when no date is given.
+ */
+function describeOutOfOffice(base: ReturnType<typeof classifyReply>, resume: ReturnType<typeof followUpResumeTime>): ReturnType<typeof classifyReply> {
+  if (resume.dated) {
+    return { ...base, actionDetail: `Follow-ups are held until ${resume.resumeAt.toISOString().slice(0, 10)}, the day after they're back.` };
+  }
+  return {
+    ...base,
+    actionDetail: "No return date was given, so follow-ups are delayed by a week.",
+    flagForHuman: true,
+    flagReason: "Out-of-office without a return date: check when to follow up.",
+  };
+}
 
 function unsubscribeClassification(): ReturnType<typeof classifyReply> {
   return { ...classifyReply("unsubscribe"), intent: "UNSUBSCRIBE" };
@@ -113,7 +134,12 @@ function unsubscribeClassification(): ReturnType<typeof classifyReply> {
 // cancel pending sends and, for opt-outs, suppress the lead on that channel.
 export async function recordInboundReply(context: ReplyContext, input: ReplyRecordInput) {
   const database = getDatabase();
-  const classification = input.forceUnsubscribe ? unsubscribeClassification() : classifyReply(input.text);
+  const baseClassification = input.forceUnsubscribe ? unsubscribeClassification() : classifyReply(input.text, { autoReply: input.autoReply });
+  // An out-of-office is not a conversation: nothing is cancelled, the waiting
+  // follow-ups just move past the return date.
+  const outOfOffice = baseClassification.intent === "OUT_OF_OFFICE";
+  const resume = outOfOffice ? followUpResumeTime(input.text, input.receivedAt) : null;
+  const classification = resume ? describeOutOfOffice(baseClassification, resume) : baseClassification;
   const replyId = crypto.randomUUID();
   const now = new Date();
   const suppress = classification.intent === "UNSUBSCRIBE";
@@ -165,54 +191,58 @@ export async function recordInboundReply(context: ReplyContext, input: ReplyReco
       return { id: existing?.id ?? replyId, duplicate: true };
     }
 
-    await transaction
-      .update(outreachMessages)
-      .set({ status: "replied", updatedAt: now })
-      .where(eq(outreachMessages.id, context.message.id));
-    await transaction
-      .update(outreachSequences)
-      .set({ status: suppress ? "stopped" : "paused", updatedAt: now })
-      .where(eq(outreachSequences.id, context.sequence.id));
-    await transaction
-      .update(outreachMessages)
-      .set({
-        status: "cancelled",
-        lastError: suppress
-          ? "Future outreach stopped after an unsubscribe request."
-          : "Future outreach paused after a recipient reply.",
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(outreachMessages.sequenceId, context.sequence.id),
-          inArray(outreachMessages.status, ["approved", "scheduled"]),
-        ),
-      );
-    await transaction
-      .update(deliveryJobs)
-      .set({
-        status: "cancelled",
-        lastError: suppress
-          ? "Future outreach stopped after an unsubscribe request."
-          : "Future outreach paused after a recipient reply.",
-        completedAt: now,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(deliveryJobs.sequenceId, context.sequence.id),
-          inArray(deliveryJobs.status, ["queued", "retry"]),
-        ),
-      );
-    await transaction
-      .update(campaigns)
-      .set({ status: "replied", updatedAt: now })
-      .where(
-        and(
-          eq(campaigns.id, context.message.campaignId),
-          inArray(campaigns.status, ["scheduled", "sent", "delivered"]),
-        ),
-      );
+    if (resume) {
+      await deferPendingOutreach(transaction, { sequenceId: context.sequence.id, resumeAt: resume.resumeAt });
+    } else {
+      await transaction
+        .update(outreachMessages)
+        .set({ status: "replied", updatedAt: now })
+        .where(eq(outreachMessages.id, context.message.id));
+      await transaction
+        .update(outreachSequences)
+        .set({ status: suppress ? "stopped" : "paused", updatedAt: now })
+        .where(eq(outreachSequences.id, context.sequence.id));
+      await transaction
+        .update(outreachMessages)
+        .set({
+          status: "cancelled",
+          lastError: suppress
+            ? "Future outreach stopped after an unsubscribe request."
+            : "Future outreach paused after a recipient reply.",
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(outreachMessages.sequenceId, context.sequence.id),
+            inArray(outreachMessages.status, ["approved", "scheduled"]),
+          ),
+        );
+      await transaction
+        .update(deliveryJobs)
+        .set({
+          status: "cancelled",
+          lastError: suppress
+            ? "Future outreach stopped after an unsubscribe request."
+            : "Future outreach paused after a recipient reply.",
+          completedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(deliveryJobs.sequenceId, context.sequence.id),
+            inArray(deliveryJobs.status, ["queued", "retry"]),
+          ),
+        );
+      await transaction
+        .update(campaigns)
+        .set({ status: "replied", updatedAt: now })
+        .where(
+          and(
+            eq(campaigns.id, context.message.campaignId),
+            inArray(campaigns.status, ["scheduled", "sent", "delivered"]),
+          ),
+        );
+    }
     if (suppress) {
       await suppressLeadForUnsubscribe(transaction, {
         organizationId: context.message.organizationId,

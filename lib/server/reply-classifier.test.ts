@@ -86,6 +86,75 @@ describe("classifyReply", () => {
     );
   });
 
+  describe("opt-outs in other languages", () => {
+    const optOuts = [
+      // French
+      "Merci de me désabonner de votre liste.",
+      "Veuillez ne plus me contacter",
+      "Ne m’écrivez plus s'il vous plaît",
+      "Supprimez-moi de vos listes",
+      // Italian
+      "Per favore cancellami dalla lista",
+      "Non contattarmi più",
+      "Vorrei disiscrivermi",
+      // Spanish
+      "Quiero darme de baja",
+      "No me contacten más",
+      "Elimínenme de su lista",
+      // German
+      "Bitte entfernen Sie mich aus Ihrem Verteiler",
+      "Ich möchte mich abmelden",
+      "Kontaktieren Sie mich nicht mehr",
+      // Dutch
+      "Kunt u mij uitschrijven?",
+      "Verwijder mij van de lijst",
+      "Stuur me geen mails meer",
+    ];
+    it.each(optOuts)("classifies %j as UNSUBSCRIBE", (text) => {
+      expect(classifyReply(text).intent).toBe("UNSUBSCRIBE");
+    });
+
+    it("matches with or without accents and with curly apostrophes", () => {
+      expect(classifyReply("desabonnez-moi").intent).toBe("UNSUBSCRIBE");
+      expect(classifyReply("Ne m\u2019ecrivez plus").intent).toBe("UNSUBSCRIBE");
+      expect(classifyReply("Please don\u2019t contact me again").intent).toBe("UNSUBSCRIBE");
+    });
+
+    it("does not read ordinary foreign-language text as an opt-out", () => {
+      for (const text of ["Merci pour votre message, parlons jeudi", "Gracias, me interesa", "Danke, klingt interessant", "Bedankt, klinkt goed"]) {
+        expect(classifyReply(text).intent).not.toBe("UNSUBSCRIBE");
+      }
+    });
+  });
+
+  describe("out-of-office in other languages", () => {
+    it.each([
+      "Je suis absent du bureau jusqu'au 3 mars.",
+      "Réponse automatique : je suis en congés.",
+      "Sono fuori sede fino al 10.",
+      "Estaré fuera de la oficina hasta el lunes. Respuesta automática.",
+      "Ich bin abwesend und kehre am Montag zurück. Automatische Antwort.",
+      "Ik ben afwezig tot maandag.",
+    ])("classifies %j as OUT_OF_OFFICE", (text) => {
+      expect(classifyReply(text).intent).toBe("OUT_OF_OFFICE");
+    });
+  });
+
+  describe("automatic-reply headers", () => {
+    it("override the wording", () => {
+      const result = classifyReply("Thanks for your note. Not interested.", { autoReply: true });
+      expect(result.intent).toBe("OUT_OF_OFFICE");
+      expect(result.flagForHuman).toBe(false);
+    });
+
+    it("never turn an auto-responder's unsubscribe footer into an opt-out", () => {
+      const footer = "I'm out for the week. To unsubscribe from our newsletter click here.";
+      expect(classifyReply(footer, { autoReply: true }).intent).toBe("OUT_OF_OFFICE");
+      // A human writing the same words still opts out.
+      expect(classifyReply("Please unsubscribe me").intent).toBe("UNSUBSCRIBE");
+    });
+  });
+
   it("falls back to NEUTRAL with human review required for ambiguous text", () => {
     const result = classifyReply("ok");
     expect(result.intent).toBe("NEUTRAL");

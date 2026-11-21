@@ -103,14 +103,16 @@ export async function seedDeliveryJob(input: {
   messageStatus?: "scheduled" | "approved" | "draft";
   /** Skips creating the delivery job, for tests that only need drafted copy. */
   skipJob?: boolean;
+  /** Adds another step to an existing sequence instead of creating a new one. */
+  sequenceId?: string;
 }) {
   const database = getDatabase();
-  const sequenceId = crypto.randomUUID();
+  const sequenceId = input.sequenceId ?? crypto.randomUUID();
   const messageId = crypto.randomUUID();
   const jobId = crypto.randomUUID();
   const now = input.scheduledFor ?? new Date(Date.now() - 60_000);
 
-  await database.insert(outreachSequences).values({
+  if (!input.sequenceId) await database.insert(outreachSequences).values({
     id: sequenceId,
     organizationId: input.organizationId,
     campaignId: input.campaignId,

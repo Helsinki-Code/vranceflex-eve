@@ -116,6 +116,21 @@ flagged for a person. This lowers the risk but cannot remove it, so the send-saf
 gate (below) remains the backstop: copy that links to an unapproved domain or echoes
 instructions is blocked at approval and again before sending.
 
+### Replies
+
+- **Automatic replies** are recognised from their headers first (`Auto-Submitted`,
+  `X-Autoreply`, `Precedence: auto_reply|bulk|junk`; `lib/server/auto-reply.ts`),
+  then from wording in English, French, Italian, Spanish, German and Dutch. Headers win,
+  so an auto-responder's "to unsubscribe click here" footer never opts anyone out.
+- **Out-of-office** doesn't cancel or pause anything. Waiting follow-ups move so the
+  next one goes out the day after the stated return date (or a week after the reply
+  when no date can be read, which also flags the reply for a person), keeping the gaps
+  between steps. It doesn't pause colleagues at the same company.
+- **Opt-outs** are recognised in the same six languages, with or without accents.
+- Order of precedence: automatic-reply headers, opt-out, out-of-office wording, a plain
+  refusal ("not interested"), interest, objection, fit, warm, neutral. The model's
+  second opinion (`reply-ai.ts`) can refine intent but never overrides an opt-out.
+
 ### Sending safety
 
 These apply to every campaign in a workspace and are managed in Settings → Sending:

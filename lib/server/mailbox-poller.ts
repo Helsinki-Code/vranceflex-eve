@@ -9,6 +9,7 @@ import { normalizeEmailAddress } from "./reply-address";
 import { recordInboundReply, type ReplyContext } from "./reply-store";
 import { suppressLeadForUnsubscribe } from "./suppression";
 import { pauseWorkspaceOnHighBounceRate } from "./sending-settings";
+import { isAutomatedReply } from "./auto-reply";
 
 const pollEveryMs = 5 * 60_000;
 const bounceWindowMs = 7 * 86_400_000;
@@ -53,6 +54,7 @@ async function handleReply(mailbox: typeof sendingMailboxes.$inferSelect, uidVal
     text: replyBody(item.parsed).slice(0, 20_000),
     html: typeof item.parsed.html === "string" ? item.parsed.html.slice(0, 200_000) : null,
     receivedAt: item.parsed.date ?? new Date(),
+    autoReply: isAutomatedReply(item.parsed.headers),
   });
   return "recorded";
 }

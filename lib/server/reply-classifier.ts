@@ -12,6 +12,56 @@ type ReplyClassification = {
   flagReason: string | null;
 };
 
+// Opt-out and out-of-office wording in the languages people actually write
+// back in. Matching runs on text with accents removed ("désabonner" ->
+// "desabonner"), so these are written without accents.
+const OPT_OUT_PHRASES = [
+  // English
+  "unsubscribe", "remove me", "stop (?:emailing|contacting|messaging)", "do not contact", "don't contact", "opt out",
+  // French
+  "desabonn\\w*", "desinscri\\w*", "ne (?:plus )?me contact\\w*", "ne me contactez plus", "ne m'ecrivez plus", "arretez de m'ecrire",
+  "supprimez-moi", "retirez-moi", "retirer mon adresse",
+  // Italian
+  "cancellami", "cancellatemi", "rimuovimi", "rimuovetemi", "non contattarmi", "non contattatemi", "non scrivermi", "non scrivetemi",
+  "annulla (?:l'iscrizione|la mia iscrizione)", "disiscri\\w*",
+  // Spanish
+  "darme de baja", "dar de baja", "no me contacten", "no me contactes", "no me escriban", "no me escribas", "elimineme", "eliminenme", "eliminame",
+  "borrarme de la lista", "cancelar (?:mi )?suscripcion",
+  // German
+  "abmelden", "austragen", "keine weiteren e-?mails", "nicht mehr kontaktieren", "kontaktieren sie mich nicht mehr",
+  "bitte entfernen sie mich", "loschen sie mich", "schreiben sie mir nicht mehr",
+  // Dutch
+  "uitschrijven", "afmelden", "verwijder mij", "neem geen contact", "stuur me geen", "niet meer mailen", "mail mij niet meer",
+];
+const OPT_OUT = new RegExp(`(?<![a-z])(?:${OPT_OUT_PHRASES.join("|")})(?![a-z])`, "i");
+
+const OUT_OF_OFFICE_PHRASES = [
+  // English
+  "out of (?:the )?office", "automatic reply", "auto[- ]?reply", "away from (?:my )?email", "returning on", "back on",
+  // French
+  "absent(?:e)? du bureau", "je suis absent", "reponse automatique", "message d'absence", "en conges",
+  // Italian
+  "fuori sede", "fuori ufficio", "risposta automatica",
+  // Spanish
+  "fuera de la oficina", "respuesta automatica", "estare ausente", "de vacaciones",
+  // German
+  "abwesenheitsnotiz", "ich bin abwesend", "automatische antwort", "nicht im buro", "bin im urlaub",
+  // Dutch
+  "afwezigheidsmelding", "ik ben afwezig", "automatisch antwoord", "buiten kantoor",
+];
+const OUT_OF_OFFICE = new RegExp(`(?<![a-z])(?:${OUT_OF_OFFICE_PHRASES.join("|")})(?![a-z])`, "i");
+
+/** Lowercase, straighten quotes, drop accents and collapse whitespace. */
+export function normalizeForClassification(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // A plain "no". These are checked before the HOT signals, because words such
 // as "interested", "call" and "available" also appear inside refusals
 // ("not interested", "please don't call", "no thanks, not available").
@@ -30,13 +80,26 @@ function withoutNegatedPhrases(text: string) {
   return text.replace(NEGATED_PHRASE, " ");
 }
 
-export function classifyReply(text: string): ReplyClassification {
-  const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
-  if (
-    /\b(unsubscribe|remove me|stop (emailing|contacting|messaging)|do not contact|don't contact|opt out)\b/i.test(
-      normalized,
-    )
-  ) {
+function outOfOfficeClassification(reasoning: string): ReplyClassification {
+  return {
+    intent: "OUT_OF_OFFICE",
+    sentimentScore: 5,
+    confidence: "high",
+    reasoning,
+    nextAction: "wait_for_ooo",
+    actionDetail: "Follow-ups are held until the person is back.",
+    suggestedResponse: "",
+    flagForHuman: false,
+    flagReason: null,
+  };
+}
+
+export function classifyReply(text: string, options: { autoReply?: boolean } = {}): ReplyClassification {
+  const normalized = normalizeForClassification(text);
+  // The headers say a machine wrote this. Believe them over the wording: an
+  // auto-responder's footer often says "to unsubscribe click here".
+  if (options.autoReply) return outOfOfficeClassification("The message's headers mark it as an automatic reply.");
+  if (OPT_OUT.test(normalized)) {
     return {
       intent: "UNSUBSCRIBE",
       sentimentScore: 2,
@@ -49,22 +112,8 @@ export function classifyReply(text: string): ReplyClassification {
       flagReason: null,
     };
   }
-  if (
-    /\b(out of (the )?office|automatic reply|auto[- ]?reply|away from (my )?email|returning on|back on)\b/i.test(
-      normalized,
-    )
-  ) {
-    return {
-      intent: "OUT_OF_OFFICE",
-      sentimentScore: 5,
-      confidence: "high",
-      reasoning: "The message appears to be an automatic out-of-office response.",
-      nextAction: "wait_for_ooo",
-      actionDetail: "Keep outreach paused until a person reviews the return timing.",
-      suggestedResponse: "",
-      flagForHuman: false,
-      flagReason: null,
-    };
+  if (OUT_OF_OFFICE.test(normalized)) {
+    return outOfOfficeClassification("The message appears to be an automatic out-of-office response.");
   }
   if (EXPLICIT_DECLINE.test(normalized)) {
     return {
