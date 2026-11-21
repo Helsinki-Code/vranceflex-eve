@@ -20,6 +20,13 @@ export function getIntegrationStatuses(): IntegrationStatus[] {
       required: true,
     },
     {
+      id: "email-verifier",
+      name: "Email verifier",
+      description: "Confirms a prospect's address can receive mail before it is sold as a verified lead (Reoon or ZeroBounce). Without it, no email address counts as verified.",
+      configured: configured("REOON_API_KEY") || configured("ZEROBOUNCE_API_KEY"),
+      required: true,
+    },
+    {
       id: "ai",
       name: "AI model gateway",
       description: "Eve orchestrator and specialist model access",

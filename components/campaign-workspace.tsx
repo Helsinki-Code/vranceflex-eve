@@ -49,6 +49,7 @@ type CandidateSummary = {
   description: string | null;
   status: "discovered" | "enriching" | "verified" | "approved" | "failed";
   email: string | null;
+  emailStatus?: "verified" | "risky" | "guess" | "invalid" | "unknown";
   phone: string | null;
   linkedinUrl: string | null;
   xHandle: string | null;
@@ -258,7 +259,7 @@ function CandidateWorkspacePanel({
           <label className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
             <input className={cn(checkboxClass, "mt-0.5")} checked={selectedVerified.includes(candidate.id)} onChange={(event) => setSelectedVerified((current) => event.target.checked ? [...current, candidate.id] : current.filter((id) => id !== candidate.id))} type="checkbox" />
             <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{candidate.name}</span><span className="block truncate text-xs text-muted-foreground">{[candidate.jobTitle, candidate.companyName].filter(Boolean).join(" at ")}</span></span>
-            <span className="hidden shrink-0 text-right font-mono text-xs text-muted-foreground sm:block">{candidate.email}{candidate.phone ? <span className="block">{candidate.phone}</span> : null}</span>
+            <span className="hidden shrink-0 text-right font-mono text-xs text-muted-foreground sm:block">{candidate.email}{candidate.emailStatus === "risky" ? <span className="ml-1.5 rounded border border-warning/30 px-1 text-[10px] font-medium uppercase tracking-wide text-warning" title="Catch-all domain or role address: probably deliverable, but unproven.">Risky</span> : null}{candidate.phone ? <span className="block">{candidate.phone}</span> : null}</span>
           </label>
         </li>)}
       </ul>

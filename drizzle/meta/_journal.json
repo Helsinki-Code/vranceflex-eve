@@ -134,6 +134,13 @@
       "when": 1795220149678,
       "tag": "0018_brief_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795220792964,
+      "tag": "0019_illegal_fat_cobra",
+      "breakpoints": true
     }
   ]
 }

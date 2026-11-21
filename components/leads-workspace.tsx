@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Chip, EmptyState, EvidenceMeter, fieldClass, Initials, LedgerStats, SelectField, Toolbar } from "./product/kit";
 import { AsyncState } from "./product-ui";
 import Link from "next/link";
+import { emailStatusLabels, type EmailStatus } from "../lib/domain/email-status";
 
 type LoadState = "loading" | "ready" | "error";
 type Density = "comfortable" | "compact";
@@ -26,11 +27,13 @@ function buildParams({ search, confidence, status, contact, campaignId }: { sear
 
 const statusTone = (status: LeadStatus) => status === "suppressed" ? "danger" : status === "approved" ? "verified" : status === "needs_review" ? "warning" : status === "qualified" ? "info" : "neutral";
 
-function ContactLine({ icon: Icon, value, verified }: { icon: typeof Mail; value: string; verified: boolean }) {
+function ContactLine({ icon: Icon, value, verified, emailStatus }: { icon: typeof Mail; value: string; verified: boolean; emailStatus?: EmailStatus }) {
+  const detail = emailStatus ? emailStatusLabels[emailStatus] : null;
   return <span className="flex min-w-0 items-center gap-1.5 text-xs">
     <Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
     <span className="truncate text-foreground">{value}</span>
-    {verified ? <Check aria-label="verified" className="size-3.5 shrink-0 text-verified" /> : null}
+    {emailStatus === "verified" || (!emailStatus && verified) ? <Check aria-label="verified" className="size-3.5 shrink-0 text-verified" /> : null}
+    {emailStatus === "risky" || emailStatus === "invalid" ? <span title={detail?.description} className={cn("shrink-0 rounded border px-1 text-[10px] font-medium uppercase tracking-wide", emailStatus === "invalid" ? "border-destructive/30 text-destructive" : "border-warning/30 text-warning")}>{detail?.label}</span> : null}
   </span>;
 }
 
@@ -90,7 +93,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
     {state === "loading" && !leads.length ? null : <LedgerStats items={[
       { label: "Matched leads", value: total, note: campaignId ? "In this campaign" : "Across this workspace" },
       { label: "High confidence", value: leads.filter((lead) => lead.confidenceBand === "high").length, note: "80% or higher", tone: "verified" },
-      { label: "Verified email", value: leads.filter((lead) => lead.emailVerified).length, note: "Deliverability checked" },
+      { label: "Verified email", value: leads.filter((lead) => lead.emailStatus === "verified").length, note: "Confirmed to accept mail" },
       { label: "Suppressed", value: leads.filter((lead) => lead.doNotContact).length, note: "Never contacted", tone: leads.some((lead) => lead.doNotContact) ? "danger" : "default" },
     ]} />}
 
@@ -146,7 +149,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
               <td className={cn("px-4", cellY)}><div className="flex items-center gap-3"><Initials name={lead.companyName} className={density === "compact" ? "size-7" : undefined} /><div className="min-w-0"><p className="truncate font-medium text-foreground">{lead.companyName}</p><p className="truncate text-xs text-muted-foreground">{[lead.industry, lead.companySize].filter(Boolean).join(" · ") || "Market pending"}</p></div></div></td>
               <td className={cn("px-4", cellY)}><p className="truncate text-foreground">{lead.personName}</p><p className="truncate text-xs text-muted-foreground">{lead.jobTitle}</p></td>
               <td className={cn("max-w-[16rem] px-4", cellY)}><div className="grid gap-1">
-                {lead.email ? <ContactLine icon={Mail} value={lead.email} verified={lead.emailVerified} /> : <span className="text-xs text-muted-foreground">No email found</span>}
+                {lead.email ? <ContactLine icon={Mail} value={lead.email} verified={lead.emailVerified} emailStatus={lead.emailStatus} /> : <span className="text-xs text-muted-foreground">No email found</span>}
                 {lead.phone && density === "comfortable" ? <ContactLine icon={Phone} value={lead.phone} verified={lead.phoneVerified} /> : null}
               </div></td>
               <td className={cn("px-4", cellY)}><EvidenceMeter value={lead.confidence} /></td>
@@ -176,7 +179,7 @@ export function LeadsWorkspace({ campaignId }: { campaignId?: string }) {
             ].map(({ icon: Icon, label, value }) => <div key={label} className="grid grid-cols-[7rem_1fr] gap-3"><dt className="flex items-center gap-2 text-muted-foreground"><Icon className="size-3.5" />{label}</dt><dd className="min-w-0 truncate text-foreground">{value}</dd></div>)}
           </dl>
           <div className="grid gap-1.5">
-            {selected.email ? <ContactLine icon={Mail} value={selected.email} verified={selected.emailVerified} /> : null}
+            {selected.email ? <ContactLine icon={Mail} value={selected.email} verified={selected.emailVerified} emailStatus={selected.emailStatus} /> : null}
             {selected.phone ? <ContactLine icon={Phone} value={selected.phone} verified={selected.phoneVerified} /> : null}
             {selected.linkedinUrl ? <a className="flex items-center gap-1.5 text-xs text-primary hover:underline" href={selected.linkedinUrl} rel="noreferrer" target="_blank"><Linkedin className="size-3.5" />LinkedIn profile</a> : null}
           </div>

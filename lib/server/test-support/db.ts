@@ -26,6 +26,7 @@ const tablesToTruncate = [
   "prospect_credit_reservations",
   "prospect_credit_grants",
   "usage_ledger",
+  "email_verifications",
   "audit_events",
   "leads",
   "icp_profiles",

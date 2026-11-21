@@ -55,6 +55,7 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
     timezone: safety.timezone,
     useRecipientTimezone: safety.useRecipientTimezone,
     stopCompanyOnReply: safety.stopCompanyOnReply,
+    allowRiskyEmail: safety.allowRiskyEmail,
     linkDomains: safety.linkDomains.join("\n"),
   }));
   const [busy, setBusy] = useState<"save" | "pause" | "resume" | null>(null);
@@ -67,6 +68,7 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
     form.timezone !== safety.timezone ||
     form.useRecipientTimezone !== safety.useRecipientTimezone ||
     form.stopCompanyOnReply !== safety.stopCompanyOnReply ||
+    form.allowRiskyEmail !== safety.allowRiskyEmail ||
     parseDomains(form.linkDomains).join() !== safety.linkDomains.join();
 
   const run = async (key: "save" | "pause" | "resume", action: () => Promise<void>, failure: string) => {
@@ -97,6 +99,7 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
           windowEnd: form.end,
           useRecipientTimezone: form.useRecipientTimezone,
           stopCompanyOnReply: form.stopCompanyOnReply,
+          allowRiskyEmail: form.allowRiskyEmail,
           linkDomains: parseDomains(form.linkDomains),
         }),
       });
@@ -172,6 +175,14 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
           <label className="flex items-start gap-3 text-sm">
             <Checkbox checked={form.stopCompanyOnReply} onCheckedChange={(checked) => setForm({ ...form, stopCompanyOnReply: checked === true })} className="mt-0.5" />
             <span><span className="font-medium">When anyone at a company replies, pause everyone else there</span><span className="block text-xs text-muted-foreground">A colleague getting email #3 the morning after their boss replied looks automated. Paused outreach waits for a person to decide. Out-of-office notices don&apos;t count.</span></span>
+          </label>
+        </fieldset>
+
+        <fieldset className="grid gap-3" disabled={!isAdmin}>
+          <legend className="text-sm font-medium">Email addresses</legend>
+          <label className="flex items-start gap-3 text-sm">
+            <Checkbox checked={form.allowRiskyEmail} onCheckedChange={(checked) => setForm({ ...form, allowRiskyEmail: checked === true })} className="mt-0.5" />
+            <span><span className="font-medium">Also email &ldquo;risky&rdquo; addresses</span><span className="block text-xs text-muted-foreground">Catch-all domains and role addresses like info@ are probably deliverable but can&apos;t be proven, and they bounce more often. Off by default, and only verified addresses are charged as credits unless this is on.</span></span>
           </label>
         </fieldset>
 

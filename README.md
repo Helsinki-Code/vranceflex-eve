@@ -83,6 +83,26 @@ normally goes out from mailboxes the customer owns, Instantly-style:
 - **Transport**: `organization_sending_settings.email_transport` (`auto` uses
   mailboxes whenever any are connected, otherwise Resend).
 
+### Email verification
+
+Parallel supplies an address; VranceFlex then checks it can receive mail
+(`lib/server/email-verifier.ts`, Reoon or ZeroBounce, set `REOON_API_KEY` or
+`ZEROBOUNCE_API_KEY`) before it counts as a verified lead. The key belongs to the
+platform and the cost is covered by prospect credits.
+
+Each address gets a status (`lib/domain/email-status.ts`): **verified**, **risky**
+(catch-all domain, role address, full inbox), **invalid**, or **unknown**. Only
+verified addresses are emailed; a workspace can opt in to risky ones in Settings →
+Sending. A lead is only charged as a credit when its address is usable, so
+bounces cost the customer nothing. Anything the verifier's answer doesn't clearly
+confirm is treated as unknown and never sent to. With no verifier key set, no
+address can be verified, so nothing can send. Each lookup is recorded in
+`usage_ledger` (`email_verification`) so margins can be measured, and answers are
+cached by hash of the address (30 days; an "unknown" for one day).
+
+Leads created before this change keep their old `email_verified` value and show as
+"not checked".
+
 ### Sending safety
 
 These apply to every campaign in a workspace and are managed in Settings → Sending:

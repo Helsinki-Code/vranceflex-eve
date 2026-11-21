@@ -14,6 +14,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { Campaign } from "../../domain/campaign";
+import { emailStatuses } from "../../domain/email-status";
 import { campaignStatuses } from "../../domain/campaign";
 import type { IcpProfile, Lead } from "../../domain/lead";
 import { evidenceKinds, leadStatuses } from "../../domain/lead";
@@ -29,6 +30,7 @@ import {
 import type { ScheduleRecurrence } from "../../domain/pipeline";
 
 export const campaignStatusEnum = pgEnum("campaign_status", campaignStatuses);
+export const emailStatusEnum = pgEnum("email_status", emailStatuses);
 export const campaignSourceKindEnum = pgEnum("campaign_source_kind", ["website", "product_idea"]);
 export const membershipRoleEnum = pgEnum("membership_role", [
   "admin",
@@ -313,6 +315,9 @@ export const campaignCandidates = pgTable(
     status: candidateStatusEnum("status").default("discovered").notNull(),
     parallelRunId: text("parallel_run_id"),
     email: text("email"),
+    emailStatus: emailStatusEnum("email_status").default("unknown").notNull(),
+    emailCheckedAt: timestamp("email_checked_at", { withTimezone: true }),
+    emailVerifier: text("email_verifier"),
     phone: text("phone"),
     linkedinUrl: text("linkedin_url"),
     xHandle: text("x_handle"),
@@ -423,7 +428,12 @@ export const leads = pgTable(
     personName: text("person_name").notNull(),
     jobTitle: text("job_title").notNull(),
     email: text("email"),
+    // The yes/no gate every send checks. Derived from emailStatus: true for
+    // "verified", and for "risky" only when the workspace allows risky sends.
     emailVerified: boolean("email_verified").default(false).notNull(),
+    emailStatus: emailStatusEnum("email_status").default("unknown").notNull(),
+    emailCheckedAt: timestamp("email_checked_at", { withTimezone: true }),
+    emailVerifier: text("email_verifier"),
     phone: text("phone"),
     phoneVerified: boolean("phone_verified").default(false).notNull(),
     linkedinUrl: text("linkedin_url"),
@@ -743,6 +753,8 @@ export const organizationSendingSettings = pgTable(
     sendingPaused: boolean("sending_paused").default(false).notNull(),
     pausedReason: text("paused_reason"),
     pausedAt: timestamp("paused_at", { withTimezone: true }),
+    // Send to "risky" addresses (catch-all domains, role accounts). Off by default.
+    allowRiskyEmail: boolean("allow_risky_email").default(false).notNull(),
     // Extra domains outreach copy may link to (the seller's own sites, booking pages).
     linkDomains: jsonb("link_domains").$type<string[]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1046,3 +1058,16 @@ export const auditEvents = pgTable(
     index("audit_entity_idx").on(table.entityType, table.entityId),
   ],
 );
+
+/**
+ * Cached email-verifier answers, keyed by a hash of the normalized address so
+ * no address is stored in the clear. Shared across workspaces: it records only
+ * whether a mailbox accepts mail, and saves paying twice for the same lookup.
+ */
+export const emailVerifications = pgTable("email_verifications", {
+  emailHash: text("email_hash").primaryKey(),
+  status: emailStatusEnum("status").notNull(),
+  verifier: text("verifier").notNull(),
+  detail: text("detail"),
+  checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
+});

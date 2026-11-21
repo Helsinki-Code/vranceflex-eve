@@ -6,6 +6,7 @@ import type { ApiActor } from "./api-actor";
 import { getDatabase } from "./database";
 import {
   auditEvents,
+  leads,
   organizationMemberships,
   organizationSendingSettings,
   organizations,
@@ -26,6 +27,8 @@ export type SendingSafetySettings = {
   window: SendWindow;
   useRecipientTimezone: boolean;
   stopCompanyOnReply: boolean;
+  /** Send to "risky" addresses (catch-all domains, role accounts). Off by default. */
+  allowRiskyEmail: boolean;
   sendingPaused: boolean;
   pausedReason: string | null;
   pausedAt: string | null;
@@ -37,6 +40,7 @@ export const DEFAULT_SENDING_SAFETY: SendingSafetySettings = {
   window: DEFAULT_SEND_WINDOW,
   useRecipientTimezone: true,
   stopCompanyOnReply: true,
+  allowRiskyEmail: false,
   sendingPaused: false,
   pausedReason: null,
   pausedAt: null,
@@ -52,6 +56,7 @@ export function safetyFromRow(row: SettingsRow | undefined | null): SendingSafet
     window: { days: row.sendDays, start: row.windowStart, end: row.windowEnd },
     useRecipientTimezone: row.useRecipientTimezone,
     stopCompanyOnReply: row.stopCompanyOnReply,
+    allowRiskyEmail: row.allowRiskyEmail,
     sendingPaused: row.sendingPaused,
     pausedReason: row.pausedReason,
     pausedAt: row.pausedAt?.toISOString() ?? null,
@@ -84,6 +89,7 @@ export const sendingSafetyInputSchema = z
     windowEnd: z.string(),
     useRecipientTimezone: z.boolean(),
     stopCompanyOnReply: z.boolean(),
+    allowRiskyEmail: z.boolean(),
     linkDomains: z.array(domainSchema).max(25),
   })
   .partial()
@@ -137,6 +143,7 @@ export async function updateSendingSafetySettings(actor: ApiActor, input: Sendin
     windowEnd: window.end,
     ...(input.useRecipientTimezone !== undefined ? { useRecipientTimezone: input.useRecipientTimezone } : {}),
     ...(input.stopCompanyOnReply !== undefined ? { stopCompanyOnReply: input.stopCompanyOnReply } : {}),
+    ...(input.allowRiskyEmail !== undefined ? { allowRiskyEmail: input.allowRiskyEmail } : {}),
     linkDomains,
   };
   const now = new Date();
@@ -144,6 +151,13 @@ export async function updateSendingSafetySettings(actor: ApiActor, input: Sendin
     .insert(organizationSendingSettings)
     .values({ organizationId: actor.organizationId, ...values })
     .onConflictDoUpdate({ target: organizationSendingSettings.organizationId, set: { ...values, updatedAt: now } });
+  if (input.allowRiskyEmail !== undefined && input.allowRiskyEmail !== current.allowRiskyEmail) {
+    // The send gate reads leads.emailVerified, so existing risky leads follow the setting.
+    await getDatabase()
+      .update(leads)
+      .set({ emailVerified: input.allowRiskyEmail, updatedAt: now })
+      .where(and(eq(leads.organizationId, actor.organizationId), eq(leads.emailStatus, "risky")));
+  }
   await audit(actor, actor.organizationId, "sending.safety_settings_updated", { changed: Object.keys(input) });
   return getSendingSafetySettings(actor.organizationId);
 }
