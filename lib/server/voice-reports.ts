@@ -1,6 +1,7 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { signWorkerReport } from "../domain/voice-signature";
 import { allowedOutcome, callOutcomes, isStopRequest, outcomeLabels, outcomesNeedingReview, type CallOutcome } from "../domain/voice";
 import { getDatabase } from "./database";
 import {
@@ -55,10 +56,7 @@ export type WorkerReport = z.infer<typeof workerReportSchema>;
 
 const SIGNATURE_MAX_AGE_MS = 5 * 60_000;
 
-/** The signature a worker puts on a report: HMAC-SHA256 over "<timestamp>.<body>". */
-export function signWorkerReport(secret: string, timestamp: string, body: string) {
-  return createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
-}
+export { signWorkerReport };
 
 export function verifyWorkerReport(input: { secret: string | undefined; timestamp: string | null; signature: string | null; body: string; now?: Date }) {
   if (!input.secret || !input.timestamp || !input.signature) return false;

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["esnext"]
+  },
+  "include": ["src/**/*.ts", "../lib/domain/voice.ts", "../lib/domain/voice-signature.ts"],
+  "exclude": ["node_modules", "src/**/*.test.ts"]
+}
