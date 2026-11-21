@@ -141,6 +141,10 @@ describe("buildVoiceInstructions", () => {
     }
   });
 
+  it("tells the agent to hang up on voicemail instead of leaving a message", () => {
+    expect(buildVoiceInstructions(context("meetings"))).toMatch(/do not leave a message: record voicemail and end the call/);
+  });
+
   it("scopes the job to the level", () => {
     expect(buildVoiceInstructions(context("meetings"))).toMatch(/get a meeting agreed/);
     expect(buildVoiceInstructions(context("meetings"))).not.toMatch(/deal_progressed/);
