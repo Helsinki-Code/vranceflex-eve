@@ -17,6 +17,15 @@ if (testDatabaseUrl) {
 }
 
 const tablesToTruncate = [
+  "voice_minute_usage",
+  "voice_calls",
+  "voice_call_targets",
+  "voice_campaigns",
+  "voice_minute_grants",
+  "voice_addons",
+  "voice_do_not_call",
+  "call_consents",
+  "voice_settings",
   "delivery_jobs",
   "outreach_messages",
   "outreach_sequences",

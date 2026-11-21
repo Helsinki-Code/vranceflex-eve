@@ -13,7 +13,7 @@ import {
 type Database = ReturnType<typeof getDatabase>;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-export type UnsubscribeSource = "resend_inbound" | "one_click_unsubscribe" | "twilio_inbound" | "mailbox_inbound" | "mailbox_bounce";
+export type UnsubscribeSource = "resend_inbound" | "one_click_unsubscribe" | "twilio_inbound" | "mailbox_inbound" | "mailbox_bounce" | "voice_call";
 
 export async function suppressLeadForUnsubscribe(
   db: Database | Transaction,

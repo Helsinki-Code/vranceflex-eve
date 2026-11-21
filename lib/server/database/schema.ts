@@ -1079,3 +1079,237 @@ export const emailVerifications = pgTable("email_verifications", {
   detail: text("detail"),
   checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ---- AI voice calling --------------------------------------------------------------
+
+export type VoiceCampaignStatus = "draft" | "approved" | "running" | "paused" | "completed" | "cancelled";
+export type VoiceTargetStatus = "queued" | "in_progress" | "done" | "skipped";
+export type VoiceCallStatus = "dialing" | "in_progress" | "completed" | "failed";
+export type VoiceMinuteSource = "plan_monthly" | "topup" | "adjustment";
+
+/** One row per workspace: how calls are placed and the rules they follow. */
+export const voiceSettings = pgTable("voice_settings", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  // An admin's attestation that the leads they call have given the required consent.
+  consentAttestedAt: timestamp("consent_attested_at", { withTimezone: true }),
+  consentAttestedBy: text("consent_attested_by").references(() => users.id, { onDelete: "set null" }),
+  // Calling window in the recipient's local time (ISO weekdays), within 08:00-21:00.
+  callDays: jsonb("call_days").$type<number[]>().default([1, 2, 3, 4, 5]).notNull(),
+  callStart: text("call_start").default("09:00").notNull(),
+  callEnd: text("call_end").default("17:00").notNull(),
+  maxConcurrentCalls: integer("max_concurrent_calls").default(2).notNull(),
+  dailyCallLimit: integer("daily_call_limit").default(100).notNull(),
+  voicePaused: boolean("voice_paused").default(false).notNull(),
+  pausedReason: text("paused_reason"),
+  pausedAt: timestamp("paused_at", { withTimezone: true }),
+  // The customer's own Twilio SIP trunk. The username and password are encrypted.
+  sipAddress: text("sip_address"),
+  callerNumber: text("caller_number"),
+  encryptedSipCredentials: text("encrypted_sip_credentials"),
+  livekitTrunkId: text("livekit_trunk_id"),
+  telephonyConnectedAt: timestamp("telephony_connected_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** The paid voice add-on, per billing account. Minutes included each period come from here. */
+export const voiceAddons = pgTable("voice_addons", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  active: boolean("active").default(false).notNull(),
+  monthlySeconds: integer("monthly_seconds").default(0).notNull(),
+  periodStart: timestamp("period_start", { withTimezone: true }),
+  periodEnd: timestamp("period_end", { withTimezone: true }),
+  stripeSubscriptionItemId: text("stripe_subscription_item_id"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** Minutes a workspace may spend, in seconds. Included minutes expire with the period; packs last a year. */
+export const voiceMinuteGrants = pgTable(
+  "voice_minute_grants",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    source: text("source").$type<VoiceMinuteSource>().notNull(),
+    sourceKey: text("source_key").notNull(),
+    secondsTotal: integer("seconds_total").notNull(),
+    secondsRemaining: integer("seconds_remaining").notNull(),
+    validFrom: timestamp("valid_from", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("voice_minute_grants_source_unique").on(table.organizationId, table.sourceKey),
+    index("voice_minute_grants_available_idx").on(table.organizationId, table.expiresAt),
+  ],
+);
+
+export const voiceMinuteUsage = pgTable(
+  "voice_minute_usage",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    callId: uuid("call_id").notNull(),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => voiceMinuteGrants.id, { onDelete: "restrict" }),
+    seconds: integer("seconds").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("voice_minute_usage_call_grant_unique").on(table.callId, table.grantId)],
+);
+
+/** Proof that a person agreed to be called by an AI voice, per lead and number. */
+export const callConsents = pgTable(
+  "call_consents",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    status: text("status").$type<"granted" | "revoked">().default("granted").notNull(),
+    // Where it came from: a web form, a recorded verbal agreement, an existing customer, an import.
+    source: text("source").notNull(),
+    // What they agreed to and when, in the customer's words. Required.
+    evidence: text("evidence").notNull(),
+    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull(),
+    recordedBy: text("recorded_by").references(() => users.id, { onDelete: "set null" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("call_consents_lead_phone_unique").on(table.organizationId, table.leadId, table.phone)],
+);
+
+/** Numbers that must never be called again, by workspace. Filled when someone asks to stop. */
+export const voiceDoNotCall = pgTable(
+  "voice_do_not_call",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    reason: text("reason").notNull(),
+    callId: uuid("call_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("voice_do_not_call_phone_unique").on(table.organizationId, table.phone)],
+);
+
+export const voiceCampaigns = pgTable(
+  "voice_campaigns",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    // The outreach campaign this belongs to: the product, offer and leads come from it.
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    level: text("level").$type<"meetings" | "qualify" | "sell">().notNull(),
+    playbook: jsonb("playbook").$type<Record<string, unknown>>().notNull(),
+    status: text("status").$type<VoiceCampaignStatus>().default("draft").notNull(),
+    pausedReason: text("paused_reason"),
+    maxAttempts: integer("max_attempts").default(3).notNull(),
+    retryGapHours: integer("retry_gap_hours").default(24).notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    approvedBy: text("approved_by").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("voice_campaigns_org_status_idx").on(table.organizationId, table.status)],
+);
+
+export const voiceCallTargets = pgTable(
+  "voice_call_targets",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    voiceCampaignId: uuid("voice_campaign_id")
+      .notNull()
+      .references(() => voiceCampaigns.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    status: text("status").$type<VoiceTargetStatus>().default("queued").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull(),
+    // Higher is called sooner. See voice-scheduling.ts.
+    priority: integer("priority").default(0).notNull(),
+    lastOutcome: text("last_outcome"),
+    skipReason: text("skip_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("voice_call_targets_campaign_lead_unique").on(table.voiceCampaignId, table.leadId),
+    index("voice_call_targets_due_idx").on(table.status, table.nextAttemptAt),
+  ],
+);
+
+export const voiceCalls = pgTable(
+  "voice_calls",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    voiceCampaignId: uuid("voice_campaign_id")
+      .notNull()
+      .references(() => voiceCampaigns.id, { onDelete: "cascade" }),
+    targetId: uuid("target_id")
+      .notNull()
+      .references(() => voiceCallTargets.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    level: text("level").$type<"meetings" | "qualify" | "sell">().notNull(),
+    status: text("status").$type<VoiceCallStatus>().default("dialing").notNull(),
+    room: text("room"),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    durationSeconds: integer("duration_seconds").default(0).notNull(),
+    // What was charged against the workspace's minutes. Unanswered calls cost nothing.
+    billedSeconds: integer("billed_seconds").default(0).notNull(),
+    outcome: text("outcome"),
+    summary: text("summary"),
+    followUp: text("follow_up"),
+    callbackAt: timestamp("callback_at", { withTimezone: true }),
+    transcript: jsonb("transcript").$type<Array<{ role: "agent" | "prospect"; text: string; at?: string }>>().default([]).notNull(),
+    // Why it needs a person's attention, when it does.
+    flags: jsonb("flags").$type<string[]>().default([]).notNull(),
+    reviewStatus: text("review_status").$type<"unreviewed" | "reviewed">().default("unreviewed").notNull(),
+    reviewedBy: text("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewNote: text("review_note"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("voice_calls_org_created_idx").on(table.organizationId, table.createdAt),
+    index("voice_calls_org_review_idx").on(table.organizationId, table.reviewStatus),
+    index("voice_calls_status_idx").on(table.status, table.startedAt),
+  ],
+);
