@@ -4,6 +4,7 @@ import type { ApiActor } from "./api-actor";
 import { AuthRequestError } from "./auth-errors";
 import { getDatabase } from "./database";
 import { auditEvents, callConsents, leads, voiceDoNotCall } from "./database/schema";
+import { consentSourceLabels } from "../domain/voice-consent-labels";
 import { normalizePhone } from "./twilio-webhook";
 
 /**
@@ -13,13 +14,7 @@ import { normalizePhone } from "./twilio-webhook";
  */
 
 export const consentSources = ["web_form", "recorded_verbal", "existing_customer", "imported", "other"] as const;
-export const consentSourceLabels: Record<(typeof consentSources)[number], string> = {
-  web_form: "They agreed on a web form",
-  recorded_verbal: "They agreed on a recorded call",
-  existing_customer: "They are an existing customer who agreed",
-  imported: "Imported from a system that recorded it",
-  other: "Another documented way",
-};
+export { consentSourceLabels };
 
 export const consentInputSchema = z
   .object({

@@ -1,4 +1,4 @@
-import { ArrowUpRight, CreditCard, KeyRound, Mail, PlugZap, UserRound, Users } from "lucide-react";
+import { ArrowUpRight, CreditCard, KeyRound, Mail, Phone, PlugZap, UserRound, Users } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "../../components/app-shell";
 import { Notice } from "../../components/product/kit";
@@ -18,6 +18,7 @@ const groups = [
     items: [
       ["Team & roles", "Invite people and choose who can approve, send and pay", "/settings/team", Users],
       ["Sending", "Mailboxes, rotation limits and domain DNS health for outreach email", "/settings/sending", Mail],
+      ["Voice calling", "Your Twilio line, call consent, calling hours and minutes", "/settings/voice", Phone],
       ["Delivery providers", "Resend account for opt-in email", "/settings/integrations", PlugZap],
       ["Plans & usage", "Plan, credits, invoices and payment method", "/settings/billing", CreditCard],
       ["Platform status", "Which services this deployment has configured", "/settings/security", KeyRound],
