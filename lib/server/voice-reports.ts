@@ -15,6 +15,7 @@ import {
 } from "./database/schema";
 import { suppressLeadForUnsubscribe } from "./suppression";
 import { MAX_CALL_SECONDS, settleCallSeconds } from "./voice-credits";
+import { TWILIO_FINAL_STATUSES } from "./voice-twilio";
 import { callbackTime, nextAttemptTime, shouldRetry } from "./voice-scheduling";
 import { getVoiceSettings } from "./voice-settings";
 import { organizationTimezone } from "./mailbox-store";
@@ -80,6 +81,8 @@ export type FinalizeInput = {
   answeredAt?: Date | null;
   endedAt?: Date | null;
   error?: string | null;
+  /** What the carrier says the call lasted. The charge is never more than this. */
+  providerDurationSeconds?: number | null;
   now?: Date;
 };
 
@@ -115,7 +118,12 @@ export async function finalizeCall(input: FinalizeInput) {
 
   // 2. Only time on a live call is charged.
   const endedAt = input.endedAt ?? now;
-  const rawSeconds = answeredAt ? Math.max(0, Math.round((endedAt.getTime() - answeredAt.getTime()) / 1_000)) : 0;
+  // A call nobody answered, that reached a voicemail greeting, or that failed is never charged,
+  // whatever timestamps arrive with it.
+  const talkSeconds = answeredAt && !UNANSWERED_OUTCOMES.has(outcome) ? Math.max(0, Math.round((endedAt.getTime() - answeredAt.getTime()) / 1_000)) : 0;
+  // When the carrier reported a duration too, the charge can never exceed either figure, so a
+  // skewed clock on one side can't overcharge.
+  const rawSeconds = input.providerDurationSeconds != null ? Math.min(talkSeconds, Math.max(0, input.providerDurationSeconds)) : talkSeconds;
   const durationSeconds = Math.min(rawSeconds, MAX_CALL_SECONDS);
   const settled = await settleCallSeconds({ organizationId: call.organizationId, callId: call.id, seconds: durationSeconds, now });
   if (settled.shortfallSeconds > 0) flags.push("The workspace ran out of minutes during this call.");
@@ -139,6 +147,7 @@ export async function finalizeCall(input: FinalizeInput) {
       transcript,
       flags,
       error: input.error?.slice(0, 1_000) ?? null,
+      heldReport: null,
       updatedAt: now,
     })
     .where(eq(voiceCalls.id, call.id));
@@ -247,11 +256,11 @@ export async function markCallAnswered(callId: string, answeredAt: Date) {
   return { updated: updated.length > 0 };
 }
 
-export async function applyWorkerReport(report: WorkerReport, now = new Date()) {
-  if (report.event === "answered") {
-    return markCallAnswered(report.callId, report.answeredAt ? new Date(report.answeredAt) : now);
-  }
-  return finalizeCall({
+type CompletedReport = Extract<WorkerReport, { event: "completed" }>;
+
+/** Turns a worker's finished report into the input for ending the call. */
+export function finalizeInputFromReport(report: CompletedReport, extra: { providerDurationSeconds?: number | null; now?: Date } = {}): FinalizeInput {
+  return {
     callId: report.callId,
     outcome: report.outcome,
     summary: report.summary,
@@ -261,24 +270,67 @@ export async function applyWorkerReport(report: WorkerReport, now = new Date()) 
     answeredAt: report.answeredAt ? new Date(report.answeredAt) : null,
     endedAt: report.endedAt ? new Date(report.endedAt) : null,
     error: report.error ?? null,
-    now,
-  });
+    providerDurationSeconds: extra.providerDurationSeconds ?? null,
+    now: extra.now,
+  };
+}
+
+export async function applyWorkerReport(report: WorkerReport, now = new Date()) {
+  if (report.event === "answered") {
+    return markCallAnswered(report.callId, report.answeredAt ? new Date(report.answeredAt) : now);
+  }
+  const database = getDatabase();
+  const [call] = await database.select().from(voiceCalls).where(eq(voiceCalls.id, report.callId)).limit(1);
+  // On a Twilio line a call is charged once both halves are in: this report and Twilio's own
+  // "completed". If Twilio hasn't said the call is over yet, keep the report until it does.
+  if (call && call.lineType === "twilio" && (call.status === "dialing" || call.status === "in_progress") && !TWILIO_FINAL_STATUSES.has(call.providerStatus ?? "")) {
+    await database.update(voiceCalls).set({ heldReport: report, updatedAt: now }).where(and(eq(voiceCalls.id, call.id), inArray(voiceCalls.status, ["dialing", "in_progress"])));
+    return { found: true as const, held: true as const };
+  }
+  return finalizeCall(finalizeInputFromReport(report, { providerDurationSeconds: call?.providerDurationSeconds ?? null, now }));
 }
 
 /**
  * Rescues calls whose worker never reported (a crash or lost connection):
  * they are ended as failed, nothing is charged, and the person is retried.
  */
+/** How long one half of a Twilio call's two reports may wait for the other. */
+export const HELD_REPORT_LIMIT_MS = 10 * 60_000;
+
 export async function reapStaleCalls(now = new Date()) {
   const database = getDatabase();
   const dialingCutoff = new Date(now.getTime() - 3 * 60_000);
   const liveCutoff = new Date(now.getTime() - (MAX_CALL_SECONDS + 120) * 1_000);
   const stale = await database
-    .select({ id: voiceCalls.id, status: voiceCalls.status, startedAt: voiceCalls.startedAt, answeredAt: voiceCalls.answeredAt })
+    .select({
+      id: voiceCalls.id,
+      status: voiceCalls.status,
+      startedAt: voiceCalls.startedAt,
+      answeredAt: voiceCalls.answeredAt,
+      updatedAt: voiceCalls.updatedAt,
+      lineType: voiceCalls.lineType,
+      providerStatus: voiceCalls.providerStatus,
+      providerDurationSeconds: voiceCalls.providerDurationSeconds,
+      heldReport: voiceCalls.heldReport,
+    })
     .from(voiceCalls)
     .where(inArray(voiceCalls.status, ["dialing", "in_progress"]));
   let reaped = 0;
   for (const call of stale) {
+    const waited = now.getTime() - call.updatedAt.getTime();
+    // The worker reported but Twilio never said the call ended: finish it from the worker's report,
+    // still never charging more than the call can have lasted.
+    if (call.heldReport && waited >= HELD_REPORT_LIMIT_MS) {
+      await finalizeCall(finalizeInputFromReport(call.heldReport as CompletedReport, { providerDurationSeconds: call.providerDurationSeconds, now }));
+      reaped += 1;
+      continue;
+    }
+    // Twilio said the call ended but the worker never reported: nothing can be charged.
+    if (call.lineType === "twilio" && call.providerStatus === "completed" && !call.heldReport && waited >= HELD_REPORT_LIMIT_MS) {
+      await finalizeCall({ callId: call.id, outcome: "failed", error: "No report was received from the call, so it was ended and not charged.", endedAt: call.answeredAt ?? now, providerDurationSeconds: call.providerDurationSeconds, now });
+      reaped += 1;
+      continue;
+    }
     const cutoff = call.status === "dialing" ? dialingCutoff : liveCutoff;
     if (call.startedAt.getTime() > cutoff.getTime()) continue;
     // End time equals answer time, so the unknown stretch is not charged to the customer.

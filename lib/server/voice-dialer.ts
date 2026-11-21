@@ -1,5 +1,5 @@
-import { SIPTransport } from "@livekit/protocol";
-import { AgentDispatchClient, RoomServiceClient, SipClient } from "livekit-server-sdk";
+import { ConnectTwilioCallRequest_TwilioCallDirection, JobRestartPolicy, RoomAgentDispatch, SIPTransport } from "@livekit/protocol";
+import { AgentDispatchClient, ConnectorClient, RoomServiceClient, SipClient } from "livekit-server-sdk";
 
 /**
  * The boundary with LiveKit. Everything above this file works with a plain
@@ -84,7 +84,12 @@ export function createLiveKitDialer(config: LiveKitConfig): VoiceDialer {
 
     async dial(request) {
       const room = roomNameForCall(request.callId);
-      await dispatch.createDispatch(room, config.agentName, { metadata: JSON.stringify(request.metadata) });
+      // Never restart the agent if it crashes: a restarted agent would say the AI disclosure a
+      // second time to someone already mid-call. A crashed call is closed out by the app instead.
+      await dispatch.createDispatch(room, config.agentName, {
+        metadata: JSON.stringify(request.metadata),
+        restartPolicy: JobRestartPolicy.JRP_NEVER,
+      });
       try {
         await sip.createSipParticipant(request.trunkId, request.to, room, {
           participantIdentity: `callee-${request.callId}`,
@@ -107,6 +112,43 @@ export function createLiveKitDialer(config: LiveKitConfig): VoiceDialer {
       await rooms.deleteRoom(room);
     },
   };
+}
+
+/**
+ * The Twilio connector: LiveKit hands back a WebSocket address that Twilio streams the call's
+ * audio to, and dispatches the voice agent into the room. Only used once a person has answered,
+ * so a call nobody picks up (or a voicemail) never touches LiveKit.
+ */
+export interface VoiceConnector {
+  connectTwilioCall(input: { callId: string; metadata: CallJobMetadata; destinationCountry?: string }): Promise<{ room: string; connectUrl: string }>;
+}
+
+export function createLiveKitConnector(config: LiveKitConfig): VoiceConnector {
+  const connector = new ConnectorClient(config.url, config.apiKey, config.apiSecret);
+  return {
+    async connectTwilioCall({ callId, metadata, destinationCountry }) {
+      const room = roomNameForCall(callId);
+      const response = await connector.connectTwilioCall({
+        twilioCallDirection: ConnectTwilioCallRequest_TwilioCallDirection.OUTBOUND,
+        roomName: room,
+        participantIdentity: `callee-${callId}`,
+        participantName: "Prospect",
+        ...(destinationCountry ? { destinationCountry } : {}),
+        // Never restart the agent if it crashes: a restarted agent would say the AI disclosure again.
+        agents: [new RoomAgentDispatch({ agentName: config.agentName, metadata: JSON.stringify(metadata), restartPolicy: JobRestartPolicy.JRP_NEVER })],
+      });
+      return { room, connectUrl: response.connectUrl };
+    },
+  };
+}
+
+export function unconfiguredConnector(): VoiceConnector {
+  return { connectTwilioCall: () => Promise.reject(new Error("Voice calling isn't configured on this deployment (LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET are missing).")) };
+}
+
+export function getVoiceConnector(env: Record<string, string | undefined> = process.env): VoiceConnector {
+  const config = liveKitConfigFromEnv(env);
+  return config ? createLiveKitConnector(config) : unconfiguredConnector();
 }
 
 /** A dialer for environments with no LiveKit: every call fails clearly instead of hanging. */

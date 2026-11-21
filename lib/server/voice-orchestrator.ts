@@ -9,7 +9,8 @@ import { hasCallConsent, isNumberBlocked, toE164 } from "./voice-consent";
 import { getVoiceAddon, maxSecondsForNextCall } from "./voice-credits";
 import type { CallJobMetadata, VoiceDialer } from "./voice-dialer";
 import { finalizeCall, reapStaleCalls } from "./voice-reports";
-import { getSipConnection, getVoiceSettings } from "./voice-settings";
+import { getPhoneLine, getVoiceSettings, pauseVoiceForRejectedKey, type PhoneLine } from "./voice-settings";
+import { classifyTwilioError, createTwilioCaller, twilioCallbackUrls, type TwilioCaller } from "./voice-twilio";
 
 /**
  * Decides, every minute, which calls to place right now. A call is placed only
@@ -59,7 +60,19 @@ export type OrchestratorDeps = {
   reportUrl: string;
   now?: Date;
   random?: () => number;
+  /** Calls allowed at once across every workspace (the LiveKit plan's agent-session limit). */
+  platformMaxConcurrentCalls?: number;
+  /** Places calls on a customer's Twilio account. */
+  twilioCaller?: TwilioCaller;
 };
+
+/** The default sits just under LiveKit's Ship plan limit of 20 agent sessions. */
+export const DEFAULT_PLATFORM_MAX_CONCURRENT_CALLS = 18;
+
+export function platformMaxConcurrentCalls(env: Record<string, string | undefined> = process.env) {
+  const value = Number(env.VOICE_PLATFORM_MAX_CONCURRENT_CALLS);
+  return Number.isInteger(value) && value > 0 ? value : DEFAULT_PLATFORM_MAX_CONCURRENT_CALLS;
+}
 
 export async function processVoiceQueue(deps: OrchestratorDeps): Promise<QueueSummary> {
   const now = deps.now ?? new Date();
@@ -72,11 +85,20 @@ export async function processVoiceQueue(deps: OrchestratorDeps): Promise<QueueSu
   const running = await database.select().from(voiceCampaigns).where(eq(voiceCampaigns.status, "running"));
   const organizationIds = [...new Set(running.map((campaign) => campaign.organizationId))];
 
+  // LiveKit limits agent sessions per project, so all workspaces share one ceiling. When it's
+  // reached nothing is failed or skipped: the calls simply wait for the next minute.
+  const [platformActive] = await database
+    .select({ count: sql<number>`count(*)::int` })
+    .from(voiceCalls)
+    .where(inArray(voiceCalls.status, ["dialing", "in_progress"]));
+  let platformRemaining = (deps.platformMaxConcurrentCalls ?? platformMaxConcurrentCalls()) - Number(platformActive?.count ?? 0);
+
   for (const organizationId of organizationIds) {
+    if (platformRemaining <= 0) break;
     const settings = await getVoiceSettings(organizationId);
     if (settings.voicePaused || !settings.telephonyConnected) continue;
-    const sip = await getSipConnection(organizationId);
-    if (!sip) continue;
+    const line = await getPhoneLine(organizationId);
+    if (!line) continue;
 
     const workspaceZone = await organizationTimezone(organizationId);
     const [active] = await database
@@ -88,7 +110,7 @@ export async function processVoiceQueue(deps: OrchestratorDeps): Promise<QueueSu
       .select({ count: sql<number>`count(*)::int` })
       .from(voiceCalls)
       .where(and(eq(voiceCalls.organizationId, organizationId), gte(voiceCalls.startedAt, start)));
-    const capacity = Math.min(settings.maxConcurrentCalls - Number(active?.count ?? 0), settings.dailyCallLimit - Number(today?.count ?? 0));
+    const capacity = Math.min(settings.maxConcurrentCalls - Number(active?.count ?? 0), settings.dailyCallLimit - Number(today?.count ?? 0), platformRemaining);
     if (capacity <= 0) continue;
 
     // The paid add-on lapsed (cancelled or unpaid): calls can't run, whatever minutes remain.
@@ -168,11 +190,12 @@ export async function processVoiceQueue(deps: OrchestratorDeps): Promise<QueueSu
       slots -= 1;
       placements.push(
         placeCall({
-          deps, now, organizationId, sip, maxSeconds, phone, zone, target, lead, voiceCampaign, campaign,
+          deps, now, organizationId, line, maxSeconds, phone, zone, target, lead, voiceCampaign, campaign,
         }),
       );
     }
 
+    platformRemaining -= placements.length;
     for (const result of await Promise.all(placements)) summary[result] += 1;
   }
   return summary;
@@ -182,7 +205,7 @@ async function placeCall(input: {
   deps: OrchestratorDeps;
   now: Date;
   organizationId: string;
-  sip: NonNullable<Awaited<ReturnType<typeof getSipConnection>>>;
+  line: PhoneLine;
   maxSeconds: number;
   phone: string;
   zone: string;
@@ -203,6 +226,7 @@ async function placeCall(input: {
     phone: input.phone,
     level: voiceCampaign.level,
     status: "dialing",
+    lineType: input.line.type,
     startedAt: now,
   });
 
@@ -223,18 +247,23 @@ async function placeCall(input: {
       maxSeconds: input.maxSeconds,
       reportUrl: deps.reportUrl,
     };
+    if (input.line.type === "twilio") return await placeTwilioCall({ ...input, callId, metadata });
+
+    const sip = input.line.sip;
     const result = await deps.dialer.dial({
       callId,
       to: input.phone,
-      sip: { address: input.sip.address, username: input.sip.username, password: input.sip.password, callerNumber: input.sip.callerNumber },
-      trunkId: input.sip.trunkId,
+      sip: { address: sip.address, username: sip.username, password: sip.password, callerNumber: sip.callerNumber },
+      trunkId: sip.trunkId,
       metadata,
       ringSeconds: RING_SECONDS,
     });
     if (result.status === "answered") {
+      // The answer time is NOT set here: `now` is when this tick started, before the phone rang,
+      // so using it would bill the ringing. The worker reports the real answer time.
       await database
         .update(voiceCalls)
-        .set({ status: "in_progress", room: result.room, answeredAt: now, updatedAt: now })
+        .set({ status: "in_progress", room: result.room, updatedAt: new Date() })
         .where(eq(voiceCalls.id, callId));
       return "dialed";
     }
@@ -243,6 +272,48 @@ async function placeCall(input: {
     return "unanswered";
   } catch (error) {
     await finalizeCall({ callId, outcome: "failed", error: error instanceof Error ? error.message : "The call could not be placed.", now });
+    return "failed";
+  }
+}
+
+/**
+ * A call on the customer's Twilio account. Twilio does the dialing and the voicemail detection,
+ * so this returns as soon as Twilio accepts the call: whether it was answered, missed or reached
+ * a machine arrives later through Twilio's callbacks. Nothing is created on LiveKit yet.
+ */
+async function placeTwilioCall(input: {
+  deps: OrchestratorDeps;
+  now: Date;
+  organizationId: string;
+  line: PhoneLine;
+  maxSeconds: number;
+  phone: string;
+  target: typeof voiceCallTargets.$inferSelect;
+  callId: string;
+  metadata: CallJobMetadata;
+}): Promise<"dialed" | "unanswered" | "failed"> {
+  if (input.line.type !== "twilio") throw new Error("Not a Twilio line.");
+  const { deps, now, callId } = input;
+  const database = getDatabase();
+  const caller = deps.twilioCaller ?? createTwilioCaller();
+  const urls = twilioCallbackUrls({ baseUrl: new URL(deps.reportUrl).origin, callId });
+  // What the agent needs when the call is answered is kept with the call, so the answer webhook
+  // doesn't have to rebuild the script.
+  await database.update(voiceCalls).set({ jobMetadata: input.metadata as unknown as Record<string, unknown> }).where(eq(voiceCalls.id, callId));
+  try {
+    const { callSid } = await caller.place(input.line.twilio, { to: input.phone, ...urls, ringSeconds: RING_SECONDS, maxSeconds: input.maxSeconds });
+    await database.update(voiceCalls).set({ providerCallSid: callSid, updatedAt: new Date() }).where(eq(voiceCalls.id, callId));
+    return "dialed";
+  } catch (error) {
+    const failure = classifyTwilioError(error);
+    await finalizeCall({ callId, outcome: "failed", error: failure.message, now });
+    if (failure.kind === "credentials") {
+      // Nothing will connect until the key is fixed, so stop calling instead of failing every call.
+      await pauseVoiceForRejectedKey(input.organizationId);
+    } else if (failure.kind === "invalid_number" || failure.kind === "blocked_country") {
+      // Retrying can't help; drop the person with the reason.
+      await database.update(voiceCallTargets).set({ status: "skipped", skipReason: failure.message, updatedAt: new Date() }).where(eq(voiceCallTargets.id, input.target.id));
+    }
     return "failed";
   }
 }

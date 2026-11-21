@@ -78,9 +78,9 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
     return { id, added };
   }
 
-  async function tick(dialer: Dialer, now = NOW) {
+  async function tick(dialer: Dialer, now = NOW, extra: { platformMaxConcurrentCalls?: number } = {}) {
     const { processVoiceQueue } = await import("./voice-orchestrator");
-    return processVoiceQueue({ dialer, reportUrl: REPORT_URL, now, random: () => 0 });
+    return processVoiceQueue({ dialer, reportUrl: REPORT_URL, now, random: () => 0, ...extra });
   }
   async function targets() {
     const { voiceCallTargets } = await schema();
@@ -140,6 +140,31 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       // The line is busy, so the next tick doesn't dial the second lead until the first ends.
       expect(await tick(dialer)).toMatchObject({ dialed: 0 });
       expect(cold).toBeTruthy();
+    });
+
+    it("stops at the platform-wide ceiling and waits, without failing or skipping anyone", async () => {
+      const ws = await workspace();
+      await lead(ws, "+14155550111", { name: "First Lead" });
+      await lead(ws, "+14155550122", { name: "Second Lead" });
+      await campaign(ws);
+
+      const dialer = fakeDialer();
+      // LiveKit limits agent sessions per project; with room for one call, only one is placed.
+      expect(await tick(dialer, NOW, { platformMaxConcurrentCalls: 1 })).toMatchObject({ dialed: 1, skipped: 0, failed: 0 });
+      expect(dialer.dial).toHaveBeenCalledTimes(1);
+      // Still full on the next minute: nothing more is dialed, and the other lead is still queued.
+      expect(await tick(dialer, NOW, { platformMaxConcurrentCalls: 1 })).toMatchObject({ dialed: 0, skipped: 0 });
+      expect((await targets()).filter((target) => target.status === "queued")).toHaveLength(1);
+    });
+
+    it("dispatches the agent without restarting it, and leaves the answer time to the worker", async () => {
+      const ws = await workspace();
+      await lead(ws, "+14155550111");
+      await campaign(ws);
+      await tick(fakeDialer());
+      // The tick started before the phone rang, so it must not stamp an answer time of its own.
+      const [call] = await calls();
+      expect(call).toMatchObject({ status: "in_progress", answeredAt: null });
     });
 
     it("never dials two calls for one lead, even if two ticks run at once", async () => {
@@ -357,6 +382,18 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       expect((await targets())[0]).toMatchObject({ status: "done", lastOutcome: "meeting_requested" });
       const { getVoiceBalance } = await import("./voice-credits");
       expect((await getVoiceBalance(ws.organizationId, NOW)).availableSeconds).toBe(6_000 - 125);
+    });
+
+    it("never charges a call nobody answered, a voicemail or a failure, whatever times arrive", async () => {
+      const { getVoiceBalance } = await import("./voice-credits");
+      for (const outcome of ["no_answer", "voicemail", "failed"] as const) {
+        const { ws, callId } = await liveCall({ answeredSecondsAgo: 300 });
+        await finish(callId, { outcome });
+        const call = (await calls()).find((row) => row.id === callId)!;
+        expect(call.billedSeconds).toBe(0);
+        expect((await getVoiceBalance(ws.organizationId, NOW)).availableSeconds).toBe(6_000);
+        await truncateAllTables();
+      }
     });
 
     it("ends the campaign once its last lead is finished", async () => {

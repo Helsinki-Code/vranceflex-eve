@@ -1104,11 +1104,16 @@ export const voiceSettings = pgTable("voice_settings", {
   voicePaused: boolean("voice_paused").default(false).notNull(),
   pausedReason: text("paused_reason"),
   pausedAt: timestamp("paused_at", { withTimezone: true }),
-  // The customer's own Twilio SIP trunk. The username and password are encrypted.
+  // Which kind of phone line the workspace connected: its Twilio account ("twilio") or a SIP trunk ("sip").
+  lineType: text("line_type").$type<"twilio" | "sip">().default("sip").notNull(),
+  // A SIP trunk (the customer's carrier). The username and password are encrypted.
   sipAddress: text("sip_address"),
   callerNumber: text("caller_number"),
   encryptedSipCredentials: text("encrypted_sip_credentials"),
   livekitTrunkId: text("livekit_trunk_id"),
+  // A Twilio line: the account SID, plus a restricted API key (SID and secret) kept encrypted.
+  twilioAccountSid: text("twilio_account_sid"),
+  encryptedTwilioKey: text("encrypted_twilio_key"),
   telephonyConnectedAt: timestamp("telephony_connected_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1304,10 +1309,22 @@ export const voiceCalls = pgTable(
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewNote: text("review_note"),
     error: text("error"),
+    // Which phone line placed the call, and, for Twilio, what Twilio reported about it.
+    lineType: text("line_type").$type<"twilio" | "sip">().default("sip").notNull(),
+    providerCallSid: text("provider_call_sid"),
+    answeredBy: text("answered_by"),
+    providerStatus: text("provider_status"),
+    providerDurationSeconds: integer("provider_duration_seconds"),
+    // Twilio calls: what the agent needs when the call is answered (built when it was placed,
+    // so the answer webhook doesn't rebuild it), and the worker's report while Twilio's own
+    // "completed" is still on its way (a call is charged once both have arrived).
+    jobMetadata: jsonb("job_metadata").$type<Record<string, unknown>>(),
+    heldReport: jsonb("held_report").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    uniqueIndex("voice_calls_provider_call_sid_unique").on(table.providerCallSid),
     index("voice_calls_org_created_idx").on(table.organizationId, table.createdAt),
     index("voice_calls_org_review_idx").on(table.organizationId, table.reviewStatus),
     index("voice_calls_status_idx").on(table.status, table.startedAt),

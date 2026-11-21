@@ -24,6 +24,8 @@ export function VoiceSettingsPanel({ initial, balance, offer, isAdmin }: { initi
   const [settings, setSettings] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [line, setLine] = useState({ sipAddress: "", username: "", password: "", callerNumber: "" });
+  const [lineKind, setLineKind] = useState<"twilio" | "sip">("twilio");
+  const [twilio, setTwilio] = useState({ accountSid: "", keySid: "", keySecret: "", callerNumber: "" });
   const [hours, setHours] = useState({ days: initial.window.days, start: initial.window.start, end: initial.window.end, maxConcurrentCalls: initial.maxConcurrentCalls, dailyCallLimit: initial.dailyCallLimit });
 
   const run = async (key: string, action: () => Promise<void>, failure: string) => {
@@ -53,26 +55,47 @@ export function VoiceSettingsPanel({ initial, balance, offer, isAdmin }: { initi
 
     <Panel
       title="Your phone line"
-      description="Calls go out over your own Twilio account, so they carry your number and your Twilio bill. Connect a Twilio Elastic SIP Trunk."
+      description="Calls go out over your own Twilio account, so they carry your number and your Twilio bill."
       actions={settings.telephonyConnected ? <Chip tone="verified">Connected</Chip> : <Chip tone="warning">Not connected</Chip>}
     >
       {settings.telephonyConnected ? <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm"><p className="font-medium">{settings.callerNumber}</p><p className="font-mono text-xs text-muted-foreground">{settings.sipAddress}</p></div>
+        <div className="text-sm"><p className="font-medium">{settings.callerNumber}</p><p className="font-mono text-xs text-muted-foreground">{settings.lineType === "twilio" ? `Twilio account ${settings.twilioAccountSid}` : `SIP trunk ${settings.sipAddress}`}</p></div>
         {isAdmin ? <ConfirmAction destructive title="Disconnect your phone line?" description="No calls can be placed until a line is connected again. Calls in progress finish." confirmLabel="Disconnect" onConfirm={() => void run("disconnect", async () => { apply(await requestJson<VoiceSettings>("/api/voice/settings/telephony", { method: "DELETE" })); toast.success("Phone line disconnected."); }, "Couldn't disconnect.")} trigger={<Button size="sm" variant="outline" disabled={busy !== null}><Unplug />Disconnect</Button>} /> : null}
-      </div> : isAdmin ? <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void run("connect", async () => { apply(await requestJson<VoiceSettings>("/api/voice/settings/telephony", { method: "POST", body: JSON.stringify(line) })); setLine({ sipAddress: "", username: "", password: "", callerNumber: "" }); toast.success("Phone line connected."); }, "Couldn't connect the phone line."); }}>
-        <ol className="list-decimal space-y-1 pl-5 text-xs leading-5 text-muted-foreground">
-          <li>In Twilio, create an Elastic SIP Trunk and give it a termination URI (like <span className="font-mono">yourname.pstn.twilio.com</span>).</li>
-          <li>Add a credential list (a username and password) to the trunk&apos;s termination settings.</li>
-          <li>Add the Twilio phone number you want to call from to the trunk.</li>
-        </ol>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Termination URI"><Input required value={line.sipAddress} onChange={(event) => setLine({ ...line, sipAddress: event.target.value })} placeholder="yourname.pstn.twilio.com" /></FormField>
-          <FormField label="Number to call from" hint="International format."><Input required value={line.callerNumber} onChange={(event) => setLine({ ...line, callerNumber: event.target.value })} placeholder="+14155550100" /></FormField>
-          <FormField label="SIP username"><Input required autoComplete="off" value={line.username} onChange={(event) => setLine({ ...line, username: event.target.value })} /></FormField>
-          <FormField label="SIP password" hint="Stored encrypted. Never shown again."><Input required type="password" autoComplete="new-password" value={line.password} onChange={(event) => setLine({ ...line, password: event.target.value })} /></FormField>
+      </div> : isAdmin ? <div className="grid gap-4">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Phone line type">
+          <Button type="button" size="sm" role="tab" aria-selected={lineKind === "twilio"} variant={lineKind === "twilio" ? "default" : "outline"} onClick={() => setLineKind("twilio")}>Your Twilio account</Button>
+          <Button type="button" size="sm" role="tab" aria-selected={lineKind === "sip"} variant={lineKind === "sip" ? "default" : "outline"} onClick={() => setLineKind("sip")}>Another carrier (SIP)</Button>
         </div>
-        <Button type="submit" className="justify-self-start" disabled={busy !== null}>{busy === "connect" ? <LoaderCircle className="animate-spin" /> : <Phone />}Connect phone line</Button>
-      </form> : <p className="text-sm text-muted-foreground">Ask a workspace admin to connect the phone line.</p>}
+        {lineKind === "twilio" ? <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void run("connect", async () => { apply(await requestJson<VoiceSettings>("/api/voice/settings/twilio", { method: "POST", body: JSON.stringify(twilio) })); setTwilio({ accountSid: "", keySid: "", keySecret: "", callerNumber: "" }); toast.success("Phone line connected."); }, "Couldn't connect the phone line."); }}>
+          <ol className="list-decimal space-y-1 pl-5 text-xs leading-5 text-muted-foreground">
+            <li>In Twilio, open Account → API keys &amp; tokens and create an API key of type <strong>Restricted</strong>.</li>
+            <li>Give it only these permissions: Voice → Calls (create, read, update) and Phone Numbers → Incoming Phone Numbers (read).</li>
+            <li>Copy the key SID (starts with SK) and its secret straight away, because Twilio shows the secret once. We never ask for your Auth Token.</li>
+            <li>Twilio bills the call, its voicemail detection and your number to your account.</li>
+          </ol>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Account SID" hint="Starts with AC."><Input required autoComplete="off" value={twilio.accountSid} onChange={(event) => setTwilio({ ...twilio, accountSid: event.target.value })} placeholder="AC…" /></FormField>
+            <FormField label="Number to call from" hint="A number on this Twilio account, in international format."><Input required value={twilio.callerNumber} onChange={(event) => setTwilio({ ...twilio, callerNumber: event.target.value })} placeholder="+14155550100" /></FormField>
+            <FormField label="API key SID" hint="Starts with SK."><Input required autoComplete="off" value={twilio.keySid} onChange={(event) => setTwilio({ ...twilio, keySid: event.target.value })} placeholder="SK…" /></FormField>
+            <FormField label="API key secret" hint="Stored encrypted. Never shown again."><Input required type="password" autoComplete="new-password" value={twilio.keySecret} onChange={(event) => setTwilio({ ...twilio, keySecret: event.target.value })} /></FormField>
+          </div>
+          <Button type="submit" className="justify-self-start" disabled={busy !== null}>{busy === "connect" ? <LoaderCircle className="animate-spin" /> : <Phone />}Connect phone line</Button>
+        </form> : <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void run("connect", async () => { apply(await requestJson<VoiceSettings>("/api/voice/settings/telephony", { method: "POST", body: JSON.stringify(line) })); setLine({ sipAddress: "", username: "", password: "", callerNumber: "" }); toast.success("Phone line connected."); }, "Couldn't connect the phone line."); }}>
+          <ol className="list-decimal space-y-1 pl-5 text-xs leading-5 text-muted-foreground">
+            <li>In Twilio, create an Elastic SIP Trunk and give it a termination URI (like <span className="font-mono">yourname.pstn.twilio.com</span>).</li>
+            <li>Add a credential list (a username and password) to the trunk&apos;s termination settings.</li>
+            <li>Add the Twilio phone number you want to call from to the trunk.</li>
+            <li>Voicemail isn&apos;t detected on a trunk before the agent speaks, so the Twilio account option above is the better fit for most teams.</li>
+          </ol>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Termination URI"><Input required value={line.sipAddress} onChange={(event) => setLine({ ...line, sipAddress: event.target.value })} placeholder="yourname.pstn.twilio.com" /></FormField>
+            <FormField label="Number to call from" hint="International format."><Input required value={line.callerNumber} onChange={(event) => setLine({ ...line, callerNumber: event.target.value })} placeholder="+14155550100" /></FormField>
+            <FormField label="SIP username"><Input required autoComplete="off" value={line.username} onChange={(event) => setLine({ ...line, username: event.target.value })} /></FormField>
+            <FormField label="SIP password" hint="Stored encrypted. Never shown again."><Input required type="password" autoComplete="new-password" value={line.password} onChange={(event) => setLine({ ...line, password: event.target.value })} /></FormField>
+          </div>
+          <Button type="submit" className="justify-self-start" disabled={busy !== null}>{busy === "connect" ? <LoaderCircle className="animate-spin" /> : <Phone />}Connect phone line</Button>
+        </form>}
+      </div> : <p className="text-sm text-muted-foreground">Ask a workspace admin to connect the phone line.</p>}
     </Panel>
 
     <Panel
