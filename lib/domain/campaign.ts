@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OFFER_MAX_LENGTH, offerProblem } from "./offer";
 import { recurrenceSchema } from "./pipeline";
 
 export const campaignStatuses = [
@@ -65,6 +66,17 @@ export const campaignCreateSchema = z.object({
   ]),
   monthlyBudgetUsd: z.number().int().min(100).max(100_000),
   channels: z.array(z.enum(["email", "sms"])).min(1),
+  // The one free, useful thing every first email offers (see offer.ts). Optional.
+  offer: z
+    .string()
+    .trim()
+    .max(OFFER_MAX_LENGTH)
+    .transform((value) => value || undefined)
+    .superRefine((value, context) => {
+      const problem = offerProblem(value);
+      if (problem) context.addIssue({ code: "custom", message: problem });
+    })
+    .optional(),
 });
 
 export type CampaignCreateInput = z.infer<typeof campaignCreateSchema>;

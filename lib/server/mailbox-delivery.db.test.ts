@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pinClock, unpinClock } from "./test-support/clock";
 import { hasTestDatabase, truncateAllTables } from "./test-support/db";
 import { seedCampaign, seedDeliveryJob, seedLead, seedOrganization } from "./test-support/seed";
 
@@ -19,7 +20,12 @@ process.env.CREDENTIALS_ENCRYPTION_KEY ??= randomBytes(32).toString("base64url")
 describe.skipIf(!hasTestDatabase)("mailbox delivery", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    pinClock();
     await truncateAllTables();
+  });
+
+  afterEach(() => {
+    unpinClock();
   });
 
   async function db() {

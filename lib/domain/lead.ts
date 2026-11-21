@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { emailStatuses } from "./email-status";
 
 export const leadStatuses = [
   "new",
@@ -61,6 +62,7 @@ export const leadSchema = z.object({
   jobTitle: z.string(),
   email: z.string().email().nullable(),
   emailVerified: z.boolean(),
+  emailStatus: z.enum(emailStatuses),
   phone: z.string().nullable(),
   phoneVerified: z.boolean(),
   linkedinUrl: z.string().url().nullable(),

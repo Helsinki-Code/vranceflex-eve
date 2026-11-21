@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpen, Check, ChevronsUpDown, CreditCard, LoaderCircle, LogOut, Mail, Menu, MessageSquareText, Plus, Search, Settings2, Target, Users } from "lucide-react";
+import { BarChart3, BookOpen, Check, ChevronsUpDown, CreditCard, LoaderCircle, LogOut, Mail, Menu, MessageSquareText, Phone, Plus, Search, Settings2, Target, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ const links = [
   { label: "Leads", href: "/leads", icon: Users, match: ["/leads"] },
   { label: "ICP report", href: "/icp", icon: Target, match: ["/icp"] },
   { label: "Replies", href: "/replies", icon: MessageSquareText, match: ["/replies"] },
+  { label: "Calls", href: "/calls", icon: Phone, match: ["/calls"] },
   { label: "Settings", href: "/settings", icon: Settings2, match: ["/settings"] },
 ] as const;
 

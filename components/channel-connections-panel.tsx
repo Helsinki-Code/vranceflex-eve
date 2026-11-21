@@ -42,16 +42,16 @@ function ProviderCard({ icon, name, purpose, connected, children }: { icon: Reac
   </section>;
 }
 
-export function ChannelConnectionsPanel({ organizationId, initialResend, initialTwilio, isAdmin }: { organizationId: string; initialResend: ResendSummary; initialTwilio: TwilioSummary; isAdmin: boolean }) {
+export function ChannelConnectionsPanel({ organizationId, initialResend, initialTwilio, isAdmin, smsEnabled = false }: { organizationId: string; initialResend: ResendSummary; initialTwilio: TwilioSummary; isAdmin: boolean; smsEnabled?: boolean }) {
   const router = useRouter();
   const [resend, setResend] = useState(initialResend);
   const [twilio, setTwilio] = useState(initialTwilio);
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
 
-  return <div className="grid gap-4 lg:grid-cols-2">
+  return <div className={smsEnabled ? "grid gap-4 lg:grid-cols-2" : "grid gap-4"}>
     <ResendCard isAdmin={isAdmin} webhookUrl={origin ? `${origin}/api/webhooks/resend/${organizationId}` : ""} summary={resend} onChange={(next) => { setResend(next); router.refresh(); }} />
-    <TwilioCard isAdmin={isAdmin} webhookUrl={origin ? `${origin}/api/webhooks/twilio/${organizationId}` : ""} summary={twilio} onChange={(next) => { setTwilio(next); router.refresh(); }} />
+    {smsEnabled ? <TwilioCard isAdmin={isAdmin} webhookUrl={origin ? `${origin}/api/webhooks/twilio/${organizationId}` : ""} summary={twilio} onChange={(next) => { setTwilio(next); router.refresh(); }} /> : null}
   </div>;
 }
 

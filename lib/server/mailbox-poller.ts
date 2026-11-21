@@ -8,6 +8,8 @@ import { decryptMailboxSecret, markMailboxError } from "./mailbox-store";
 import { normalizeEmailAddress } from "./reply-address";
 import { recordInboundReply, type ReplyContext } from "./reply-store";
 import { suppressLeadForUnsubscribe } from "./suppression";
+import { pauseWorkspaceOnHighBounceRate } from "./sending-settings";
+import { isAutomatedReply } from "./auto-reply";
 
 const pollEveryMs = 5 * 60_000;
 const bounceWindowMs = 7 * 86_400_000;
@@ -52,6 +54,7 @@ async function handleReply(mailbox: typeof sendingMailboxes.$inferSelect, uidVal
     text: replyBody(item.parsed).slice(0, 20_000),
     html: typeof item.parsed.html === "string" ? item.parsed.html.slice(0, 200_000) : null,
     receivedAt: item.parsed.date ?? new Date(),
+    autoReply: isAutomatedReply(item.parsed.headers),
   });
   return "recorded";
 }
@@ -120,7 +123,11 @@ export async function pollMailbox(mailbox: typeof sendingMailboxes.$inferSelect)
       .update(sendingMailboxes)
       .set({ imapUidValidity: scan.uidValidity, imapLastUid: scan.lastUid, lastPolledAt: new Date(), lastError: null, updatedAt: new Date() })
       .where(eq(sendingMailboxes.id, mailbox.id));
-    if (bounced) await pauseOnHighBounceRate(mailbox.id);
+    if (bounced) {
+      await pauseOnHighBounceRate(mailbox.id);
+      // One mailbox pausing is not enough: a bad list hurts every mailbox.
+      await pauseWorkspaceOnHighBounceRate(mailbox.organizationId);
+    }
     return { mailboxId: mailbox.id, items: scan.items.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Inbox check failed.";

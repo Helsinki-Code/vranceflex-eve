@@ -58,6 +58,10 @@ export async function seedLead(
     phoneVerified: boolean;
     doNotContact: boolean;
     status: "new" | "suppressed";
+    personName: string;
+    companyDomain: string | null;
+    timezone: string | null;
+    country: string | null;
   }> = {},
 ) {
   const database = getDatabase();
@@ -69,7 +73,10 @@ export async function seedLead(
     sourceProvider: "test",
     sourceLeadId: leadId,
     companyName: "Prospect Co",
-    personName: "Jamie Prospect",
+    companyDomain: overrides.companyDomain ?? null,
+    timezone: overrides.timezone ?? null,
+    country: overrides.country ?? null,
+    personName: overrides.personName ?? "Jamie Prospect",
     jobTitle: "Head of Operations",
     email: overrides.email ?? `lead-${leadId}@example.com`,
     emailVerified: overrides.emailVerified ?? true,
@@ -90,21 +97,31 @@ export async function seedDeliveryJob(input: {
   scheduledFor?: Date;
   availableAt?: Date;
   maxAttempts?: number;
+  /** Defaults to a short, harmless test message. */
+  content?: string;
+  subject?: string;
+  stepNumber?: number;
+  sequenceStatus?: "active" | "scheduled" | "approved" | "paused" | "awaiting_approval";
+  messageStatus?: "scheduled" | "approved" | "draft";
+  /** Skips creating the delivery job, for tests that only need drafted copy. */
+  skipJob?: boolean;
+  /** Adds another step to an existing sequence instead of creating a new one. */
+  sequenceId?: string;
 }) {
   const database = getDatabase();
-  const sequenceId = crypto.randomUUID();
+  const sequenceId = input.sequenceId ?? crypto.randomUUID();
   const messageId = crypto.randomUUID();
   const jobId = crypto.randomUUID();
   const now = input.scheduledFor ?? new Date(Date.now() - 60_000);
 
-  await database.insert(outreachSequences).values({
+  if (!input.sequenceId) await database.insert(outreachSequences).values({
     id: sequenceId,
     organizationId: input.organizationId,
     campaignId: input.campaignId,
     leadId: input.leadId,
     channel: input.channel,
     name: "Sequence",
-    status: "active",
+    status: input.sequenceStatus ?? "active",
   });
   await database.insert(outreachMessages).values({
     id: messageId,
@@ -113,15 +130,15 @@ export async function seedDeliveryJob(input: {
     sequenceId,
     leadId: input.leadId,
     channel: input.channel,
-    stepNumber: 1,
+    stepNumber: input.stepNumber ?? 1,
     dayOffset: 0,
-    subject: input.channel === "email" ? "Quick question" : null,
-    content: "Hello, this is a test outreach message.",
-    status: "scheduled",
+    subject: input.channel === "email" ? (input.subject ?? "Quick question") : null,
+    content: input.content ?? "Hello, this is a test outreach message.",
+    status: input.messageStatus ?? "scheduled",
     idempotencyKey: `message/${messageId}`,
     scheduledFor: now,
   });
-  await database.insert(deliveryJobs).values({
+  if (!input.skipJob) await database.insert(deliveryJobs).values({
     id: jobId,
     organizationId: input.organizationId,
     campaignId: input.campaignId,

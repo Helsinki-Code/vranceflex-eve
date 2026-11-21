@@ -14,6 +14,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { Campaign } from "../../domain/campaign";
+import { emailStatuses } from "../../domain/email-status";
 import { campaignStatuses } from "../../domain/campaign";
 import type { IcpProfile, Lead } from "../../domain/lead";
 import { evidenceKinds, leadStatuses } from "../../domain/lead";
@@ -29,6 +30,7 @@ import {
 import type { ScheduleRecurrence } from "../../domain/pipeline";
 
 export const campaignStatusEnum = pgEnum("campaign_status", campaignStatuses);
+export const emailStatusEnum = pgEnum("email_status", emailStatuses);
 export const campaignSourceKindEnum = pgEnum("campaign_source_kind", ["website", "product_idea"]);
 export const membershipRoleEnum = pgEnum("membership_role", [
   "admin",
@@ -239,6 +241,8 @@ export const campaigns = pgTable(
     leadCount: integer("lead_count").notNull(),
     monthlyBudgetUsd: integer("monthly_budget_usd").notNull(),
     channels: jsonb("channels").$type<Campaign["channels"]>().notNull(),
+    // The free, useful thing first emails offer. Null when the campaign has none.
+    offer: text("offer"),
     status: campaignStatusEnum("status").default("researching").notNull(),
     providerSendReference: text("provider_send_reference"),
     recurrence: jsonb("recurrence").$type<ScheduleRecurrence | null>(),
@@ -313,6 +317,9 @@ export const campaignCandidates = pgTable(
     status: candidateStatusEnum("status").default("discovered").notNull(),
     parallelRunId: text("parallel_run_id"),
     email: text("email"),
+    emailStatus: emailStatusEnum("email_status").default("unknown").notNull(),
+    emailCheckedAt: timestamp("email_checked_at", { withTimezone: true }),
+    emailVerifier: text("email_verifier"),
     phone: text("phone"),
     linkedinUrl: text("linkedin_url"),
     xHandle: text("x_handle"),
@@ -423,13 +430,22 @@ export const leads = pgTable(
     personName: text("person_name").notNull(),
     jobTitle: text("job_title").notNull(),
     email: text("email"),
+    // The yes/no gate every send checks. Derived from emailStatus: true for
+    // "verified", and for "risky" only when the workspace allows risky sends.
     emailVerified: boolean("email_verified").default(false).notNull(),
+    emailStatus: emailStatusEnum("email_status").default("unknown").notNull(),
+    emailCheckedAt: timestamp("email_checked_at", { withTimezone: true }),
+    emailVerifier: text("email_verifier"),
     phone: text("phone"),
     phoneVerified: boolean("phone_verified").default(false).notNull(),
     linkedinUrl: text("linkedin_url"),
     confidence: integer("confidence").notNull(),
     status: leadStatusEnum("status").default("new").notNull(),
     doNotContact: boolean("do_not_contact").default(false).notNull(),
+    // IANA zone for the recipient when it is known; otherwise the workspace zone is used.
+    timezone: text("timezone"),
+    // ISO country code when it can be told (from the company's domain or the campaign's location).
+    country: text("country"),
     buyingSignals: jsonb("buying_signals").$type<Lead["buyingSignals"]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -443,6 +459,7 @@ export const leads = pgTable(
     index("leads_org_campaign_idx").on(table.organizationId, table.campaignId),
     index("leads_org_confidence_idx").on(table.organizationId, table.confidence),
     index("leads_org_status_idx").on(table.organizationId, table.status),
+    index("leads_org_company_domain_idx").on(table.organizationId, table.companyDomain),
   ],
 );
 
@@ -633,6 +650,8 @@ export const sendingDomains = pgTable(
     dkimSelector: text("dkim_selector").default("google").notNull(),
     lastCheck: jsonb("last_check").$type<DnsRecordCheck[]>().default([]).notNull(),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    // When the domain was first registered, from public RDAP records. Young domains are untrusted by mailbox providers.
+    registeredAt: timestamp("registered_at", { withTimezone: true }),
     status: text("status").$type<"verified" | "partial" | "unverified">().default("unverified").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -729,6 +748,23 @@ export const organizationSendingSettings = pgTable(
     dailySmsLimit: integer("daily_sms_limit").default(0).notNull(),
     // auto: rotate across connected mailboxes when any are active, else Resend.
     emailTransport: text("email_transport").$type<"auto" | "mailboxes" | "resend">().default("auto").notNull(),
+    // Sending window, in the recipient's local time (ISO weekdays 1 = Mon … 7 = Sun).
+    sendDays: jsonb("send_days").$type<number[]>().default([1, 2, 3, 4, 5]).notNull(),
+    windowStart: text("window_start").default("08:00").notNull(),
+    windowEnd: text("window_end").default("17:00").notNull(),
+    useRecipientTimezone: boolean("use_recipient_timezone").default(true).notNull(),
+    // When anyone at a company replies, pause everyone else at that company.
+    stopCompanyOnReply: boolean("stop_company_on_reply").default(true).notNull(),
+    // Workspace-wide kill switch. Trips by hand or when bounces spike.
+    sendingPaused: boolean("sending_paused").default(false).notNull(),
+    pausedReason: text("paused_reason"),
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    // Send to "risky" addresses (catch-all domains, role accounts). Off by default.
+    allowRiskyEmail: boolean("allow_risky_email").default(false).notNull(),
+    // Countries whose cold-email rules an admin has confirmed a lawful basis for (see compliance-rules.ts).
+    acknowledgedCountries: jsonb("acknowledged_countries").$type<string[]>().default([]).notNull(),
+    // Extra domains outreach copy may link to (the seller's own sites, booking pages).
+    linkDomains: jsonb("link_domains").$type<string[]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -1028,5 +1064,271 @@ export const auditEvents = pgTable(
   (table) => [
     index("audit_org_occurred_idx").on(table.organizationId, table.occurredAt),
     index("audit_entity_idx").on(table.entityType, table.entityId),
+  ],
+);
+
+/**
+ * Cached email-verifier answers, keyed by a hash of the normalized address so
+ * no address is stored in the clear. Shared across workspaces: it records only
+ * whether a mailbox accepts mail, and saves paying twice for the same lookup.
+ */
+export const emailVerifications = pgTable("email_verifications", {
+  emailHash: text("email_hash").primaryKey(),
+  status: emailStatusEnum("status").notNull(),
+  verifier: text("verifier").notNull(),
+  detail: text("detail"),
+  checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ---- AI voice calling --------------------------------------------------------------
+
+export type VoiceCampaignStatus = "draft" | "approved" | "running" | "paused" | "completed" | "cancelled";
+export type VoiceTargetStatus = "queued" | "in_progress" | "done" | "skipped";
+export type VoiceCallStatus = "dialing" | "in_progress" | "completed" | "failed";
+export type VoiceMinuteSource = "plan_monthly" | "topup" | "adjustment";
+
+/** One row per workspace: how calls are placed and the rules they follow. */
+export const voiceSettings = pgTable("voice_settings", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  // An admin's attestation that the leads they call have given the required consent.
+  consentAttestedAt: timestamp("consent_attested_at", { withTimezone: true }),
+  consentAttestedBy: text("consent_attested_by").references(() => users.id, { onDelete: "set null" }),
+  // Calling window in the recipient's local time (ISO weekdays), within 08:00-21:00.
+  callDays: jsonb("call_days").$type<number[]>().default([1, 2, 3, 4, 5]).notNull(),
+  callStart: text("call_start").default("09:00").notNull(),
+  callEnd: text("call_end").default("17:00").notNull(),
+  maxConcurrentCalls: integer("max_concurrent_calls").default(2).notNull(),
+  dailyCallLimit: integer("daily_call_limit").default(100).notNull(),
+  voicePaused: boolean("voice_paused").default(false).notNull(),
+  pausedReason: text("paused_reason"),
+  pausedAt: timestamp("paused_at", { withTimezone: true }),
+  // Which kind of phone line the workspace connected: its Twilio account ("twilio") or a SIP trunk ("sip").
+  lineType: text("line_type").$type<"twilio" | "sip">().default("sip").notNull(),
+  // A SIP trunk (the customer's carrier). The username and password are encrypted.
+  sipAddress: text("sip_address"),
+  callerNumber: text("caller_number"),
+  encryptedSipCredentials: text("encrypted_sip_credentials"),
+  // A Twilio line: the account SID, plus a restricted API key (SID and secret) kept encrypted.
+  twilioAccountSid: text("twilio_account_sid"),
+  encryptedTwilioKey: text("encrypted_twilio_key"),
+  telephonyConnectedAt: timestamp("telephony_connected_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** The paid voice add-on, per billing account. Minutes included each period come from here. */
+export const voiceAddons = pgTable("voice_addons", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  active: boolean("active").default(false).notNull(),
+  monthlySeconds: integer("monthly_seconds").default(0).notNull(),
+  periodStart: timestamp("period_start", { withTimezone: true }),
+  periodEnd: timestamp("period_end", { withTimezone: true }),
+  stripeSubscriptionItemId: text("stripe_subscription_item_id"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** Minutes a workspace may spend, in seconds. Included minutes expire with the period; packs last a year. */
+export const voiceMinuteGrants = pgTable(
+  "voice_minute_grants",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    source: text("source").$type<VoiceMinuteSource>().notNull(),
+    sourceKey: text("source_key").notNull(),
+    secondsTotal: integer("seconds_total").notNull(),
+    secondsRemaining: integer("seconds_remaining").notNull(),
+    validFrom: timestamp("valid_from", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("voice_minute_grants_source_unique").on(table.organizationId, table.sourceKey),
+    index("voice_minute_grants_available_idx").on(table.organizationId, table.expiresAt),
+  ],
+);
+
+export const voiceMinuteUsage = pgTable(
+  "voice_minute_usage",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    callId: uuid("call_id").notNull(),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => voiceMinuteGrants.id, { onDelete: "restrict" }),
+    seconds: integer("seconds").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("voice_minute_usage_call_grant_unique").on(table.callId, table.grantId)],
+);
+
+/** Proof that a person agreed to be called by an AI voice, per lead and number. */
+export const callConsents = pgTable(
+  "call_consents",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    status: text("status").$type<"granted" | "revoked">().default("granted").notNull(),
+    // Where it came from: a web form, a recorded verbal agreement, an existing customer, an import.
+    source: text("source").notNull(),
+    // What they agreed to and when, in the customer's words. Required.
+    evidence: text("evidence").notNull(),
+    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull(),
+    recordedBy: text("recorded_by").references(() => users.id, { onDelete: "set null" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("call_consents_lead_phone_unique").on(table.organizationId, table.leadId, table.phone)],
+);
+
+/** Numbers that must never be called again, by workspace. Filled when someone asks to stop. */
+export const voiceDoNotCall = pgTable(
+  "voice_do_not_call",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    reason: text("reason").notNull(),
+    callId: uuid("call_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("voice_do_not_call_phone_unique").on(table.organizationId, table.phone)],
+);
+
+export const voiceCampaigns = pgTable(
+  "voice_campaigns",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    // The outreach campaign this belongs to: the product, offer and leads come from it.
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    level: text("level").$type<"meetings" | "qualify" | "sell">().notNull(),
+    playbook: jsonb("playbook").$type<Record<string, unknown>>().notNull(),
+    status: text("status").$type<VoiceCampaignStatus>().default("draft").notNull(),
+    pausedReason: text("paused_reason"),
+    maxAttempts: integer("max_attempts").default(3).notNull(),
+    retryGapHours: integer("retry_gap_hours").default(24).notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    approvedBy: text("approved_by").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("voice_campaigns_org_status_idx").on(table.organizationId, table.status)],
+);
+
+export const voiceCallTargets = pgTable(
+  "voice_call_targets",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    voiceCampaignId: uuid("voice_campaign_id")
+      .notNull()
+      .references(() => voiceCampaigns.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    status: text("status").$type<VoiceTargetStatus>().default("queued").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull(),
+    // Higher is called sooner. See voice-scheduling.ts.
+    priority: integer("priority").default(0).notNull(),
+    lastOutcome: text("last_outcome"),
+    skipReason: text("skip_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("voice_call_targets_campaign_lead_unique").on(table.voiceCampaignId, table.leadId),
+    index("voice_call_targets_due_idx").on(table.status, table.nextAttemptAt),
+  ],
+);
+
+export const voiceCalls = pgTable(
+  "voice_calls",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    voiceCampaignId: uuid("voice_campaign_id")
+      .notNull()
+      .references(() => voiceCampaigns.id, { onDelete: "cascade" }),
+    targetId: uuid("target_id")
+      .notNull()
+      .references(() => voiceCallTargets.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    level: text("level").$type<"meetings" | "qualify" | "sell">().notNull(),
+    status: text("status").$type<VoiceCallStatus>().default("dialing").notNull(),
+    room: text("room"),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    durationSeconds: integer("duration_seconds").default(0).notNull(),
+    // What was charged against the workspace's minutes. Unanswered calls cost nothing.
+    billedSeconds: integer("billed_seconds").default(0).notNull(),
+    outcome: text("outcome"),
+    summary: text("summary"),
+    followUp: text("follow_up"),
+    callbackAt: timestamp("callback_at", { withTimezone: true }),
+    transcript: jsonb("transcript").$type<Array<{ role: "agent" | "prospect"; text: string; at?: string }>>().default([]).notNull(),
+    // Why it needs a person's attention, when it does.
+    flags: jsonb("flags").$type<string[]>().default([]).notNull(),
+    reviewStatus: text("review_status").$type<"unreviewed" | "reviewed">().default("unreviewed").notNull(),
+    reviewedBy: text("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewNote: text("review_note"),
+    error: text("error"),
+    // Which phone line placed the call, and, for Twilio, what Twilio reported about it.
+    lineType: text("line_type").$type<"twilio" | "sip">().default("sip").notNull(),
+    providerCallSid: text("provider_call_sid"),
+    answeredBy: text("answered_by"),
+    providerStatus: text("provider_status"),
+    providerDurationSeconds: integer("provider_duration_seconds"),
+    // Twilio calls: what the agent needs when the call is answered (built when it was placed,
+    // so the answer webhook doesn't rebuild it), and the worker's report while Twilio's own
+    // "completed" is still on its way (a call is charged once both have arrived).
+    jobMetadata: jsonb("job_metadata").$type<Record<string, unknown>>(),
+    heldReport: jsonb("held_report").$type<Record<string, unknown>>(),
+    // What the call used (model tokens, characters spoken, seconds of audio heard), as reported by
+    // the worker, so margins can be checked against real calls.
+    usage: jsonb("usage").$type<{ llmInputTokens: number; llmOutputTokens: number; ttsCharacters: number; sttSeconds: number }>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("voice_calls_provider_call_sid_unique").on(table.providerCallSid),
+    index("voice_calls_org_created_idx").on(table.organizationId, table.createdAt),
+    index("voice_calls_org_review_idx").on(table.organizationId, table.reviewStatus),
+    index("voice_calls_status_idx").on(table.status, table.startedAt),
   ],
 );

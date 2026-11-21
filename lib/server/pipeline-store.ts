@@ -17,6 +17,7 @@ import {
   outreachMessages,
   outreachSequences,
 } from "./database/schema";
+import { isSmsEnabled } from "./feature-flags";
 
 type PipelineActor = {
   organizationId: string;
@@ -379,6 +380,9 @@ export async function persistCampaignArtifacts(
       }
       if (artifact.channel === "email" && (!lead.email || !lead.emailVerified)) {
         throw new Error(`Email sequence requires a verified email: ${leadId}`);
+      }
+      if (artifact.channel === "sms" && !isSmsEnabled()) {
+        throw new Error(`SMS sequences are disabled for this deployment: ${leadId}`);
       }
       if (artifact.channel === "sms" && (!lead.phone || !lead.phoneVerified)) {
         throw new Error(`SMS sequence requires a verified phone: ${leadId}`);

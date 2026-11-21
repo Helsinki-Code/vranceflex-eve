@@ -211,7 +211,7 @@ export default function LandingPage() {
                   <CheckCircle2 size={14} /> Found &amp; verified 41 leads
                 </li>
                 <li className="activity-running">
-                  <Mail size={14} /> Drafting 5-step email sequence
+                  <Mail size={14} /> Drafting 3-email sequence
                 </li>
                 <li className="activity-waiting">
                   <Lock size={14} /> Waiting for your approval

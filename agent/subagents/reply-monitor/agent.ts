@@ -11,6 +11,7 @@ export default defineAgent({
     company: z.string(),
     reply_channel: z.enum(["email", "sms"]),
     intent: z.enum([
+      "OFFER_ACCEPTED",
       "HOT",
       "WARM",
       "NEUTRAL",

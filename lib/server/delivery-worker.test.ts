@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pinClock, unpinClock } from "./test-support/clock";
 import { hasTestDatabase, truncateAllTables } from "./test-support/db";
 import {
   seedCampaign,
@@ -37,8 +38,14 @@ process.env.AUTH_SECRET ??= "test-auth-secret-at-least-32-characters-long";
 
 describe.skipIf(!hasTestDatabase)("delivery-worker", () => {
   beforeEach(async () => {
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
+    pinClock();
     await truncateAllTables();
+  });
+
+  afterEach(() => {
+    unpinClock();
   });
 
   async function jobStatus(jobId: string) {
@@ -78,7 +85,33 @@ describe.skipIf(!hasTestDatabase)("delivery-worker", () => {
     expect(job?.status).toBe("completed");
   });
 
+  it("cancels an sms job without sending when SMS is disabled", async () => {
+    delete process.env.VRANCEFLEX_SMS_ENABLED;
+    const { sendTwilioSms } = await import("./twilio-sms");
+    vi.mocked(sendTwilioSms).mockClear();
+
+    const { organizationId, userId } = await seedOrganization();
+    const campaignId = await seedCampaign(organizationId, userId);
+    const leadId = await seedLead(organizationId, campaignId);
+    const { jobId } = await seedDeliveryJob({
+      organizationId,
+      campaignId,
+      leadId,
+      channel: "sms",
+    });
+
+    const { processDueDeliveryJobs } = await import("./delivery-worker");
+    const summary = await processDueDeliveryJobs();
+    expect(summary.accepted).toBe(0);
+    expect(vi.mocked(sendTwilioSms)).not.toHaveBeenCalled();
+
+    const job = await jobStatus(jobId);
+    expect(job?.status).toBe("cancelled");
+    expect(job?.lastError).toMatch(/SMS outreach is disabled/);
+  });
+
   it("sends an eligible sms job via Twilio and marks it completed", async () => {
+    vi.stubEnv("VRANCEFLEX_SMS_ENABLED", "true");
     const { sendTwilioSms } = await import("./twilio-sms");
     vi.mocked(sendTwilioSms).mockResolvedValue({
       provider: "twilio",

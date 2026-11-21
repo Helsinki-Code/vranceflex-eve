@@ -12,10 +12,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ConfirmAction } from "./product-ui";
+import { SendingSafetyPanel } from "./sending-safety-panel";
 import { Chip, EmptyState, FormField, LedgerStats, Notice, Panel, SelectField, StatusDot } from "./product/kit";
 import { ledgerEase, Stagger, StaggerItem } from "./product/motion";
 import { cn } from "@/lib/utils";
 import { mailboxPresets, type MailboxPresetKey } from "../lib/domain/mailboxes";
+import { readinessLabels } from "../lib/domain/mailbox-readiness";
 import type { DomainSummary, MailboxSummary, SendingOverview } from "../lib/server/mailbox-store";
 
 async function requestJson<T>(path: string, init?: RequestInit) {
@@ -72,6 +74,8 @@ export function SendingWorkspace({ initial, isAdmin }: { initial: SendingOvervie
       { label: "Domains authenticated", value: verified, note: sendingDomains.length ? `of ${sendingDomains.length} domain${sendingDomains.length === 1 ? "" : "s"} you send from` : "no mailbox on your own domain yet", tone: sendingDomains.length && verified === sendingDomains.length ? "verified" : "default" },
       { label: "Bounce rate · 7 days", value: sentWeek ? (bouncedWeek / sentWeek) * 100 : 0, format: "percent", note: `${bouncedWeek} of ${sentWeek} sends`, tone: sentWeek && bouncedWeek / sentWeek >= 0.05 ? "danger" : "default" },
     ]} />
+
+    <SendingSafetyPanel key={JSON.stringify(overview.safety)} safety={overview.safety} isAdmin={isAdmin} onChange={refresh} />
 
     {overview.resendConnected && overview.mailboxes.length ? <TransportChoice value={overview.emailTransport} isAdmin={isAdmin} onChange={refresh} /> : null}
     {capacity > overview.orgDailyEmailLimit && usingMailboxes ? <Notice tone="info" title={`The workspace-wide cap of ${overview.orgDailyEmailLimit} emails a day still applies`}>Your mailboxes could send {capacity} today. Raise the workspace limit in scheduling settings if you want to use all of it.</Notice> : null}
@@ -163,7 +167,9 @@ function MailboxRow({ mailbox, isAdmin, onChange }: { mailbox: MailboxSummary; i
             <StatusDot on={mailbox.status === "active"} label={statusLabel} />
             <Chip>{mailbox.provider === "google" ? "Google" : "SMTP / IMAP"}</Chip>
             {mailbox.consumer ? <Chip tone="warning">Personal address</Chip> : mailbox.domainStatus === "verified" ? <Chip tone="verified">Domain authenticated</Chip> : mailbox.domainStatus ? <Chip tone="warning">DNS incomplete</Chip> : null}
+            <span title={mailbox.readiness.reasons.join(" ") || "Authenticated, established and bouncing little."}><Chip tone={mailbox.readiness.level === "ready" ? "verified" : mailbox.readiness.level === "warming" ? "info" : "danger"}>{readinessLabels[mailbox.readiness.level]}</Chip></span>
           </div>
+          {mailbox.readiness.level !== "ready" && mailbox.readiness.reasons.length ? <ul className="mt-1.5 space-y-0.5 text-xs leading-5 text-muted-foreground">{mailbox.readiness.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : null}
         </div>
       </div>
       <div className="grid w-full gap-1.5 md:w-64">

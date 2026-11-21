@@ -5,6 +5,7 @@ import { ChannelConnectionsPanel } from "../../../components/channel-connections
 import { Notice } from "../../../components/product/kit";
 import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
+import { isSmsEnabled } from "../../../lib/server/feature-flags";
 import { getChannelConnectionSummary } from "../../../lib/server/channel-credentials";
 
 export const metadata = { title: "Delivery providers · VranceFlex" };
@@ -20,7 +21,7 @@ export default async function IntegrationsPage() {
       authConfigured={isAuthConfigured()}
       eyebrow="Workspace settings"
       title="Delivery providers"
-      description="Texts go out from your own Twilio account. Resend suits opt-in email; for cold outreach, connect mailboxes in Sending instead, since Resend's terms don't allow it."
+      description={isSmsEnabled() ? "Texts go out from your own Twilio account. Resend suits opt-in email; for cold outreach, connect mailboxes in Sending instead, since Resend's terms don't allow it." : "Resend suits opt-in email. For cold outreach, connect mailboxes in Sending instead, since Resend's terms don't allow it."}
       actions={<Link className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" href="/settings"><ArrowLeft className="size-3.5" />All settings</Link>}
     >
       <div className="space-y-6">
@@ -29,6 +30,7 @@ export default async function IntegrationsPage() {
           initialResend={connections.resend}
           initialTwilio={connections.twilio}
           isAdmin={actor.organizationRole === "admin"}
+          smsEnabled={isSmsEnabled()}
           organizationId={actor.organizationId}
         />
         <p className="text-xs leading-5 text-muted-foreground">Keys are validated with the provider when you save, then encrypted at rest. They're never shown again, sent to the browser, or passed to the AI agents.</p>

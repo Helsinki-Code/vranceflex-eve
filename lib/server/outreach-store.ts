@@ -4,6 +4,8 @@ import type {
 } from "../domain/pipeline";
 import type { ApiActor } from "./api-actor";
 import { findUnresolvedPlaceholders } from "./message-placeholders";
+import { allowedLinkDomains, checkOutreachContent } from "./send-gate";
+import { getSendingSafetySettings } from "./sending-settings";
 import { AuthRequestError } from "./auth-errors";
 import { getDatabase } from "./database";
 import {
@@ -213,6 +215,45 @@ export async function approveCampaignSequences(
       );
     }
 
+    // The send-safety gate: links to unvetted domains, echoed instructions and
+    // greetings for the wrong person block approval. Style advice does not.
+    const sequenceLeads = await transaction
+      .select({ id: leads.id, personName: leads.personName, companyDomain: leads.companyDomain, country: leads.country })
+      .from(leads)
+      .where(and(eq(leads.organizationId, actor.organizationId), inArray(leads.id, selected.map((sequence) => sequence.leadId))));
+    const leadById = new Map(sequenceLeads.map((lead) => [lead.id, lead]));
+    const sequenceById = new Map(selected.map((sequence) => [sequence.id, sequence]));
+    const { linkDomains, acknowledgedCountries } = await getSendingSafetySettings(actor.organizationId, transaction);
+    const allowedDomains = allowedLinkDomains({ linkDomains, campaignSource: campaign.source });
+    const problems: string[] = [];
+    const warnings: Array<{ sequenceId: string; stepNumber: number; message: string }> = [];
+    for (const message of selectedMessages) {
+      const sequence = sequenceById.get(message.sequenceId);
+      if (!sequence || sequence.channel !== "email") continue;
+      const lead = leadById.get(sequence.leadId);
+      const issues = checkOutreachContent({
+        stepNumber: message.stepNumber,
+        subject: message.subject,
+        subjectVariant: message.subjectVariant,
+        content: message.content,
+        allowedLinkDomains: allowedDomains,
+        recipient: { personName: lead?.personName, companyDomain: lead?.companyDomain, country: lead?.country },
+        acknowledgedCountries,
+      });
+      for (const issue of issues) {
+        // Placeholders are reported by the check above.
+        if (issue.code === "placeholder") continue;
+        if (issue.severity === "block") problems.push(`${sequence.name} step ${message.stepNumber}: ${issue.message}`);
+        else warnings.push({ sequenceId: message.sequenceId, stepNumber: message.stepNumber, message: issue.message });
+      }
+    }
+    if (problems.length) {
+      throw new AuthRequestError(
+        `Fix these before approving: ${problems.slice(0, 3).join(" ")}${problems.length > 3 ? ` (and ${problems.length - 3} more)` : ""}`,
+        409,
+      );
+    }
+
     await transaction
       .update(outreachSequences)
       .set({ status: "approved", updatedAt: now })
@@ -246,7 +287,7 @@ export async function approveCampaignSequences(
       action: "outreach.sequences_approved",
       entityType: "campaign",
       entityId: campaignId,
-      metadata: { approvalId, scope, sequenceIds: uniqueIds },
+      metadata: { approvalId, scope, sequenceIds: uniqueIds, warnings: warnings.length },
     });
 
     return {
@@ -254,6 +295,7 @@ export async function approveCampaignSequences(
       approvedSequenceIds: uniqueIds,
       approvedAt: now.toISOString(),
       campaignStatus: "awaiting_approval" as const,
+      warnings,
     };
   });
 }

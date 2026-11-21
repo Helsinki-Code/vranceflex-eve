@@ -27,7 +27,14 @@ import {
   campaigns,
   enrichmentGroups,
   leads,
+  usageLedger,
 } from "./database/schema";
+import { countryForLead } from "./lead-country";
+import { timezoneForLocation } from "./lead-timezone";
+import { emailStatusAllowsSending, type EmailStatus } from "../domain/email-status";
+import { isEmailVerifierConfigured, verifyEmailAddress } from "./email-verifier";
+import { isSmsEnabled } from "./feature-flags";
+import { getSendingSafetySettings } from "./sending-settings";
 
 const DEFAULT_LEAD_CONFIDENCE = 80;
 
@@ -44,6 +51,7 @@ export type CandidateSummary = {
   description: string | null;
   status: "discovered" | "enriching" | "verified" | "approved" | "failed";
   email: string | null;
+  emailStatus: EmailStatus;
   phone: string | null;
   linkedinUrl: string | null;
   xHandle: string | null;
@@ -60,6 +68,7 @@ function mapCandidate(row: typeof campaignCandidates.$inferSelect): CandidateSum
     description: row.description,
     status: row.status,
     email: row.email,
+    emailStatus: row.emailStatus,
     phone: row.phone,
     linkedinUrl: row.linkedinUrl,
     xHandle: row.xHandle,
@@ -464,6 +473,7 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
   }
 
   const now = new Date();
+  const safety = await getSendingSafetySettings(actor.organizationId);
   // Throttle: claim the poll slot atomically so parallel tabs don't stack
   // Parallel API calls.
   const [claimed] = await database
@@ -534,10 +544,21 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
         const phone = cleanField(output.contact_number, 50);
         const xHandle = cleanField(output.x_handle, 100);
         const companyName = cleanField(output.company, 300);
-        // A reachable channel (email or phone) plus something that ties it to
-        // the right person (LinkedIn profile or employer). Requiring LinkedIn
-        // alone failed people who keep no public profile.
-        const verified = Boolean((email || phone) && (linkedinUrl || companyName));
+        // The provider only says it FOUND an address. Check it can receive mail
+        // before it counts as verified. A verifier outage throws, which leaves
+        // this candidate enriching so the next refresh retries it.
+        const emailCheck = email ? await verifyEmailAddress(email) : null;
+        if (emailCheck && !emailCheck.cached && emailCheck.verifier) {
+          await recordEmailVerificationUsage(actor.organizationId, campaignId, candidate.id, emailCheck.verifier, emailCheck.status);
+        }
+        const emailStatus = emailCheck?.status ?? "unknown";
+        // A reachable channel plus something that ties it to the right person
+        // (LinkedIn profile or employer). A channel only counts if it can
+        // actually be used: an email that can be sent to, or a phone number
+        // while SMS is enabled. Customers are only charged for usable leads.
+        const emailUsable = emailStatusAllowsSending(emailStatus, safety.allowRiskyEmail);
+        const usableChannel = emailUsable || Boolean(phone && isSmsEnabled());
+        const verified = Boolean(usableChannel && (linkedinUrl || companyName));
         if (verified) {
           await consumeProspectCredit({
             organizationId: actor.organizationId,
@@ -552,14 +573,15 @@ export async function refreshEnrichment(actor: ApiActor, campaignId: string) {
           .set({
             status: verified ? "verified" : "failed",
             email,
+            emailStatus,
+            emailCheckedAt: emailCheck ? emailCheck.checkedAt : null,
+            emailVerifier: emailCheck?.verifier ?? null,
             phone,
             linkedinUrl,
             xHandle,
             companyName,
             jobTitle: cleanField(output.job_title, 300),
-            errorMessage: verified
-              ? null
-              : "No reachable email or phone tied to a LinkedIn profile or employer was found.",
+            errorMessage: verified ? null : unverifiedReason({ email, emailStatus, phone, linkedinUrl, companyName }),
             updatedAt: new Date(),
           })
           .where(eq(campaignCandidates.id, candidate.id));
@@ -715,6 +737,52 @@ function domainFromUrl(url: string | null) {
   }
 }
 
+function unverifiedReason(input: {
+  email: string | null;
+  emailStatus: EmailStatus;
+  phone: string | null;
+  linkedinUrl: string | null;
+  companyName: string | null;
+}) {
+  if (!input.linkedinUrl && !input.companyName) {
+    return "No contact could be tied to a LinkedIn profile or employer.";
+  }
+  if (input.email) {
+    if (input.emailStatus === "risky") {
+      return "The email is on a catch-all domain or is a role address, so it can't be confirmed. Allow risky addresses in Settings → Sending to include these.";
+    }
+    if (input.emailStatus === "invalid") return "The email address would bounce, so it was not charged.";
+    if (input.emailStatus === "unknown") {
+      return isEmailVerifierConfigured()
+        ? "The email address couldn't be confirmed, so it was not charged."
+        : "Email verification isn't configured, so no address can be confirmed.";
+    }
+  }
+  return "No email address that can be sent to was found.";
+}
+
+/** Records the verifier's cost so margins per workspace can be measured. */
+async function recordEmailVerificationUsage(
+  organizationId: string,
+  campaignId: string,
+  candidateId: string,
+  verifier: string,
+  status: string,
+) {
+  await getDatabase()
+    .insert(usageLedger)
+    .values({
+      id: crypto.randomUUID(),
+      organizationId,
+      campaignId,
+      kind: "email_verification",
+      quantity: 1,
+      idempotencyKey: `email-verification/${candidateId}`,
+      metadata: { verifier, status },
+    })
+    .onConflictDoNothing();
+}
+
 /**
  * Converts user-approved, Parallel-verified candidates into real `leads`
  * rows. Starting Eve is deliberately a separate user action so enrichment
@@ -742,6 +810,7 @@ export async function approveCandidates(
   }
 
   const database = getDatabase();
+  const safety = await getSendingSafetySettings(actor.organizationId);
   const uniqueIds = [...new Set(candidateIds)];
   if (!uniqueIds.length) {
     throw new AuthRequestError("Select at least one verified person to approve.", 400);
@@ -773,6 +842,7 @@ export async function approveCandidates(
       // Every "verified" candidate has an email or phone plus a LinkedIn
       // profile or employer (the minimum enforced in refreshEnrichment).
       const leadId = crypto.randomUUID();
+      const emailVerified = Boolean(candidate.email) && emailStatusAllowsSending(candidate.emailStatus, safety.allowRiskyEmail);
       await transaction.insert(leads).values({
         id: leadId,
         organizationId: actor.organizationId,
@@ -784,11 +854,18 @@ export async function approveCandidates(
         jobTitle: candidate.jobTitle ?? "Unknown",
         personName: candidate.name,
         email: candidate.email,
-        emailVerified: Boolean(candidate.email),
+        emailVerified,
+        emailStatus: candidate.emailStatus,
+        emailCheckedAt: candidate.emailCheckedAt,
+        emailVerifier: candidate.emailVerifier,
         phone: candidate.phone,
         phoneVerified: Boolean(candidate.phone),
         linkedinUrl: candidate.linkedinUrl,
         confidence: DEFAULT_LEAD_CONFIDENCE,
+        // Only when the campaign targets one place in one zone; otherwise the
+        // workspace zone is used when the send window is applied.
+        timezone: timezoneForLocation(campaign.geography),
+        country: countryForLead({ companyDomain: domainFromUrl(candidate.url), geography: campaign.geography }),
         status: "approved",
         doNotContact: false,
         buyingSignals: [],
@@ -807,7 +884,7 @@ export async function approveCandidates(
         companyName: candidate.companyName ?? candidate.name,
         companyDomain: domainFromUrl(candidate.url),
         email: candidate.email,
-        emailVerified: Boolean(candidate.email),
+        emailVerified,
         phone: candidate.phone,
         phoneVerified: Boolean(candidate.phone),
         linkedinUrl: candidate.linkedinUrl,

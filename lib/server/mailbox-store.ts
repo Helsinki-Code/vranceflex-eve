@@ -30,6 +30,9 @@ import { checkDomainHealth, expectedRecords, type ExpectedRecord } from "./dns-h
 import { verifyImap } from "./mailbox-imap";
 import { MailboxDeliveryError, sendViaMailbox, verifySmtp } from "./mailbox-smtp";
 import { localDayBounds } from "./timezone";
+import { safetyFromRow, type SendingSafetySettings } from "./sending-settings";
+import { assessMailboxReadiness, type MailboxReadiness } from "../domain/mailbox-readiness";
+import { domainAgeDays, fetchDomainRegistration } from "./domain-age";
 
 function requireAdmin(actor: ApiActor) {
   if (actor.organizationRole !== "admin") {
@@ -210,9 +213,12 @@ export async function refreshDomainHealth(domainId: string) {
   if (!row) return null;
   const health = await checkDomainHealth(row.domain, row.provider, row.dkimSelector);
   const now = new Date();
+  // A registration date never changes, so look it up once; null stays "unknown".
+  const registeredAt = row.registeredAt ?? (await fetchDomainRegistration(row.domain));
   await database
     .update(sendingDomains)
     .set({
+      registeredAt,
       lastCheck: health.checks,
       status: health.status,
       // Remember where DKIM actually lives and which provider's rules apply.
@@ -315,6 +321,7 @@ export type MailboxSummary = {
   lastPolledAt: string | null;
   sentWeek: number;
   bouncedWeek: number;
+  readiness: MailboxReadiness;
 };
 
 export type DomainSummary = {
@@ -338,6 +345,8 @@ export type SendingOverview = {
   resendConnected: boolean;
   orgDailyEmailLimit: number;
   timezone: string;
+  /** Send window, pause switch and link rules (see sending-settings.ts). */
+  safety: SendingSafetySettings;
 };
 
 export async function getSendingOverview(organizationId: string): Promise<SendingOverview> {
@@ -372,6 +381,7 @@ export async function getSendingOverview(organizationId: string): Promise<Sendin
   ]);
   const weekly = new Map(week.map((row) => [row.mailboxId!, { sent: Number(row.sent), bounced: Number(row.bounced) }]));
   const domainStatus = new Map(domainRows.map((row) => [row.domain, row.status]));
+  const registeredAt = new Map(domainRows.map((row) => [row.domain, row.registeredAt]));
 
   return {
     mailboxes: mailboxRows.map((row) => ({
@@ -391,6 +401,15 @@ export async function getSendingOverview(organizationId: string): Promise<Sendin
       lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
       sentWeek: weekly.get(row.id)?.sent ?? 0,
       bouncedWeek: weekly.get(row.id)?.bounced ?? 0,
+      readiness: assessMailboxReadiness({
+        consumer: isConsumerAddress(row.email),
+        domainStatus: domainStatus.get(emailDomain(row.email)) ?? null,
+        domainAgeDays: domainAgeDays(registeredAt.get(emailDomain(row.email)), now),
+        rampCompletesOn: rampCompletesOn(row, now),
+        sentWeek: weekly.get(row.id)?.sent ?? 0,
+        bouncedWeek: weekly.get(row.id)?.bounced ?? 0,
+        now,
+      }),
     })),
     domains: domainRows.map((row) => ({
       id: row.id,
@@ -408,5 +427,6 @@ export async function getSendingOverview(organizationId: string): Promise<Sendin
     resendConnected: Boolean(resend),
     orgDailyEmailLimit: settings?.dailyEmailLimit ?? 100,
     timezone,
+    safety: safetyFromRow(settings),
   };
 }

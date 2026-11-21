@@ -94,6 +94,7 @@ function mapLead(
     jobTitle: row.jobTitle,
     email: row.email,
     emailVerified: row.emailVerified,
+    emailStatus: row.emailStatus,
     phone: row.phone,
     phoneVerified: row.phoneVerified,
     linkedinUrl: row.linkedinUrl,

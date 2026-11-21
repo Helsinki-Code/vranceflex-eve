@@ -23,6 +23,20 @@ import {
   topUpPriceId,
 } from "./billing-prices";
 import { getStripeClient } from "./stripe-client";
+import {
+  addonItemOf,
+  fulfillVoicePackSession,
+  isVoicePackSession,
+  planItemOf,
+  revokeVoicePackMinutes,
+  syncVoiceAddonFromSubscription,
+  VOICE_CHECKOUT_KIND,
+  voiceAddonPriceId,
+  voicePackCatalog,
+  voicePackKeys,
+  voicePackPriceId,
+  type VoicePackKey,
+} from "./voice-billing";
 import { getDatabase } from "./database";
 import {
   organizationBilling,
@@ -295,6 +309,63 @@ export async function createTopUpCheckout(
   return { url: session.url };
 }
 
+/**
+ * Adds the voice add-on to the workspace's existing subscription, charged pro
+ * rata, so there is still exactly one subscription per workspace.
+ */
+export async function addVoiceAddon(actor: ApiActor) {
+  requireBillingAccess(actor);
+  await assertManagesOwnBilling(actor);
+  const priceId = voiceAddonPriceId();
+  if (!priceId) throw new AuthRequestError("Voice calling isn't configured in Stripe yet.", 503);
+  const billing = await getBillingSummary(actor);
+  if (!billing.stripeSubscriptionId || !(await getBillingOverview(actor.organizationId)).active) {
+    throw new AuthRequestError("An active subscription is required before adding voice calling.", 402);
+  }
+  const stripe = getStripeClient();
+  const current = await stripe.subscriptions.retrieve(billing.stripeSubscriptionId);
+  if (addonItemOf(current)) return { alreadyActive: true };
+  const updated = await stripe.subscriptions.update(
+    billing.stripeSubscriptionId,
+    { items: [{ price: priceId, quantity: 1 }], proration_behavior: "create_prorations", metadata: { ...current.metadata, voiceAddon: "true" } },
+    { idempotencyKey: `vranceflex-voice-addon-${actor.organizationId}-${billing.stripeSubscriptionId}` },
+  );
+  await syncVoiceAddonFromSubscription(actor.organizationId, updated);
+  return { alreadyActive: false };
+}
+
+export async function createVoicePackCheckout(actor: ApiActor, input: { packKey: VoicePackKey }) {
+  requireBillingAccess(actor);
+  await assertManagesOwnBilling(actor);
+  const packKey = voicePackKeys.find((key) => key === input.packKey);
+  if (!packKey) throw new AuthRequestError("Choose a minute pack.", 400);
+  const overview = await getBillingOverview(actor.organizationId);
+  if (!overview.active) throw new AuthRequestError("An active subscription is required before buying voice minutes.", 402);
+  const priceId = voicePackPriceId(packKey);
+  if (!priceId) throw new AuthRequestError("This minute pack isn't configured in Stripe yet.", 503);
+  const customerId = await ensureStripeCustomer(actor);
+  const { minutes, label } = voicePackCatalog[packKey];
+  const session = await getStripeClient().checkout.sessions.create(
+    {
+      mode: "payment",
+      customer: customerId,
+      client_reference_id: actor.organizationId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      customer_update: { address: "auto", name: "auto" },
+      tax_id_collection: { enabled: true },
+      invoice_creation: { enabled: true, invoice_data: { description: `${label} of VranceFlex voice calling`, metadata: { organizationId: actor.organizationId, packKey } } },
+      ...(automaticTaxEnabled() ? { automatic_tax: { enabled: true } } : {}),
+      success_url: `${baseUrl()}/settings/voice?minutes=success`,
+      cancel_url: `${baseUrl()}/settings/voice?minutes=cancelled`,
+      metadata: { organizationId: actor.organizationId, checkoutKind: VOICE_CHECKOUT_KIND, packKey, minutes: String(minutes) },
+      payment_intent_data: { metadata: { organizationId: actor.organizationId, packKey, checkoutKind: VOICE_CHECKOUT_KIND } },
+    },
+    { idempotencyKey: checkoutIdempotencyKey([actor.organizationId, packKey]) },
+  );
+  if (!session.url) throw new AuthRequestError("Stripe did not return a checkout URL.", 502);
+  return { url: session.url };
+}
+
 export async function createPortalSession(actor: ApiActor, flow?: "payment_method_update" | "subscription_cancel") {
   requireBillingAccess(actor);
   await assertManagesOwnBilling(actor);
@@ -389,7 +460,8 @@ export async function upsertBillingFromSubscription(
   organizationId: string,
   subscription: Stripe.Subscription,
 ) {
-  const item = subscription.items.data[0];
+  // The plan's item is found by its price: the voice add-on can share the subscription.
+  const item = planItemOf(subscription);
   const priceDetails = item ? subscriptionPriceDetails(item.price.id) : null;
   const planKey = priceDetails?.plan ?? metadataPlan(subscription.metadata.planKey);
   const interval =
@@ -424,6 +496,21 @@ export async function upsertBillingFromSubscription(
         lastPaymentError: status === "past_due" ? sql`${organizationBilling.lastPaymentError}` : null,
       },
     });
+  // Voice calling's add-on rides on the same subscription; keep it in step.
+  await syncVoiceAddonFromSubscription(organizationId, subscription);
+}
+
+// One-time payments are either prospect-credit top-ups or voice-minute packs.
+// Packs are marked in their metadata so they never reach the top-up handler,
+// which would reject them and make Stripe retry the event forever.
+async function fulfillPaymentSession(session: Stripe.Checkout.Session) {
+  if (isVoicePackSession(session)) {
+    return fulfillVoicePackSession(session, async () => {
+      const lineItems = await getStripeClient().checkout.sessions.listLineItems(session.id, { limit: 1, expand: ["data.price"] });
+      return lineItems.data[0]?.price?.id ?? null;
+    });
+  }
+  return fulfillTopUpSession(session);
 }
 
 async function fulfillTopUpSession(session: Stripe.Checkout.Session) {
@@ -462,6 +549,10 @@ async function revokeTopUpForCharge(charge: Stripe.Charge, fraction: number, rea
   if (!session || session.mode !== "payment") return { revoked: 0 };
   const organizationId = session.client_reference_id ?? session.metadata?.organizationId;
   if (!organizationId) return { revoked: 0 };
+  if (isVoicePackSession(session)) {
+    const { revokedSeconds } = await revokeVoicePackMinutes({ organizationId, sessionId: session.id, fraction });
+    return { revoked: revokedSeconds };
+  }
   const database = getDatabase();
   return database.transaction(async (transaction) => {
     const [grant] = await transaction
@@ -544,12 +635,12 @@ async function handleStripeEvent(event: Stripe.Event) {
         const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
         await syncSubscription(subscriptionId, organizationId);
       } else if (session.mode === "payment") {
-        await fulfillTopUpSession(session);
+        await fulfillPaymentSession(session);
       }
       return organizationId;
     }
     case "checkout.session.async_payment_succeeded": {
-      await fulfillTopUpSession(event.data.object);
+      await fulfillPaymentSession(event.data.object);
       return event.data.object.client_reference_id ?? null;
     }
     case "checkout.session.async_payment_failed":

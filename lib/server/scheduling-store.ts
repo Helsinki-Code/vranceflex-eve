@@ -22,6 +22,7 @@ import {
   suppressionEntries,
 } from "./database/schema";
 import { addLocalDays, assertValidTimezone, zonedDateTimeToUtc } from "./timezone";
+import { isSmsEnabled, SMS_DISABLED_MESSAGE } from "./feature-flags";
 
 type ParsedScheduleInput = z.infer<typeof scheduleSequencesSchema>;
 type ScheduleInput = Omit<ParsedScheduleInput, "recurrence"> & {
@@ -108,6 +109,9 @@ export async function scheduleCampaignSequences(
     }
     const hasEmailSequences = selected.some(({ sequence }) => sequence.channel === "email");
     const hasSmsSequences = selected.some(({ sequence }) => sequence.channel === "sms");
+    if (hasSmsSequences && !isSmsEnabled()) {
+      throw new AuthRequestError(SMS_DISABLED_MESSAGE, 409);
+    }
     if (hasEmailSequences && !(await resolveEmailTransport(actor.organizationId))) {
       throw new AuthRequestError(
         "Connect a sending mailbox (or Resend) in Settings → Sending before scheduling email outreach.",
