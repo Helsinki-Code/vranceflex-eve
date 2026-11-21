@@ -549,3 +549,84 @@ describe.skipIf(!hasTestDatabase)("send-safety gate at approval", () => {
     expect(result.warnings[0].message).toMatch(/templated/);
   });
 });
+
+describe.skipIf(!hasTestDatabase)("country holds", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    pinClock();
+    await truncateAllTables();
+  });
+  afterEach(() => unpinClock());
+
+  async function seedGermanJob() {
+    const { organizationId, userId } = await seedOrganization();
+    const campaignId = await seedCampaign(organizationId, userId);
+    const leadId = await seedLead(organizationId, campaignId, { country: "DE" });
+    const job = await seedDeliveryJob({ organizationId, campaignId, leadId, channel: "email" });
+    return { organizationId, userId, campaignId, leadId, ...job };
+  }
+
+  it("cancels a send to a country the workspace hasn't confirmed, saying why", async () => {
+    const { sendResendEmail } = await import("./resend-email");
+    const { jobId, messageId } = await seedGermanJob();
+
+    const { processDueDeliveryJobs } = await import("./delivery-worker");
+    await processDueDeliveryJobs();
+
+    expect(vi.mocked(sendResendEmail)).not.toHaveBeenCalled();
+    expect((await jobRow(jobId)).status).toBe("cancelled");
+    expect((await messageRow(messageId)).lastError).toMatch(/This lead is in Germany/);
+  });
+
+  it("sends once an admin has confirmed the country", async () => {
+    const { sendResendEmail } = await import("./resend-email");
+    vi.mocked(sendResendEmail).mockResolvedValue({ provider: "resend", providerMessageId: "re_de" });
+    const { organizationId } = await seedGermanJob();
+    await setSettings(organizationId, { acknowledgedCountries: ["DE"] });
+
+    const { processDueDeliveryJobs } = await import("./delivery-worker");
+    expect((await processDueDeliveryJobs()).accepted).toBe(1);
+  });
+
+  it("blocks approval of copy for an unconfirmed country, then allows it after confirmation", async () => {
+    const { organizationId, userId } = await seedOrganization();
+    const campaignId = await seedCampaign(organizationId, userId);
+    const leadId = await seedLead(organizationId, campaignId, { country: "FR" });
+    const { sequenceId } = await seedDeliveryJob({
+      organizationId, campaignId, leadId, channel: "email",
+      content: "Hi Jamie,\n\nNoticed Prospect Co is hiring.", subject: "Onboarding at Prospect Co",
+      sequenceStatus: "awaiting_approval", messageStatus: "draft", skipJob: true,
+    });
+    const { campaigns } = await schema();
+    await (await db()).update(campaigns).set({ status: "awaiting_approval" }).where(eq(campaigns.id, campaignId));
+    const { approveCampaignSequences } = await import("./outreach-store");
+    const actor = adminOf(organizationId, userId);
+
+    await expect(approveCampaignSequences(actor, campaignId, [sequenceId], "first_launch")).rejects.toThrow(/This lead is in France/);
+
+    const { updateSendingSafetySettings } = await import("./sending-settings");
+    await updateSendingSafetySettings(actor, { acknowledgedCountries: ["fr"] });
+    await expect(approveCampaignSequences(actor, campaignId, [sequenceId], "first_launch")).resolves.toBeTruthy();
+  });
+
+  it("records who confirmed which country, and rejects unknown codes", async () => {
+    const { organizationId, userId } = await seedOrganization();
+    const { updateSendingSafetySettings, sendingSafetyInputSchema, getSendingSafetySettings } = await import("./sending-settings");
+    const actor = adminOf(organizationId, userId);
+
+    const saved = await updateSendingSafetySettings(actor, sendingSafetyInputSchema.parse({ acknowledgedCountries: ["de", "GB", "de"] }));
+    expect(saved.acknowledgedCountries).toEqual(["DE", "GB"]);
+    await updateSendingSafetySettings(actor, { acknowledgedCountries: ["GB"] });
+    expect((await getSendingSafetySettings(organizationId)).acknowledgedCountries).toEqual(["GB"]);
+
+    const { auditEvents } = await schema();
+    const events = (await (await db()).select().from(auditEvents).where(eq(auditEvents.organizationId, organizationId))).filter(
+      (event) => event.action === "sending.countries_acknowledged",
+    );
+    expect(events.map((event) => event.metadata)).toEqual(
+      expect.arrayContaining([{ added: ["DE", "GB"], removed: [] }, { added: [], removed: ["DE"] }]),
+    );
+    expect(events.every((event) => event.actorId === userId)).toBe(true);
+    expect(() => sendingSafetyInputSchema.parse({ acknowledgedCountries: ["ZZ"] })).toThrow();
+  });
+});

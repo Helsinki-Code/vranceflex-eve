@@ -332,7 +332,8 @@ async function processClaimedJob(jobId: string) {
         subjectVariant: message.subjectVariant,
         content: message.content,
         allowedLinkDomains: allowedLinkDomains({ linkDomains: settings?.linkDomains ?? [], campaignSource: campaign.source }),
-        recipient: { personName: lead.personName, companyDomain: lead.companyDomain },
+        recipient: { personName: lead.personName, companyDomain: lead.companyDomain, country: lead.country },
+        acknowledgedCountries: settings?.acknowledgedCountries ?? [],
       }),
     );
     if (blocked.length) {

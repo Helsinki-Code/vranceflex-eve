@@ -85,6 +85,25 @@ describe("checkOutreachContent", () => {
     });
   });
 
+  describe("recipient region", () => {
+    it("holds a lead in a country that hasn't been confirmed, and says why", () => {
+      const issues = checkOutreachContent({ ...base, recipient: { ...base.recipient, country: "DE" } });
+      const region = issues.find((issue) => issue.code === "region_review");
+      expect(region?.severity).toBe("block");
+      expect(region?.message).toMatch(/This lead is in Germany/);
+    });
+
+    it("lets it through once the workspace has confirmed the country", () => {
+      expect(codes({ recipient: { ...base.recipient, country: "DE" }, acknowledgedCountries: ["DE"] })).not.toContain("region_review");
+    });
+
+    it("never holds the United States or an unknown country", () => {
+      expect(codes({ recipient: { ...base.recipient, country: "US" } })).not.toContain("region_review");
+      expect(codes({ recipient: { ...base.recipient, country: null } })).not.toContain("region_review");
+      expect(codes({})).not.toContain("region_review");
+    });
+  });
+
   describe("advisories never block", () => {
     it("flags templated phrases", () => {
       const issues = checkOutreachContent({ ...base, content: "Hi Jamie, I hope this email finds you well. Let's circle back." });

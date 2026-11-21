@@ -141,6 +141,13 @@
       "when": 1795220792964,
       "tag": "0019_illegal_fat_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795221834079,
+      "tag": "0020_keen_captain_flint",
+      "breakpoints": true
     }
   ]
 }

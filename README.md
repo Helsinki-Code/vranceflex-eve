@@ -131,6 +131,20 @@ instructions is blocked at approval and again before sending.
   refusal ("not interested"), interest, objection, fit, warm, neutral. The model's
   second opinion (`reply-ai.ts`) can refine intent but never overrides an opt-out.
 
+### Country rules and mailbox readiness
+
+- **Country check** (`lib/server/compliance-rules.ts`): a lead's country comes from its
+  website's domain (`.de`, `.co.uk`) or the campaign's location (`lib/server/lead-country.ts`).
+  The United States sends as usual (opt-out and a postal address are added to every email).
+  Any other country is held, at approval and again before sending, until a workspace admin
+  confirms in Settings → Sending that they have a lawful basis there; who confirmed what and
+  when is recorded in the audit log. This is a prompt to check, not legal advice, and a lead
+  whose country can't be told isn't held.
+- **Mailbox readiness** (`lib/domain/mailbox-readiness.ts`): each mailbox is shown as Ready,
+  Warming up or Not ready, from its domain's SPF/DKIM/DMARC status, the domain's age (public
+  RDAP records, looked up once), ramp-up progress and the last week's bounce rate. It is
+  advice only and never blocks a send by itself.
+
 ### Sending safety
 
 These apply to every campaign in a workspace and are managed in Settings → Sending:

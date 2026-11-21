@@ -208,3 +208,39 @@ describe.skipIf(!hasTestDatabase)("candidate email verification", () => {
     });
   });
 });
+
+describe.skipIf(!hasTestDatabase)("lead country", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    await truncateAllTables();
+  });
+
+  it("records the country from the company's domain when a candidate becomes a lead", async () => {
+    vi.stubEnv("REOON_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ status: "safe" }) })));
+    const parallel = await import("./parallel-client");
+    const store = await import("./candidate-store");
+    const { getDatabase } = await import("./database");
+    const schema = await import("./database/schema");
+    const database = getDatabase();
+    const { organizationId, userId } = await seedOrganization();
+    const campaignId = await seedCampaign(organizationId, userId);
+    await database.update(schema.campaigns).set({ status: "enriching", geography: "Global" }).where(eq(schema.campaigns.id, campaignId));
+    await database.insert(schema.enrichmentGroups).values({ campaignId, organizationId, taskgroupId: "tg", active: true });
+    const candidateId = crypto.randomUUID();
+    await database.insert(schema.campaignCandidates).values({
+      id: candidateId, organizationId, campaignId, name: "Sam Beispiel", url: "https://www.beispiel.de", status: "enriching", parallelRunId: `run_${candidateId}`,
+    });
+    vi.mocked(parallel.getEnrichmentRunStatus).mockResolvedValue({ run_id: "r", status: "completed" });
+    vi.mocked(parallel.getEnrichmentRunResult).mockResolvedValue({ output: { content: { email: "sam@beispiel.de", company: "Beispiel GmbH", job_title: "CEO" } } } as never);
+    const actor: ApiActor = { userId, organizationId, organizationRole: "admin" };
+
+    await store.refreshEnrichment(actor, campaignId);
+    await store.approveCandidates(actor, campaignId, [candidateId]);
+
+    const [lead] = await database.select().from(schema.leads).where(eq(schema.leads.organizationId, organizationId));
+    expect(lead).toMatchObject({ country: "DE", companyDomain: "beispiel.de" });
+  });
+});

@@ -442,6 +442,8 @@ export const leads = pgTable(
     doNotContact: boolean("do_not_contact").default(false).notNull(),
     // IANA zone for the recipient when it is known; otherwise the workspace zone is used.
     timezone: text("timezone"),
+    // ISO country code when it can be told (from the company's domain or the campaign's location).
+    country: text("country"),
     buyingSignals: jsonb("buying_signals").$type<Lead["buyingSignals"]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -646,6 +648,8 @@ export const sendingDomains = pgTable(
     dkimSelector: text("dkim_selector").default("google").notNull(),
     lastCheck: jsonb("last_check").$type<DnsRecordCheck[]>().default([]).notNull(),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    // When the domain was first registered, from public RDAP records. Young domains are untrusted by mailbox providers.
+    registeredAt: timestamp("registered_at", { withTimezone: true }),
     status: text("status").$type<"verified" | "partial" | "unverified">().default("unverified").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -755,6 +759,8 @@ export const organizationSendingSettings = pgTable(
     pausedAt: timestamp("paused_at", { withTimezone: true }),
     // Send to "risky" addresses (catch-all domains, role accounts). Off by default.
     allowRiskyEmail: boolean("allow_risky_email").default(false).notNull(),
+    // Countries whose cold-email rules an admin has confirmed a lawful basis for (see compliance-rules.ts).
+    acknowledgedCountries: jsonb("acknowledged_countries").$type<string[]>().default([]).notNull(),
     // Extra domains outreach copy may link to (the seller's own sites, booking pages).
     linkDomains: jsonb("link_domains").$type<string[]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

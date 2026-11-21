@@ -218,12 +218,12 @@ export async function approveCampaignSequences(
     // The send-safety gate: links to unvetted domains, echoed instructions and
     // greetings for the wrong person block approval. Style advice does not.
     const sequenceLeads = await transaction
-      .select({ id: leads.id, personName: leads.personName, companyDomain: leads.companyDomain })
+      .select({ id: leads.id, personName: leads.personName, companyDomain: leads.companyDomain, country: leads.country })
       .from(leads)
       .where(and(eq(leads.organizationId, actor.organizationId), inArray(leads.id, selected.map((sequence) => sequence.leadId))));
     const leadById = new Map(sequenceLeads.map((lead) => [lead.id, lead]));
     const sequenceById = new Map(selected.map((sequence) => [sequence.id, sequence]));
-    const { linkDomains } = await getSendingSafetySettings(actor.organizationId, transaction);
+    const { linkDomains, acknowledgedCountries } = await getSendingSafetySettings(actor.organizationId, transaction);
     const allowedDomains = allowedLinkDomains({ linkDomains, campaignSource: campaign.source });
     const problems: string[] = [];
     const warnings: Array<{ sequenceId: string; stepNumber: number; message: string }> = [];
@@ -237,7 +237,8 @@ export async function approveCampaignSequences(
         subjectVariant: message.subjectVariant,
         content: message.content,
         allowedLinkDomains: allowedDomains,
-        recipient: { personName: lead?.personName, companyDomain: lead?.companyDomain },
+        recipient: { personName: lead?.personName, companyDomain: lead?.companyDomain, country: lead?.country },
+        acknowledgedCountries,
       });
       for (const issue of issues) {
         // Placeholders are reported by the check above.

@@ -1,6 +1,7 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { isResendConfigured } from "../auth/config";
+import { countryNames } from "../domain/countries";
 import { AuthRequestError } from "./auth-errors";
 import type { ApiActor } from "./api-actor";
 import { getDatabase } from "./database";
@@ -29,6 +30,8 @@ export type SendingSafetySettings = {
   stopCompanyOnReply: boolean;
   /** Send to "risky" addresses (catch-all domains, role accounts). Off by default. */
   allowRiskyEmail: boolean;
+  /** Countries an admin has confirmed a lawful basis for. */
+  acknowledgedCountries: string[];
   sendingPaused: boolean;
   pausedReason: string | null;
   pausedAt: string | null;
@@ -41,6 +44,7 @@ export const DEFAULT_SENDING_SAFETY: SendingSafetySettings = {
   useRecipientTimezone: true,
   stopCompanyOnReply: true,
   allowRiskyEmail: false,
+  acknowledgedCountries: [],
   sendingPaused: false,
   pausedReason: null,
   pausedAt: null,
@@ -57,6 +61,7 @@ export function safetyFromRow(row: SettingsRow | undefined | null): SendingSafet
     useRecipientTimezone: row.useRecipientTimezone,
     stopCompanyOnReply: row.stopCompanyOnReply,
     allowRiskyEmail: row.allowRiskyEmail,
+    acknowledgedCountries: row.acknowledgedCountries,
     sendingPaused: row.sendingPaused,
     pausedReason: row.pausedReason,
     pausedAt: row.pausedAt?.toISOString() ?? null,
@@ -90,6 +95,7 @@ export const sendingSafetyInputSchema = z
     useRecipientTimezone: z.boolean(),
     stopCompanyOnReply: z.boolean(),
     allowRiskyEmail: z.boolean(),
+    acknowledgedCountries: z.array(z.string().trim().toUpperCase().refine((code) => code in countryNames, "Unknown country.")).max(60),
     linkDomains: z.array(domainSchema).max(25),
   })
   .partial()
@@ -135,6 +141,9 @@ export async function updateSendingSafetySettings(actor: ApiActor, input: Sendin
   const problem = sendWindowProblem(window);
   if (problem) throw new AuthRequestError(problem, 400);
 
+  const acknowledged = input.acknowledgedCountries
+    ? [...new Set(input.acknowledgedCountries.map((code) => code.trim().toUpperCase()))].sort()
+    : null;
   const linkDomains = input.linkDomains ? [...new Set(input.linkDomains)] : current.linkDomains;
   const values = {
     ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
@@ -144,6 +153,7 @@ export async function updateSendingSafetySettings(actor: ApiActor, input: Sendin
     ...(input.useRecipientTimezone !== undefined ? { useRecipientTimezone: input.useRecipientTimezone } : {}),
     ...(input.stopCompanyOnReply !== undefined ? { stopCompanyOnReply: input.stopCompanyOnReply } : {}),
     ...(input.allowRiskyEmail !== undefined ? { allowRiskyEmail: input.allowRiskyEmail } : {}),
+    ...(acknowledged ? { acknowledgedCountries: acknowledged } : {}),
     linkDomains,
   };
   const now = new Date();
@@ -157,6 +167,15 @@ export async function updateSendingSafetySettings(actor: ApiActor, input: Sendin
       .update(leads)
       .set({ emailVerified: input.allowRiskyEmail, updatedAt: now })
       .where(and(eq(leads.organizationId, actor.organizationId), eq(leads.emailStatus, "risky")));
+  }
+  if (acknowledged) {
+    // Who confirmed which countries, and when, is the record that matters if it is ever questioned.
+    const next = new Set(acknowledged);
+    const added = [...next].filter((code) => !current.acknowledgedCountries.includes(code));
+    const removed = current.acknowledgedCountries.filter((code) => !next.has(code));
+    if (added.length || removed.length) {
+      await audit(actor, actor.organizationId, "sending.countries_acknowledged", { added, removed });
+    }
   }
   await audit(actor, actor.organizationId, "sending.safety_settings_updated", { changed: Object.keys(input) });
   return getSendingSafetySettings(actor.organizationId);

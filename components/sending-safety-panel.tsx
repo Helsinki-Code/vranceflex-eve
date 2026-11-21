@@ -10,6 +10,7 @@ import { ConfirmAction } from "./product-ui";
 import { FormField, Notice, Panel, SelectField } from "./product/kit";
 import { fieldClass } from "./product/kit";
 import { cn } from "@/lib/utils";
+import { countryNames } from "../lib/domain/countries";
 import type { SendingSafetySettings } from "../lib/server/sending-settings";
 
 async function requestJson<T>(path: string, init?: RequestInit) {
@@ -56,6 +57,7 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
     useRecipientTimezone: safety.useRecipientTimezone,
     stopCompanyOnReply: safety.stopCompanyOnReply,
     allowRiskyEmail: safety.allowRiskyEmail,
+    countries: safety.acknowledgedCountries,
     linkDomains: safety.linkDomains.join("\n"),
   }));
   const [busy, setBusy] = useState<"save" | "pause" | "resume" | null>(null);
@@ -69,6 +71,7 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
     form.useRecipientTimezone !== safety.useRecipientTimezone ||
     form.stopCompanyOnReply !== safety.stopCompanyOnReply ||
     form.allowRiskyEmail !== safety.allowRiskyEmail ||
+    [...form.countries].sort().join() !== [...safety.acknowledgedCountries].sort().join() ||
     parseDomains(form.linkDomains).join() !== safety.linkDomains.join();
 
   const run = async (key: "save" | "pause" | "resume", action: () => Promise<void>, failure: string) => {
@@ -81,6 +84,12 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
       setBusy(null);
     }
   };
+
+  const toggleCountry = (code: string) =>
+    setForm((current) => ({
+      ...current,
+      countries: current.countries.includes(code) ? current.countries.filter((item) => item !== code) : [...current.countries, code],
+    }));
 
   const toggleDay = (day: number) =>
     setForm((current) => ({
@@ -100,6 +109,7 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
           useRecipientTimezone: form.useRecipientTimezone,
           stopCompanyOnReply: form.stopCompanyOnReply,
           allowRiskyEmail: form.allowRiskyEmail,
+          acknowledgedCountries: form.countries,
           linkDomains: parseDomains(form.linkDomains),
         }),
       });
@@ -184,6 +194,20 @@ export function SendingSafetyPanel({ safety, isAdmin, onChange }: { safety: Send
             <Checkbox checked={form.allowRiskyEmail} onCheckedChange={(checked) => setForm({ ...form, allowRiskyEmail: checked === true })} className="mt-0.5" />
             <span><span className="font-medium">Also email &ldquo;risky&rdquo; addresses</span><span className="block text-xs text-muted-foreground">Catch-all domains and role addresses like info@ are probably deliverable but can&apos;t be proven, and they bounce more often. Off by default, and only verified addresses are charged as credits unless this is on.</span></span>
           </label>
+        </fieldset>
+
+        <fieldset className="grid gap-2" disabled={!isAdmin}>
+          <legend className="text-sm font-medium">Countries you&apos;ve checked</legend>
+          <p className="text-xs leading-5 text-muted-foreground">Leads in the United States send as usual. For any other country, cold email often needs prior consent or a documented lawful basis, and the rules can depend on whether the recipient is a company or an individual, so those leads are held until you confirm here. Only confirm a country after you&apos;ve checked its rules (ask a lawyer if you&apos;re unsure). Who confirmed what, and when, is recorded.</p>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Countries confirmed">
+            {Object.entries(countryNames).filter(([code]) => code !== "US").map(([code, name]) => <button
+              key={code}
+              type="button"
+              aria-pressed={form.countries.includes(code)}
+              onClick={() => toggleCountry(code)}
+              className={cn("h-8 rounded-md border px-2.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60", form.countries.includes(code) ? "border-primary bg-primary/8 text-primary" : "border-border text-muted-foreground hover:border-input")}
+            >{name}</button>)}
+          </div>
         </fieldset>
 
         <fieldset className="grid gap-2" disabled={!isAdmin}>

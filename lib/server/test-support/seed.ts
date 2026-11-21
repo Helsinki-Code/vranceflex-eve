@@ -61,6 +61,7 @@ export async function seedLead(
     personName: string;
     companyDomain: string | null;
     timezone: string | null;
+    country: string | null;
   }> = {},
 ) {
   const database = getDatabase();
@@ -74,6 +75,7 @@ export async function seedLead(
     companyName: "Prospect Co",
     companyDomain: overrides.companyDomain ?? null,
     timezone: overrides.timezone ?? null,
+    country: overrides.country ?? null,
     personName: overrides.personName ?? "Jamie Prospect",
     jobTitle: "Head of Operations",
     email: overrides.email ?? `lead-${leadId}@example.com`,

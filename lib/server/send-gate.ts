@@ -1,4 +1,5 @@
 import { bannedPhrases, maxSubjectLength, maxWordsForStep } from "../domain/writing-rules";
+import { assessRecipientRegion } from "./compliance-rules";
 import { findUnresolvedPlaceholders } from "./message-placeholders";
 
 /**
@@ -21,6 +22,7 @@ export type GateIssue = {
     | "foreign_link"
     | "instruction_echo"
     | "wrong_recipient"
+    | "region_review"
     | "banned_phrase"
     | "too_long"
     | "subject_too_long"
@@ -36,7 +38,9 @@ export type GateInput = {
   content: string;
   /** Domains a link may point to, besides the recipient's own site. */
   allowedLinkDomains: string[];
-  recipient?: { personName?: string | null; companyDomain?: string | null };
+  recipient?: { personName?: string | null; companyDomain?: string | null; country?: string | null };
+  /** Countries an admin has confirmed a lawful basis for (see compliance-rules.ts). */
+  acknowledgedCountries?: string[];
 };
 
 // Text that only appears when a model has echoed its own instructions or a
@@ -176,6 +180,11 @@ export function checkOutreachContent(input: GateInput): GateIssue[] {
         message: `The greeting says "${greeted[0].toUpperCase()}${greeted.slice(1)}" but this lead is ${personName}.`,
       });
     }
+  }
+
+  const region = assessRecipientRegion(input.recipient?.country, input.acknowledgedCountries ?? []);
+  if (region.outcome === "review") {
+    issues.push({ code: "region_review", severity: "block", message: region.message });
   }
 
   const phrases = bannedPhrases.filter((phrase) => lower.includes(phrase));

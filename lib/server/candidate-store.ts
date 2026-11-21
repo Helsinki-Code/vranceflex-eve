@@ -29,6 +29,7 @@ import {
   leads,
   usageLedger,
 } from "./database/schema";
+import { countryForLead } from "./lead-country";
 import { timezoneForLocation } from "./lead-timezone";
 import { emailStatusAllowsSending, type EmailStatus } from "../domain/email-status";
 import { isEmailVerifierConfigured, verifyEmailAddress } from "./email-verifier";
@@ -864,6 +865,7 @@ export async function approveCandidates(
         // Only when the campaign targets one place in one zone; otherwise the
         // workspace zone is used when the send window is applied.
         timezone: timezoneForLocation(campaign.geography),
+        country: countryForLead({ companyDomain: domainFromUrl(candidate.url), geography: campaign.geography }),
         status: "approved",
         doNotContact: false,
         buyingSignals: [],

@@ -17,6 +17,7 @@ import { Chip, EmptyState, FormField, LedgerStats, Notice, Panel, SelectField, S
 import { ledgerEase, Stagger, StaggerItem } from "./product/motion";
 import { cn } from "@/lib/utils";
 import { mailboxPresets, type MailboxPresetKey } from "../lib/domain/mailboxes";
+import { readinessLabels } from "../lib/domain/mailbox-readiness";
 import type { DomainSummary, MailboxSummary, SendingOverview } from "../lib/server/mailbox-store";
 
 async function requestJson<T>(path: string, init?: RequestInit) {
@@ -166,7 +167,9 @@ function MailboxRow({ mailbox, isAdmin, onChange }: { mailbox: MailboxSummary; i
             <StatusDot on={mailbox.status === "active"} label={statusLabel} />
             <Chip>{mailbox.provider === "google" ? "Google" : "SMTP / IMAP"}</Chip>
             {mailbox.consumer ? <Chip tone="warning">Personal address</Chip> : mailbox.domainStatus === "verified" ? <Chip tone="verified">Domain authenticated</Chip> : mailbox.domainStatus ? <Chip tone="warning">DNS incomplete</Chip> : null}
+            <span title={mailbox.readiness.reasons.join(" ") || "Authenticated, established and bouncing little."}><Chip tone={mailbox.readiness.level === "ready" ? "verified" : mailbox.readiness.level === "warming" ? "info" : "danger"}>{readinessLabels[mailbox.readiness.level]}</Chip></span>
           </div>
+          {mailbox.readiness.level !== "ready" && mailbox.readiness.reasons.length ? <ul className="mt-1.5 space-y-0.5 text-xs leading-5 text-muted-foreground">{mailbox.readiness.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : null}
         </div>
       </div>
       <div className="grid w-full gap-1.5 md:w-64">
