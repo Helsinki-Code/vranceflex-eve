@@ -44,6 +44,7 @@ import {
 } from "./timezone";
 import { getReplyToAddress } from "./reply-address";
 import type { ScheduleRecurrence } from "../domain/pipeline";
+import { isSmsEnabled } from "./feature-flags";
 
 // Twilio needs an absolute public URL; without APP_BASE_URL delivery
 // reports simply aren't requested.
@@ -224,6 +225,14 @@ async function processClaimedJob(jobId: string) {
   const acceptedMessageStatuses = job.recurrence
     ? ["scheduled", "sending", "sent", "delivered"]
     : ["scheduled"];
+  if (channel === "sms" && !isSmsEnabled()) {
+    await cancelUnsafeJob(
+      job.id,
+      message.id,
+      "Delivery stopped because SMS outreach is disabled for this deployment.",
+    );
+    return "cancelled" as const;
+  }
   if (
     (channel !== "email" && channel !== "sms") ||
     !acceptedMessageStatuses.includes(message.status) ||

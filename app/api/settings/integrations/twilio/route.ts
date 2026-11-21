@@ -3,11 +3,15 @@ import { twilioConnectionSchema } from "../../../../../lib/domain/channel-creden
 import { getApiActor } from "../../../../../lib/server/api-actor";
 import { apiErrorResponse } from "../../../../../lib/server/api-response";
 import { assertSameOrigin } from "../../../../../lib/server/request-security";
+import { isSmsEnabled, SMS_DISABLED_MESSAGE } from "../../../../../lib/server/feature-flags";
 import { connectTwilio, disconnectChannel } from "../../../../../lib/server/channel-credentials";
 
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
+    if (!isSmsEnabled()) {
+      return NextResponse.json({ error: SMS_DISABLED_MESSAGE }, { status: 403 });
+    }
     const actor = await getApiActor();
     const input = twilioConnectionSchema.parse(await request.json());
     const result = await connectTwilio(actor, input);

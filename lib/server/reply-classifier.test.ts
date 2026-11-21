@@ -35,6 +35,57 @@ describe("classifyReply", () => {
     expect(classifyReply("   UNSUBSCRIBE   me   please   ").intent).toBe("UNSUBSCRIBE");
   });
 
+  describe("refusals are never HOT", () => {
+    const refusals = [
+      "Not interested, thanks",
+      "We are not interested at this time",
+      "No thanks.",
+      "No thank you, we're all set",
+      "Not looking for this right now",
+      "We'll pass",
+      "I will pass on this one",
+      "Please don't call me",
+      "Do not call this number again",
+    ];
+    it.each(refusals)("classifies %j as NOT_FIT and flags it for a human", (text) => {
+      const result = classifyReply(text);
+      expect(result.intent).toBe("NOT_FIT");
+      expect(result.nextAction).toBe("pause_sequence");
+      expect(result.flagForHuman).toBe(true);
+    });
+
+    const negatedAvailability = [
+      "I'm not available this week",
+      "We can't do a call right now",
+      "No meeting needed",
+    ];
+    it.each(negatedAvailability)("does not treat %j as interest", (text) => {
+      expect(classifyReply(text).intent).not.toBe("HOT");
+    });
+  });
+
+  describe("genuine interest is still HOT", () => {
+    const interested = [
+      "Interested! Are you free Thursday?",
+      "Yes, let's book a call",
+      "I'm available tomorrow afternoon",
+      "Can you send over a demo?",
+    ];
+    it.each(interested)("classifies %j as HOT", (text) => {
+      expect(classifyReply(text).intent).toBe("HOT");
+    });
+  });
+
+  it("keeps opt-outs ahead of everything else", () => {
+    expect(classifyReply("Not interested, please unsubscribe me").intent).toBe("UNSUBSCRIBE");
+  });
+
+  it("keeps out-of-office replies ahead of refusals and interest", () => {
+    expect(classifyReply("Automatic reply: I am out of the office and not available").intent).toBe(
+      "OUT_OF_OFFICE",
+    );
+  });
+
   it("falls back to NEUTRAL with human review required for ambiguous text", () => {
     const result = classifyReply("ok");
     expect(result.intent).toBe("NEUTRAL");

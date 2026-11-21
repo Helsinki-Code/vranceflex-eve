@@ -64,11 +64,14 @@ export function CampaignWizard({
   initialValue = "",
   creditBalance,
   planName,
+  smsEnabled = false,
 }: {
   initialMode?: Mode;
   initialValue?: string;
   creditBalance: number;
   planName: string;
+  /** SMS stays hidden unless the deployment turns it on (VRANCEFLEX_SMS_ENABLED). */
+  smsEnabled?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [step, setStep] = useState(0);
@@ -279,9 +282,9 @@ export function CampaignWizard({
               </div>
               <div className="grid gap-2">
                 <p className="text-sm font-medium">Channels to draft</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Choice active={form.channels.includes("email")} onClick={() => toggleChannel("email")} icon={<Mail />} title="Email" description="Sent through your Resend account." />
-                  <Choice active={form.channels.includes("sms")} onClick={() => toggleChannel("sms")} icon={<MessageSquare />} title="SMS" description="Sent through your Twilio account." />
+                <div className={cn("grid gap-3", smsEnabled && "sm:grid-cols-2")}>
+                  <Choice active={form.channels.includes("email")} onClick={() => toggleChannel("email")} icon={<Mail />} title="Email" description="Sent from the mailboxes you connect, never from a shared sender." />
+                  {smsEnabled ? <Choice active={form.channels.includes("sms")} onClick={() => toggleChannel("sms")} icon={<MessageSquare />} title="SMS" description="Sent through your Twilio account." /> : null}
                 </div>
               </div>
               <FormField label="Monthly outreach budget (USD)" hint="For planning only. It doesn't change your VranceFlex bill."><Input className="sm:max-w-48" min={100} onChange={(event) => update("monthlyBudgetUsd", Number(event.target.value))} type="number" value={form.monthlyBudgetUsd} /></FormField>

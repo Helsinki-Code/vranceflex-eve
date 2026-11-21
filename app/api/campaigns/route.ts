@@ -10,6 +10,7 @@ import {
 import { discoverCandidates } from "../../../lib/server/candidate-store";
 import { assertCampaignCapacity } from "../../../lib/server/billing-entitlements";
 import { assertSameOrigin } from "../../../lib/server/request-security";
+import { isSmsEnabled, SMS_DISABLED_MESSAGE } from "../../../lib/server/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,9 @@ export async function POST(request: Request) {
     }
 
     const input = campaignCreateSchema.parse(await request.json());
+    if (input.channels.includes("sms") && !isSmsEnabled()) {
+      return NextResponse.json({ error: SMS_DISABLED_MESSAGE }, { status: 400 });
+    }
     const existing = await getCampaignByIdempotencyKey(actor, idempotencyKey);
     if (existing) {
       return NextResponse.json({ campaign: existing, discovery: null }, { status: 200 });

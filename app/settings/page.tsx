@@ -18,7 +18,7 @@ const groups = [
     items: [
       ["Team & roles", "Invite people and choose who can approve, send and pay", "/settings/team", Users],
       ["Sending", "Mailboxes, rotation limits and domain DNS health for outreach email", "/settings/sending", Mail],
-      ["Delivery providers", "Resend (opt-in email) and Twilio (SMS) accounts", "/settings/integrations", PlugZap],
+      ["Delivery providers", "Resend account for opt-in email", "/settings/integrations", PlugZap],
       ["Plans & usage", "Plan, credits, invoices and payment method", "/settings/billing", CreditCard],
       ["Platform status", "Which services this deployment has configured", "/settings/security", KeyRound],
     ],

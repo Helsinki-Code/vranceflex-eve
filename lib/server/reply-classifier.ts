@@ -12,6 +12,24 @@ type ReplyClassification = {
   flagReason: string | null;
 };
 
+// A plain "no". These are checked before the HOT signals, because words such
+// as "interested", "call" and "available" also appear inside refusals
+// ("not interested", "please don't call", "no thanks, not available").
+const EXPLICIT_DECLINE =
+  /\b(not (really |currently |at all )?interested|no interest|no,? thanks|no thank you|not looking|(we|i)(?:'ll| will| am going to|'m going to) pass|(please )?(don'?t|do not) (call|ring|phone|text)|not (a )?(good )?fit)\b/i;
+
+const HOT_SIGNAL =
+  /\b(book|schedule|calendar|meeting|demo|call|available|let'?s talk|interested)\b/i;
+
+// Drops negated forms ("not available", "can't do a call", "no meeting") so a
+// refusal never reads as interest.
+const NEGATED_PHRASE =
+  /\b(?:not|never|no|isn'?t|aren'?t|can'?t|cannot|won'?t|wouldn'?t|don'?t|do not)\s+(?:\w+\s+){0,2}?(?:book|schedule|calendar|meeting|demo|call|available|interested|free)\b/gi;
+
+function withoutNegatedPhrases(text: string) {
+  return text.replace(NEGATED_PHRASE, " ");
+}
+
 export function classifyReply(text: string): ReplyClassification {
   const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
   if (
@@ -48,11 +66,20 @@ export function classifyReply(text: string): ReplyClassification {
       flagReason: null,
     };
   }
-  if (
-    /\b(book|schedule|calendar|meeting|demo|call|available|let'?s talk|interested)\b/i.test(
-      normalized,
-    )
-  ) {
+  if (EXPLICIT_DECLINE.test(normalized)) {
+    return {
+      intent: "NOT_FIT",
+      sentimentScore: 3,
+      confidence: "high",
+      reasoning: "The recipient explicitly declined or said they are not interested.",
+      nextAction: "pause_sequence",
+      actionDetail: "Leave this lead paused and let a human decide whether to archive it.",
+      suggestedResponse: "Thanks for letting me know. I appreciate the clarity.",
+      flagForHuman: true,
+      flagReason: "Confirm whether the lead should be archived or reassigned.",
+    };
+  }
+  if (HOT_SIGNAL.test(withoutNegatedPhrases(normalized))) {
     return {
       intent: "HOT",
       sentimentScore: 9,

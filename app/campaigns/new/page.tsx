@@ -4,6 +4,7 @@ import { CampaignWizard } from "../../../components/campaign-wizard";
 import { BrandLockup } from "../../../components/brand/vranceflex-logo";
 import { Button } from "../../../components/ui/button";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
+import { isSmsEnabled } from "../../../lib/server/feature-flags";
 import { emptyBillingOverview, getBillingOverview } from "../../../lib/server/billing-entitlements";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -27,7 +28,7 @@ export default async function NewCampaignPage({ searchParams }: { searchParams: 
       </nav>
       <div className="px-4 py-10 sm:px-6">
         {billing.active || actor.demo ? (
-          <CampaignWizard creditBalance={actor.demo ? 500 : billing.credits.available} initialMode={mode} initialValue={initialValue} planName={actor.demo ? "the demo" : billing.plan?.name ?? "your"} />
+          <CampaignWizard creditBalance={actor.demo ? 500 : billing.credits.available} initialMode={mode} initialValue={initialValue} planName={actor.demo ? "the demo" : billing.plan?.name ?? "your"} smsEnabled={isSmsEnabled()} />
         ) : (
           <section className="mx-auto max-w-xl rounded-[var(--radius)] border border-border bg-card p-8">
             <p className="font-mono text-xs text-muted-foreground">no active plan</p>
