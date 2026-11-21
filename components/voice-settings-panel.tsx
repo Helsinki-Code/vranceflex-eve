@@ -17,7 +17,9 @@ type Balance = { availableSeconds: number; includedSeconds: number; packSeconds:
 
 const DAYS = [["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6], ["Sun", 7]] as const;
 
-export function VoiceSettingsPanel({ initial, balance, isAdmin }: { initial: VoiceSettings; balance: Balance; isAdmin: boolean }) {
+type Offer = { addonConfigured: boolean; includedMinutes: number; packs: Array<{ key: string; minutes: number; label: string; configured: boolean }> };
+
+export function VoiceSettingsPanel({ initial, balance, offer, isAdmin }: { initial: VoiceSettings; balance: Balance; offer: Offer; isAdmin: boolean }) {
   const router = useRouter();
   const [settings, setSettings] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
@@ -41,7 +43,11 @@ export function VoiceSettingsPanel({ initial, balance, isAdmin }: { initial: Voi
       { label: "Voice add-on", value: balance.addonActive ? 1 : 0, note: balance.addonActive ? "active" : "not active", tone: balance.addonActive ? "verified" : "warning", format: "number" },
     ]} />
 
-    {!balance.addonActive ? <Notice tone="warning" title="Voice calling is a paid add-on" action={<Button asChild size="sm" variant="outline"><Link href="/settings/billing">Plans & usage</Link></Button>}>It includes call minutes each month; when they run out, minute packs cover the rest. You can set everything up now, but calls only run with the add-on.</Notice> : null}
+    {!balance.addonActive ? <Notice tone="warning" title="Voice calling is a paid add-on" action={isAdmin && offer.addonConfigured ? <Button size="sm" disabled={busy !== null} onClick={() => void run("addon", async () => { await requestJson("/api/billing/voice/addon", { method: "POST", body: "{}" }); toast.success("Voice calling added to your plan."); router.refresh(); }, "Couldn't add voice calling.")}>{busy === "addon" ? <LoaderCircle className="animate-spin" /> : <Phone />}Add voice calling</Button> : <Button asChild size="sm" variant="outline"><Link href="/settings/billing">Plans & usage</Link></Button>}>It includes {offer.includedMinutes} call minutes each month; when they run out, minute packs cover the rest. You can set everything up now, but calls only run with the add-on.</Notice> : null}
+
+    {balance.addonActive && isAdmin ? <Panel title="Need more minutes?" description="Included minutes are used first. Packs last a year and are used after them." bodyClassName="flex flex-wrap gap-2">
+      {offer.packs.filter((pack) => pack.configured).length ? offer.packs.filter((pack) => pack.configured).map((pack) => <Button key={pack.key} variant="outline" disabled={busy !== null} onClick={() => void run(pack.key, async () => { const { url } = await requestJson<{ url: string }>("/api/billing/voice/pack", { method: "POST", body: JSON.stringify({ packKey: pack.key }) }); window.location.href = url; }, "Couldn't start checkout.")}>{busy === pack.key ? <LoaderCircle className="animate-spin" /> : null}Buy {pack.label}</Button>) : <p className="text-sm text-muted-foreground">Minute packs aren't set up yet.</p>}
+    </Panel> : null}
 
     {settings.voicePaused ? <Notice tone="danger" title="Calling is paused" action={isAdmin ? <Button size="sm" disabled={busy !== null} onClick={() => void run("resume", async () => { apply(await requestJson<VoiceSettings>("/api/voice/settings", { method: "POST", body: JSON.stringify({ action: "resume" }) })); toast.success("Calling resumed."); }, "Couldn't resume calling.")}>{busy === "resume" ? <LoaderCircle className="animate-spin" /> : <Play />}Resume</Button> : null}>{settings.pausedReason} No calls are placed until it's resumed. Calls already in progress finish.</Notice> : null}
 

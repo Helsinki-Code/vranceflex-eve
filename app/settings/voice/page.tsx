@@ -5,6 +5,7 @@ import { VoiceSettingsPanel } from "../../../components/voice-settings-panel";
 import { isAuthConfigured } from "../../../lib/auth/config";
 import { requireWorkspacePage } from "../../../lib/auth/page-actor";
 import { getVoiceBalance } from "../../../lib/server/voice-credits";
+import { voiceOffer } from "../../../lib/server/voice-billing";
 import { getVoiceSettings, voiceSettingsFromRow } from "../../../lib/server/voice-settings";
 
 export const metadata = { title: "Voice calling · VranceFlex" };
@@ -30,7 +31,7 @@ export default async function VoiceSettingsPage() {
       description="Connect your own Twilio line, confirm consent, and set when calls may go out. Minutes are included with the add-on; packs cover any extra."
       actions={<Link className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" href="/settings"><ArrowLeft className="size-3.5" />All settings</Link>}
     >
-      <VoiceSettingsPanel initial={settings} balance={{ ...balance, nextExpiry: balance.nextExpiry?.toISOString() ?? null }} isAdmin={actor.organizationRole === "admin"} />
+      <VoiceSettingsPanel initial={settings} balance={{ ...balance, nextExpiry: balance.nextExpiry?.toISOString() ?? null }} offer={voiceOffer()} isAdmin={actor.organizationRole === "admin"} />
     </AppShell>
   );
 }

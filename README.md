@@ -159,6 +159,34 @@ instructions is blocked at approval and again before sending.
   statistics, customers or case studies, and the same word limits and banned phrases
   (`lib/domain/writing-rules.ts`) are checked as advice at approval.
 
+### AI voice calling
+
+A paid add-on. Customers connect their own Twilio SIP trunk (Settings → Voice) and the
+platform runs the calls on LiveKit, so per-minute costs are covered by **voice minutes**:
+the add-on includes some each billing period (they expire with it), and minute packs cover
+the rest, spent oldest-expiring first. Stripe prices and `VOICE_ADDON_INCLUDED_MINUTES`
+are in `.env.example`.
+
+- **How far the agent goes** is chosen per campaign (`lib/domain/voice.ts`): *book meetings*
+  (never discusses price), *qualify* (also finds need, timing, authority, budget range), or
+  *run the sales conversation* (pricing and a discount limit as the playbook allows,
+  objections, a concrete next step; never takes payment or signs anything). The level caps
+  what the playbook can do, and an outcome beyond the level is folded back.
+- **Nothing is dialed without a current consent record** for that lead and number (where and
+  when they agreed, required), an admin's confirmation, and a number not on the do-not-call
+  list. Everything is re-checked at the moment of dialing, along with calling hours in the
+  *lead's own* time zone (never before 08:00 or after 21:00 there), minutes and limits.
+- The first line of every call is a fixed AI disclosure. A request to stop is detected in code
+  (never left to a model): the call ends, the number is blocked, consent withdrawn and the
+  person's email stopped too.
+- **Scheduling**: warm email replies are called first; unanswered calls retry later, alternating
+  morning and afternoon; callbacks are honoured inside the window. Only answered time is charged,
+  a call never runs past 15 minutes or the minutes left, and a call whose worker vanishes is
+  rescued without charge.
+- **After-call review** (Calls): outcome, summary, transcript and flags for anything needing a
+  person. Live take-over is not built yet.
+- The conversation itself runs in `voice-worker/`, a separate always-on process. See its README.
+
 ### Sending safety
 
 These apply to every campaign in a workspace and are managed in Settings → Sending:

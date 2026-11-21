@@ -6,7 +6,7 @@ import { organizationTimezone } from "./mailbox-store";
 import { isInsideSendWindow, nextWindowOpening } from "./send-window";
 import { assertValidTimezone, localDayBounds } from "./timezone";
 import { hasCallConsent, isNumberBlocked, toE164 } from "./voice-consent";
-import { maxSecondsForNextCall } from "./voice-credits";
+import { getVoiceAddon, maxSecondsForNextCall } from "./voice-credits";
 import type { CallJobMetadata, VoiceDialer } from "./voice-dialer";
 import { finalizeCall, reapStaleCalls } from "./voice-reports";
 import { getSipConnection, getVoiceSettings } from "./voice-settings";
@@ -90,6 +90,17 @@ export async function processVoiceQueue(deps: OrchestratorDeps): Promise<QueueSu
       .where(and(eq(voiceCalls.organizationId, organizationId), gte(voiceCalls.startedAt, start)));
     const capacity = Math.min(settings.maxConcurrentCalls - Number(active?.count ?? 0), settings.dailyCallLimit - Number(today?.count ?? 0));
     if (capacity <= 0) continue;
+
+    // The paid add-on lapsed (cancelled or unpaid): calls can't run, whatever minutes remain.
+    if (!(await getVoiceAddon(organizationId))?.active) {
+      const ids = running.filter((campaign) => campaign.organizationId === organizationId).map((campaign) => campaign.id);
+      await database
+        .update(voiceCampaigns)
+        .set({ status: "paused", pausedReason: "The voice calling add-on isn't active. Add it again to continue.", updatedAt: now })
+        .where(inArray(voiceCampaigns.id, ids));
+      summary.pausedCampaigns += ids.length;
+      continue;
+    }
 
     // Out of minutes: stop the workspace's campaigns rather than dialing calls that can't be paid for.
     const maxSeconds = await maxSecondsForNextCall(organizationId, now);

@@ -249,6 +249,21 @@ describe.skipIf(!hasTestDatabase)("voice engine", () => {
       expect(row.pausedReason).toMatch(/used all your voice minutes/);
     });
 
+    it("pauses the campaign when the paid add-on lapses, whatever minutes remain", async () => {
+      const ws = await workspace();
+      await lead(ws, "+14155550111");
+      const { id } = await campaign(ws);
+      const { grantVoiceTopUp, setVoiceAddon } = await import("./voice-credits");
+      await grantVoiceTopUp({ organizationId: ws.organizationId, purchaseKey: "cs_left", minutes: 60 });
+      await setVoiceAddon({ organizationId: ws.organizationId, active: false, monthlySeconds: 0, periodStart: null, periodEnd: null });
+      const dialer = fakeDialer();
+      expect(await tick(dialer)).toMatchObject({ dialed: 0, pausedCampaigns: 1 });
+      expect(dialer.dial).not.toHaveBeenCalled();
+      const { voiceCampaigns } = await schema();
+      const [row] = await (await db()).select().from(voiceCampaigns).where(eq(voiceCampaigns.id, id));
+      expect(row.pausedReason).toMatch(/add-on isn't active/);
+    });
+
     it("caps a call at the minutes that are left", async () => {
       const ws = await workspace({ minutes: 4 });
       await lead(ws, "+14155550111");

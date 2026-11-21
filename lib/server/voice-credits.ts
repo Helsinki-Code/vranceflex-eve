@@ -131,10 +131,11 @@ export async function getVoiceBalance(organizationId: string, now = new Date()):
     .from(voiceMinuteGrants)
     .where(and(eq(voiceMinuteGrants.organizationId, accountId), gt(voiceMinuteGrants.secondsRemaining, 0), gt(voiceMinuteGrants.expiresAt, now)))
     .orderBy(asc(voiceMinuteGrants.expiresAt));
-  const usable = grants.filter((grant) => grant.validFrom.getTime() <= now.getTime());
+  const addon = await getVoiceAddon(organizationId);
+  // Included minutes belong to the add-on: they stop counting the moment it lapses.
+  const usable = grants.filter((grant) => grant.validFrom.getTime() <= now.getTime() && (grant.source !== "plan_monthly" || Boolean(addon?.active)));
   const sum = (source: "plan_monthly" | "other") =>
     usable.filter((grant) => (source === "plan_monthly" ? grant.source === "plan_monthly" : grant.source !== "plan_monthly")).reduce((total, grant) => total + grant.secondsRemaining, 0);
-  const addon = await getVoiceAddon(organizationId);
   return {
     availableSeconds: sum("plan_monthly") + sum("other"),
     includedSeconds: sum("plan_monthly"),
